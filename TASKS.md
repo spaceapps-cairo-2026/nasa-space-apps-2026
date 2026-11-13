@@ -81,6 +81,7 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 - [ ] Make the repo public; **submit by 20:00**; improve until 23:59
 
 ## Lane A inbox
+- FYI (from B, Sat 01:45): to connect the trained crops / farmland model to the Crops, Farmland and Decisions tabs, make it write ml/outputs/farming_EGY.json in the format of contracts/farming.schema.json; see docs/CONNECT_FARMING_MODEL.md. No UI change needed. ml/farming.py (FAO calculator) is only the stand-in.
 - FYI (from B, Fri 23:40): A5 to A8 for Egypt are drafted in ml/farming.py (FAO ECOCROP per cell, irrigated and rain-fed, now / 2030 / 2035 by each cell's own trend with its 95% range, years to heat limit) and served by /api/farming. Please review the method; change anything you disagree with.
 - REQUEST (from B, Fri 20:15): the Egypt region grid is the full 22 to 32 N, 25 to 35 E box, so it includes sea, Libya, Sudan and Saudi cells. Consider masking to Egypt's border (app/data/countries.geojson has it) before FDR. Also /api/trend/cell needs cell_trend() for the cell chart; the app falls back to the map numbers until then.
 - REQUEST (from B, Fri 18:55): record D3 in docs/DECISIONS.md: MapLibre GL JS 5.6.0 globe projection, NASA GIBS Blue Marble base imagery. Compared against CesiumJS with prototypes; note MapLibre cannot pick fill-extrusion in globe mode, so the app clicks an invisible flat fill layer. Library is vendored in app/vendor.
