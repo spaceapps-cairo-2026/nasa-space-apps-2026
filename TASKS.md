@@ -36,7 +36,7 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 
 ## Lane A: analysis + integration (`ml/`, `contracts/`)
 
-- [ ] **A1** Contracts for F1: point trend and region trend map (compact grid, not one JSON object per cell; see `PROJECT_PLAN.md` section 6), fixtures, endpoints in `contracts/api.md`, and the Python signature of the trend function the API calls | needs: none | owner: ___
+- [ ] **A1** Contracts for F1: point trend and region trend map (compact grid, not one JSON object per cell; see `PROJECT_PLAN.md` section 6), fixtures, endpoints in `contracts/api.md`, and the Python signature of the trend function the API calls | needs: none | owner: ___ | DRAFT ready on lane/b-app (contracts/api.md v0.3, by Eyad + Claude): lane A please review, change or adopt
 - [ ] **A2** Contracts + fixtures for F2 viability, F3 crops (both modes, irrigated and rain-fed), F4 decisions, so lane B can build every tab on fake data | needs: A1 | owner: ___
 - [ ] **A3** D1 + D2: compare trend and confidence methods on the Egypt grid, pick one, set confidence levels and wording (with C), write it in `docs/DECISIONS.md` | needs: none | owner: ___
 - [ ] **A4** Trend engine: a function that takes the arrays from `region_monthly()` (any region, live fetched) and returns the trend map; works on whole arrays, not a slow loop over cells. Plus the point function for live requests, and the world temperature overview from `data/processed/world/T2M_annual.npz` | needs: A1, A3 | owner: ___

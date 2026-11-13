@@ -8,3 +8,4 @@ One line per decision: `time | decision | why | who`
 - Fri | The "Leaflet" frontend choice above is reopened by D3 (globe and map library) | the plan needs a 3D globe | team
 - Fri | Trends (F1) cover the whole world as maps; farming features (F2 to F4) only for focus countries | the challenge is about Earth, and crops need per country care | Mohammed
 - Fri | World trends use live fetch per region with a disk cache; the 4 hour bulk world download is optional | nobody waits for a download; demo regions are fetched beforehand | Mohammed
+- Fri 19:35 | D3: MapLibre GL JS 5.6.0 (globe projection) + NASA GIBS Blue Marble imagery, vendored in app/vendor | compared with CesiumJS prototypes; lighter, simpler data styling; note: fill-extrusion cannot be clicked in globe mode, so the app clicks an invisible flat fill layer | Eyad

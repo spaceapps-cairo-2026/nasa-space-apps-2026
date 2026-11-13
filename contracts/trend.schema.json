@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "trend.schema.json",
+  "title": "F1 trend explorer shapes",
+  "description": "v0.3. Lane A owns it. See contracts/api.md for which endpoint returns which $defs entry.",
+  "$defs": {
+    "Variable": {
+      "type": "object",
+      "required": ["code", "name", "unit", "source", "definition"],
+      "properties": {
+        "code": {"type": "string"},
+        "name": {"type": "string"},
+        "unit": {"type": "string"},
+        "source": {"type": "string"},
+        "definition": {"type": "string", "description": "One simple sentence a student understands"},
+        "point": {"type": "boolean", "description": "Available for any point on Earth"},
+        "regions": {"type": "array", "items": {"type": "string"}, "description": "Region ids with a precomputed map"},
+        "caution": {"type": ["string", "null"]}
+      }
+    },
+    "VariableList": {
+      "type": "object",
+      "required": ["version", "variables"],
+      "properties": {
+        "version": {"type": "string"},
+        "variables": {"type": "array", "items": {"$ref": "#/$defs/Variable"}}
+      }
+    },
+    "Region": {
+      "type": "object",
+      "required": ["id", "name", "bbox", "n_cells"],
+      "properties": {
+        "id": {"type": "string"},
+        "name": {"type": "string"},
+        "bbox": {"$ref": "#/$defs/Bounds"},
+        "n_cells": {"type": "integer", "minimum": 1},
+        "grid": {"type": "string"}
+      }
+    },
+    "RegionList": {
+      "type": "object",
+      "required": ["version", "regions"],
+      "properties": {
+        "version": {"type": "string"},
+        "regions": {"type": "array", "items": {"$ref": "#/$defs/Region"}}
+      }
+    },
+    "Bounds": {
+      "description": "[west, south, east, north] in degrees",
+      "type": "array",
+      "items": {"type": "number"},
+      "minItems": 4,
+      "maxItems": 4
+    },
+    "Period": {
+      "type": "object",
+      "required": ["start", "end"],
+      "properties": {
+        "start": {"type": "integer"},
+        "end": {"type": "integer"}
+      }
+    },
+    "YearValue": {
+      "type": "object",
+      "required": ["year", "value"],
+      "properties": {
+        "year": {"type": "integer"},
+        "value": {"type": ["number", "null"]},
+        "n_months": {"type": "integer", "minimum": 0, "maximum": 12}
+      }
+    },
+    "Confidence": {"enum": ["strong", "moderate", "not_proven"]},
+    "Direction": {"enum": ["increasing", "decreasing", "no_clear_trend"]},
+    "Trend": {
+      "type": "object",
+      "required": ["slope_per_decade", "ci_low", "ci_high", "p", "q", "confidence", "direction", "method", "change_start_year", "line"],
+      "properties": {
+        "slope_per_decade": {"type": "number"},
+        "ci_low": {"type": ["number", "null"]},
+        "ci_high": {"type": ["number", "null"]},
+        "p": {"type": "number", "minimum": 0, "maximum": 1},
+        "q": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "confidence": {"$ref": "#/$defs/Confidence"},
+        "direction": {"$ref": "#/$defs/Direction"},
+        "method": {"type": "string"},
+        "change_start_year": {"type": ["integer", "null"]},
+        "line": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/YearValue"}
+        }
+      }
+    },
+    "Location": {
+      "type": "object",
+      "required": ["lat", "lon"],
+      "properties": {
+        "lat": {"type": "number", "minimum": -90, "maximum": 90},
+        "lon": {"type": "number", "minimum": -180, "maximum": 180},
+        "name": {"type": ["string", "null"]},
+        "cell": {"type": ["string", "null"]},
+        "region": {"type": ["string", "null"]}
+      }
+    },
+    "TrendResult": {
+      "type": "object",
+      "required": ["version", "variable", "location", "period", "series", "trend", "sentence", "caution"],
+      "properties": {
+        "version": {"type": "string"},
+        "variable": {"$ref": "#/$defs/Variable"},
+        "location": {"$ref": "#/$defs/Location"},
+        "period": {"$ref": "#/$defs/Period"},
+        "series": {"type": "array", "items": {"$ref": "#/$defs/YearValue"}, "minItems": 2},
+        "trend": {"$ref": "#/$defs/Trend"},
+        "sentence": {"type": "string"},
+        "caution": {"type": ["string", "null"]},
+        "cached": {"type": "boolean"}
+      }
+    },
+    "Cell": {
+      "type": "object",
+      "required": ["id", "lat", "lon", "bounds", "slope_per_decade", "p", "q", "confidence", "direction", "change_start_year"],
+      "properties": {
+        "id": {"type": "string"},
+        "lat": {"type": "number"},
+        "lon": {"type": "number"},
+        "bounds": {"$ref": "#/$defs/Bounds"},
+        "slope_per_decade": {"type": ["number", "null"]},
+        "p": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "q": {"type": ["number", "null"], "minimum": 0, "maximum": 1},
+        "confidence": {"$ref": "#/$defs/Confidence"},
+        "direction": {"$ref": "#/$defs/Direction"},
+        "change_start_year": {"type": ["integer", "null"]}
+      }
+    },
+    "RegionTrend": {
+      "type": "object",
+      "required": ["version", "region", "variable", "period", "method", "cells", "summary"],
+      "properties": {
+        "version": {"type": "string"},
+        "region": {"$ref": "#/$defs/Region"},
+        "variable": {"$ref": "#/$defs/Variable"},
+        "period": {"$ref": "#/$defs/Period"},
+        "method": {"type": "string"},
+        "cells": {"type": "array", "items": {"$ref": "#/$defs/Cell"}, "minItems": 1},
+        "summary": {
+          "type": "object",
+          "required": ["n_cells", "n_increasing", "n_decreasing", "n_not_proven"],
+          "properties": {
+            "n_cells": {"type": "integer"},
+            "n_increasing": {"type": "integer"},
+            "n_decreasing": {"type": "integer"},
+            "n_not_proven": {"type": "integer"},
+            "median_slope_per_decade": {"type": ["number", "null"]}
+          }
+        }
+      }
+    }
+  }
+}

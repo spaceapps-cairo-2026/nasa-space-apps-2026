@@ -1,0 +1,87 @@
+{
+ "version": "0.3",
+ "variables": [
+  {
+   "code": "T2M",
+   "name": "Air temperature",
+   "unit": "°C",
+   "source": "NASA POWER monthly (MERRA-2 based)",
+   "definition": "Average temperature of the air 2 meters above the ground.",
+   "point": true,
+   "regions": [
+    "egypt"
+   ],
+   "caution": null
+  },
+  {
+   "code": "T2M_MAX",
+   "name": "Daily maximum temperature",
+   "unit": "°C",
+   "source": "NASA POWER monthly (MERRA-2 based)",
+   "definition": "The hottest temperature of each day, averaged over the year.",
+   "point": true,
+   "regions": [
+    "egypt"
+   ],
+   "caution": null
+  },
+  {
+   "code": "T2M_MIN",
+   "name": "Daily minimum temperature",
+   "unit": "°C",
+   "source": "NASA POWER monthly (MERRA-2 based)",
+   "definition": "The coldest temperature of each day (usually at night), averaged over the year.",
+   "point": true,
+   "regions": [],
+   "caution": null
+  },
+  {
+   "code": "PRECTOTCORR",
+   "name": "Rainfall",
+   "unit": "mm per year",
+   "source": "NASA POWER monthly (MERRA-2 based)",
+   "definition": "Total rain and snow that falls in a year, as a depth of water in millimeters.",
+   "point": true,
+   "regions": [
+    "egypt"
+   ],
+   "caution": "Over very dry desert, rainfall is close to zero in most years, so trends there are unreliable."
+  },
+  {
+   "code": "GWETTOP",
+   "name": "Topsoil wetness",
+   "unit": "0 to 1",
+   "source": "NASA POWER monthly (MERRA-2 based)",
+   "definition": "How wet the top 5 cm of soil is: 0 is completely dry, 1 is fully soaked.",
+   "point": false,
+   "regions": [
+    "egypt"
+   ],
+   "caution": null
+  },
+  {
+   "code": "GWETROOT",
+   "name": "Root zone wetness",
+   "unit": "0 to 1",
+   "source": "NASA POWER monthly (MERRA-2 based)",
+   "definition": "How wet the soil is down to about 1 meter, where plant roots drink: 0 is dry, 1 is soaked.",
+   "point": true,
+   "regions": [
+    "egypt"
+   ],
+   "caution": null
+  },
+  {
+   "code": "RH2M",
+   "name": "Relative humidity",
+   "unit": "%",
+   "source": "NASA POWER monthly (MERRA-2 based)",
+   "definition": "How much water vapor the air holds, compared with the most it could hold at that temperature.",
+   "point": true,
+   "regions": [
+    "egypt"
+   ],
+   "caution": null
+  }
+ ]
+}
