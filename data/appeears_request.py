@@ -61,6 +61,11 @@ def get_json(url: str, **kw) -> dict | list:
 
 
 def login() -> dict:
+    try:  # read EARTHDATA_* from the repo's .env file if present (PowerShell variables still win)
+        from dotenv import load_dotenv
+        load_dotenv(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env"))
+    except ImportError:
+        pass
     user, pw = os.getenv("EARTHDATA_USERNAME"), os.getenv("EARTHDATA_PASSWORD")
     if not user or not pw:
         raise SystemExit("Set EARTHDATA_USERNAME and EARTHDATA_PASSWORD first (see top of this file).")
