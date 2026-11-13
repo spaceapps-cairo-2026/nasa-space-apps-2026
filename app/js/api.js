@@ -15,17 +15,20 @@ async function getJSON(path, params = {}) {
 }
 
 export const api = {
+  health: () => getJSON('/health'),
   variables: () => getJSON('/api/variables'),
-  regions: () => getJSON('/api/regions'),
-  point: (lat, lon, v, name) => getJSON('/api/trend/point', { lat: lat.toFixed(4), lon: lon.toFixed(4), var: v, name }),
+  // Lane A contract v0.3 (contracts/api.md).
+  point: (lat, lon, v) => getJSON('/api/trend/point', { lat: lat.toFixed(4), lon: lon.toFixed(4), variable: v }),
   // bbox = [west, south, east, north]; the backend live-fetches NASA data for that box.
-  region: (bbox, v, name) => getJSON('/api/trend/region', {
-    west: bbox[0].toFixed(3), south: bbox[1].toFixed(3), east: bbox[2].toFixed(3), north: bbox[3].toFixed(3), var: v, name,
+  region: (bbox, v) => getJSON('/api/trend/region', {
+    lat_min: bbox[1].toFixed(3), lat_max: bbox[3].toFixed(3), lon_min: bbox[0].toFixed(3), lon_max: bbox[2].toFixed(3), variable: v,
   }),
-  world: (v) => getJSON('/api/trend/world', { var: v }),
+  world: (v, stride = 2) => getJSON('/api/trend/world', { variable: v, stride }),
+  // There is no cell endpoint: a cell's own series is the point trend at its center (same grid cell).
+  cell: (lat, lon, v) => getJSON('/api/trend/point', { lat: lat.toFixed(4), lon: lon.toFixed(4), variable: v }),
+  // Lane B additions.
   farming: (country) => getJSON('/api/farming', { country }),
   validation: () => getJSON('/api/validation'),
-  cell: (lat, lon, v) => getJSON('/api/trend/cell', { lat: lat.toFixed(3), lon: lon.toFixed(3), var: v }),
 };
 
 export async function loadStatic(path) {

@@ -1,24 +1,21 @@
 {
- "source_file": "contracts\\fixtures\\trend_region_egypt_T2M.json",
- "variable": "Air temperature",
+ "source_file": "contracts\\fixtures\\trend_region.json",
+ "variable": "average air temperature",
  "unit": "°C",
- "period": {
-  "start": 2001,
-  "end": 2025
- },
- "method": "PLACEHOLDER until D1: annual means, straight-line trend with a t-test per cell (vectorized, fast enough for the whole world), Benjamini-Hochberg FDR over the cells of the map",
+ "period": "2001-2025",
+ "method": "Sen's slope; Mann-Kendall test with variance scaled by lag 1 autocorrelation (effective sample size); Benjamini-Hochberg FDR on maps",
  "counts": {
   "total": 316,
-  "rising": 66,
+  "rising": 90,
   "falling": 0,
-  "not_proven": 250
+  "not_proven": 226
  },
- "color_scale_max_slope_per_decade": 0.471,
+ "color_scale_max_slope_per_decade": 0.456,
  "fastest_cell": {
   "lat": 25.5,
   "lon": 34.375,
-  "slope_per_decade": 0.562,
-  "q": 0.0009
+  "slope_per_decade": 0.5712,
+  "q": 0.00062
  },
  "note": "Copy on-screen numbers from here. Re-run this export when the backend is final."
 }

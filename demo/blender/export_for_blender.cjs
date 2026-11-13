@@ -1,44 +1,44 @@
 // Export a country's trend map for Blender, cut to the border exactly like the web app.
 //
 // Run from the repo root:   node demo/blender/export_for_blender.cjs
-// Input:  a GridTrend JSON (contracts/api.md). Default: contracts/fixtures/trend_region_egypt_T2M.json.
-//         When the real engine runs, save its answer and pass it instead:
-//           curl "http://localhost:8000/api/trend/region?var=T2M&south=22&north=31.7&west=24.7&east=36.9&name=Egypt" -o egypt.json
-//           node demo/blender/export_for_blender.cjs egypt.json
+// Input:  a trend_region answer from lane A's engine (contracts/api.md). Default:
+//         contracts/fixtures/trend_region.json (Egypt, made by the real engine, method D1).
+//         For a fresh answer:  curl "http://localhost:8000/api/trend/region?lat_min=22&lat_max=32&lon_min=25&lon_max=35&variable=T2M" -o egypt.json
+//                              node demo/blender/export_for_blender.cjs egypt.json
 // Output: demo/blender/data/egypt_cells.geojson, egypt_border.geojson, summary.json
 const fs = require('fs');
 const path = require('path');
 
 const REPO = path.resolve(__dirname, '..', '..');
-const INPUT = process.argv[2] || path.join(REPO, 'contracts', 'fixtures', 'trend_region_egypt_T2M.json');
+const INPUT = process.argv[2] || path.join(REPO, 'contracts', 'fixtures', 'trend_region.json');
 const BORDER_JSON = path.join(REPO, 'app', 'data', 'regions', 'EGY.geojson');
 const polygonClipping = require(path.join(REPO, 'app', 'vendor', 'polygon-clipping.umd.min.js'));
 const OUT = path.join(__dirname, 'data');
 
 const ringArea = (r) => Math.abs(r.slice(0, -1).reduce((a, p, i) => a + p[0] * r[i + 1][1] - r[i + 1][0] * p[1], 0)) / 2;
 const polysOf = (g) => (g.type === 'Polygon' ? [g.coordinates] : g.coordinates);
-const CONF = { S: 'strong', M: 'moderate', N: 'not_proven' };
+const CONF = { 2: 'strong', 1: 'moderate', 0: 'not_proven' };
 
 const g = JSON.parse(fs.readFileSync(INPUT, 'utf8'));
 const border = JSON.parse(fs.readFileSync(BORDER_JSON, 'utf8')).geometry;
 fs.mkdirSync(OUT, { recursive: true });
 
-const { lat0, lon0, dlat, dlon, nrows, ncols } = g.grid;
+const G = g.grid;
+const dlat = G.lat_step, dlon = G.lon_step;
 const gap = Math.min(0.025, dlon * 0.04);
 const kept = [];
-for (let i = 0; i < nrows; i++) {
-  for (let j = 0; j < ncols; j++) {
-    const k = i * ncols + j;
-    const c = g.confidence[k];
-    if (c === '-') continue;
-    const lat = lat0 + i * dlat, lon = lon0 + j * dlon;
+for (let i = 0; i < G.lats.length; i++) {
+  for (let j = 0; j < G.lons.length; j++) {
+    const level = G.level[i][j], slope = G.slope_per_decade[i][j];
+    if (level === null || level < 0 || slope === null) continue;
+    const lat = G.lats[i], lon = G.lons[j];
     const [w, s, e, n] = [lon - dlon / 2 + gap, lat - dlat / 2 + gap, lon + dlon / 2 - gap, lat + dlat / 2 - gap];
     const pieces = polygonClipping.intersection([[[w, s], [e, s], [e, n], [w, n], [w, s]]], polysOf(border))
       .filter((p) => ringArea(p[0]) > 1e-6);
     if (!pieces.length) continue;
     const share = pieces.reduce((t, p) => t + ringArea(p[0]), 0) / ((e - w) * (n - s));
     if (share < 0.08) continue;
-    kept.push({ lat, lon, slope: g.slope_per_decade[k], q: g.q[k], confidence: CONF[c], pieces });
+    kept.push({ lat, lon, slope, q: G.q ? G.q[i][j] : null, confidence: CONF[level], pieces });
   }
 }
 const proven = kept.filter((c) => c.confidence !== 'not_proven');
@@ -67,7 +67,7 @@ const fastest = proven.sort((a, b) => b.slope - a.slope)[0];
 fs.writeFileSync(path.join(OUT, 'egypt_cells.geojson'), JSON.stringify({ type: 'FeatureCollection', features }));
 fs.writeFileSync(path.join(OUT, 'egypt_border.geojson'), JSON.stringify({ type: 'Feature', properties: { name: 'Egypt' }, geometry: border }));
 fs.writeFileSync(path.join(OUT, 'summary.json'), JSON.stringify({
-  source_file: path.relative(REPO, INPUT), variable: g.variable.name, unit: g.variable.unit, period: g.period,
+  source_file: path.relative(REPO, INPUT), variable: g.variable.name, unit: g.variable.unit === 'C' ? '°C' : g.variable.unit, period: g.period,
   method: g.method, counts, color_scale_max_slope_per_decade: Number(range.toFixed(3)),
   fastest_cell: fastest ? { lat: fastest.lat, lon: fastest.lon, slope_per_decade: fastest.slope, q: fastest.q } : null,
   note: 'Copy on-screen numbers from here. Re-run this export when the backend is final.',

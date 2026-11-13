@@ -3,7 +3,7 @@ import { api, loadStatic } from './api.js';
 import { Globe } from './globe.js';
 import { setupSearch } from './search.js';
 import { describePlace } from './geo.js';
-import { gridToGeoJSON, legendHTML, showCellSummary, showLoading, showMessage, showTrend, worldImage } from './trends.js';
+import { gridToGeoJSON, legendHTML, showCellSummary, showLoading, showMessage, showTrend, varInfo, worldImage } from './trends.js';
 import { buildFarmCells, cellPanelHTML, cropMap, decisionLists, landMap } from './farming.js';
 import { methodsHTML } from './methods.js';
 
@@ -14,6 +14,7 @@ const EGYPT = { iso: 'EGY', label: 'Egypt', bbox: [24.7, 22, 36.866, 31.586] };
 
 const state = {
   tab: 'trends',
+  mock: false, // true when the API serves fixed samples (python run.py mock)
   variables: [],
   countries: null,
   places: null,
@@ -37,7 +38,7 @@ function toast(msg) {
   toastTimer = setTimeout(() => { t.hidden = true; }, 4500);
 }
 
-const currentVar = () => state.variables.find((v) => v.code === state.varCode);
+const currentVar = () => varInfo(state.variables.find((v) => v.code === state.varCode) || state.varCode);
 const isFarmTab = () => state.tab !== 'trends';
 
 function coordText(lat, lon) {
@@ -65,9 +66,9 @@ async function loadPointTrend() {
   const v = currentVar();
   showLoading(panel, `${v.name} at ${s.label}`);
   try {
-    const res = await api.point(s.lat, s.lon, v.code, s.label);
+    const res = await api.point(s.lat, s.lon, v.code);
     const where = `${s.label} · ${s.coords}`;
-    showTrend(panel, res, res.mock ? `${where} (sample shows Cairo)` : where);
+    showTrend(panel, res, where, state.mock ? 'Sample mode: the server is running on fixed sample data (Cairo). Start it with python run.py api for real data.' : null);
   } catch (e) {
     showMessage(panel, `${v.name} at ${s.label}`, e.message, 'warn');
   }
@@ -80,7 +81,7 @@ async function openCell(props) {
   showLoading(panel, `${v.name}, grid cell`);
   try {
     const res = await api.cell(lat, lon, v.code);
-    showTrend(panel, res, label);
+    showTrend(panel, res, label, state.mock ? 'Sample mode: fixed sample data (Cairo).' : null);
   } catch (e) {
     showCellSummary(panel, props, v, label, `${e.message} The numbers above come from the map.`);
   }
@@ -129,7 +130,7 @@ async function showRegion(country) {
   showMessage(panel, `${v.name} in ${country.label}`, 'Fetching NASA data for this country and testing every grid cell. '
     + 'The first time can take up to a minute; after that it is instant.');
   try {
-    const [grid, border] = await Promise.all([api.region(country.bbox, v.code, country.label), borderOf(country.iso)]);
+    const [grid, border] = await Promise.all([api.region(country.bbox, v.code), borderOf(country.iso)]);
     if (token !== state.regionToken || isFarmTab()) return;
     const { fc, range, counts } = gridToGeoJSON(grid, border);
     globe.showCells(fc, border);
@@ -139,9 +140,8 @@ async function showRegion(country) {
       + `${counts.not_proven} not proven (of ${counts.total}). Each cell is about 55 by 60 km.`;
     $('legend').innerHTML = legendHTML(v, range, 'region');
     $('legend').hidden = false;
-    showMessage(panel, `${v.name} in ${country.label}`, grid.mock
-      ? 'Sample data: the live engine is not connected yet. Click a column, or any point, to see its trend.'
-      : 'Click a column, or any point, to see its trend.');
+    showMessage(panel, `${v.name} in ${country.label}`, (state.mock ? 'Sample mode: the map shows the fixed Egypt sample. ' : '')
+      + (grid.mean_sentence ? `${grid.mean_sentence} ` : '') + 'Click a column, or any point, to see its trend.');
   } catch (e) {
     if (token !== state.regionToken) return;
     hideRegion();
@@ -169,8 +169,8 @@ async function loadWorld() {
     const img = worldImage(g);
     globe.showWorld(img);
     const s = g.summary;
-    $('world-note').textContent = `Whole Earth: ${s.n_increasing.toLocaleString()} cells proven rising, `
-      + `${s.n_decreasing.toLocaleString()} proven falling, ${s.n_not_proven.toLocaleString()} not proven.`;
+    $('world-note').textContent = `Whole Earth: ${s.increasing.toLocaleString()} cells proven rising, `
+      + `${s.decreasing.toLocaleString()} proven falling, ${s.not_proven.toLocaleString()} not proven (of ${s.cells.toLocaleString()}).`;
     worldLegend = legendHTML(v, img.range, 'world');
     if (!state.regionShown) { $('legend').innerHTML = worldLegend; $('legend').hidden = false; }
   } catch (e) {
@@ -332,8 +332,9 @@ function fillVariables() {
   sel.innerHTML = '';
   for (const v of state.variables) {
     const o = document.createElement('option');
+    const info = varInfo(v);
     o.value = v.code;
-    o.textContent = `${v.name} (${v.unit})`;
+    o.textContent = `${info.name} (${info.unit})`;
     sel.appendChild(o);
   }
   sel.value = state.varCode;
@@ -349,9 +350,10 @@ function fillVariables() {
 
 async function init() {
   try {
-    const [vars, countries, places] = await Promise.all([
-      api.variables(), loadStatic('data/countries.geojson'), loadStatic('data/places.json'),
+    const [health, vars, countries, places] = await Promise.all([
+      api.health(), api.variables(), loadStatic('data/countries.geojson'), loadStatic('data/places.json'),
     ]);
+    state.mock = Boolean(health.mock);
     state.variables = vars.variables;
     state.countries = countries;
     state.places = places;
