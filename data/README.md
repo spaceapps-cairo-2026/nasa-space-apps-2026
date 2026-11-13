@@ -7,7 +7,7 @@ More detail on sources and how they were verified: `docs/DATA.md`.
 
 | # | Dataset | In the repo? | Used by | Task that brings it |
 |---|---|---|---|---|
-| 0 | NASA POWER grid, **whole world**, 2001 to 2025 | Yearly means: **being downloaded** (started Fri evening). Monthly tiles: lead's laptop only | F1 trend maps for any country and the whole globe | C11 |
+| 0 | NASA POWER grid, **whole world**, 2001 to 2025 | Yearly means: **temperature (`T2M`) is in the repo**; the other 5 measurements are still downloading (started Fri evening). Monthly tiles: lead's laptop only | F1 trend maps for any country and the whole globe | C11 |
 | 1 | NASA POWER monthly grid, Egypt, 2001 to 2025 | **Yes** | F2 farmland, F3 crops, F4 decisions for Egypt; testing trend methods (D1) | done |
 | 2 | NASA POWER point data, any place on Earth | No: fetched live by the app; demo points get cached | F1 city and point trends, F6 tour | C1 |
 | 3 | FAO ECOCROP crop requirements, 20 candidate crops | **Yes** | F3 crops (and F2 viability, F4 decisions) | done; final 8 to 12 picked in D6 (C3) |
