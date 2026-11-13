@@ -108,6 +108,21 @@ def _p_text(p: float, letter: str = "p") -> str:
     return f"{letter} < 0.001" if p < 0.001 else f"{letter} = {p:.3f}"
 
 
+def luck_percent(p: float) -> str:
+    """p as a percentage: how often a trend at least this strong appears when nothing is changing."""
+    if p < 0.001:
+        return "less than 0.1%"
+    return f"{100 * p:.1f}%" if p < 0.0995 else f"{100 * p:.0f}%"
+
+
+def _range_text(slope: float, lo: float, hi: float, nd: int) -> str:
+    """The 95% range in words. Sizes only when it is all on one side; signed when it crosses zero."""
+    if lo < 0 < hi:
+        return f"95% range from {lo:+.{nd}f} to {hi:+.{nd}f}, so it only just clears zero"
+    a, b = sorted((abs(lo), abs(hi)))
+    return f"95% range {a:.{nd}f} to {b:.{nd}f}"
+
+
 def _trend_line(annual: np.ndarray, slope_per_decade: float | None) -> list[dict]:
     """Two end points of the Sen line through the series (intercept = median of what is left)."""
     if slope_per_decade is None:
@@ -152,16 +167,17 @@ def sentence(var: dict, trend: dict, where: str = "here") -> str:
         return f"There is not enough NASA data {where} to measure a trend in {name}."
     slope = trend["slope_per_decade"]
     size = f"{_fmt(slope, nd)} {unit} per decade"
-    ptxt = _p_text(trend["p"])
+    luck = luck_percent(trend["p"])
     start = trend["period"][:4]
     if trend["level"] == 0:
         move = "a rise" if slope > 0 else "a fall" if slope < 0 else "no net change"
-        return (f"Since {start}, {name} {where} shows {move} of {size}, but this is not proven: "
-                f"a change this size could be normal year to year variation ({ptxt}).")
+        return (f"Since {start}, {name} {where} shows {move} of {size}, but this is not proven: with nothing "
+                f"really changing, normal year to year variation gives a trend this strong {luck} of the time.")
     verb = "rose" if slope > 0 else "fell"
-    lo, hi = sorted((abs(trend["slope_low"]), abs(trend["slope_high"])))
-    text = (f"Since {start}, {name} {where} {verb} by {size} (likely range {lo:.{nd}f} to {hi:.{nd}f}). "
-            f"{trend['level_name'].capitalize()} that this is a real change ({ptxt}).")
+    rng = _range_text(slope, trend["slope_low"], trend["slope_high"], nd)
+    text = (f"Since {start}, {name} {where} {verb} by {size} ({rng}). "
+            f"{trend['level_name'].capitalize()} that this is a real change: with nothing really changing, "
+            f"a trend this strong would appear by luck only {luck} of the time.")
     if trend.get("change_point_year"):
         text += f" The level shifted around {trend['change_point_year']}."
     return text

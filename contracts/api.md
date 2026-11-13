@@ -44,6 +44,8 @@ Exact shapes: `contracts/trend.schema.json`. Examples made by the real engine: `
 
 - On a **map** the rule is applied to `q` (false discovery rate over all cells of that map). For a **single place** it is applied to `p`.
 - `p` is how often a trend at least this strong shows up when nothing is really changing. It is **not** "the chance the trend is true". Show the level; show `p` or `q` on hover. Never show "87% true".
+- As a percentage: `p` x 100 = "with nothing really changing, a trend this strong appears by luck this often". The app shows it as "Could this be luck? 2.7%" and `sentence` uses the same words. Never turn it around into "97.3% real".
+- `slope_low` and `slope_high` are the 95% range. 95% is the confidence level chosen for every place, not a result: ranges built this way contain the true rate about 95 times out of 100. A range that includes 0 means not proven.
 - Say "not proven", never "no change".
 - `sentence` is ready to show as is. `caution` (may be null) must be shown when present.
 - **Region grid:** `grid.slope_per_decade[i][j]` belongs to the cell centered at `grid.lats[i]`, `grid.lons[j]`; the cell is `lat_step` x `lon_step` degrees. `null` = no data. Draw each cell as a rectangle.

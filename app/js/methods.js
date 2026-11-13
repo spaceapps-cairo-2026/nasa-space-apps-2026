@@ -10,7 +10,10 @@ function rateChart(rows) {
   const lo = Math.min(-0.3, ...rows.map((r) => r.ci_low)), hi = Math.max(0.6, ...rows.map((r) => r.ci_high));
   const X = (v) => L + ((v - lo) / (hi - lo)) * (W - L - R);
   const H = top + rows.length * rowH + 22;
-  const ticks = [-0.25, 0, 0.25, 0.5].filter((t) => t >= lo && t <= hi);
+  // A tick step that leaves room for the labels, whatever the widest range is.
+  const step = hi - lo > 2 ? 1 : hi - lo > 1 ? 0.5 : 0.25;
+  const ticks = [];
+  for (let t = Math.ceil(lo / step) * step; t <= hi + 1e-9; t += step) ticks.push(Math.round(t * 100) / 100);
   const bars = rows.map((r, i) => {
     const y = top + i * rowH + rowH / 2;
     const color = r.ref ? '#6fd3ff' : r.per_decade >= 0 ? '#e0605a' : '#5b8fd6';

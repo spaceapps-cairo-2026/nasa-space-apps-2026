@@ -4,7 +4,7 @@ import { Globe } from './globe.js';
 import { setupSearch } from './search.js';
 import { describePlace } from './geo.js';
 import { gridToGeoJSON, legendHTML, showCellSummary, showLoading, showMessage, showTrend, varInfo, worldImage } from './trends.js';
-import { buildFarmCells, cellPanelHTML, cropMap, decisionLists, landMap } from './farming.js';
+import { buildFarmCells, cellPanelHTML, cropInfoText, cropMap, decisionLists, hasHeat, hasMode, landMap } from './farming.js';
 import { methodsHTML } from './methods.js';
 import { createTour } from './tour.js';
 
@@ -25,6 +25,7 @@ const state = {
   selection: null, // {kind: 'point'|'city'|'country', lat, lon, label, coords, iso, bbox}
   mapCountry: EGYPT, // the country the "Show trend map" button uses
   regionShown: null, // iso of the trend map on screen
+  regionWanted: false, // the user asked for a trend map: draw it again when the measurement changes
   regionToken: 0, // ignore answers to outdated requests
   farm: { outlook: null, cells: null, crop: 'wheat', mode: 'irrigated', h: 0, cropView: 'score', landView: 'count', k: null, fromList: false },
 };
@@ -40,6 +41,16 @@ function toast(msg) {
 }
 
 const currentVar = () => varInfo(state.variables.find((v) => v.code === state.varCode) || state.varCode);
+// What the server offers for the chosen measurement (flags from /api/variables). Unknown = assume yes.
+const canDo = (what) => (state.variables.find((v) => v.code === state.varCode) || {})[what] !== false;
+const worldNames = () => state.variables.filter((v) => v.world !== false).map((v) => varInfo(v).name.toLowerCase());
+function listText(a) { return a.length < 2 ? a.join('') : `${a.slice(0, -1).join(', ')} and ${a[a.length - 1]}`; }
+/** A grid cell is 0.5 x 0.625 degrees: about 56 km tall everywhere, narrower away from the equator. */
+function cellSizeText(lat) {
+  const w = 0.625 * 111.32 * Math.cos((Math.min(Math.abs(lat), 89) * Math.PI) / 180);
+  return `about 56 by ${Math.max(1, Math.round(w))} km`;
+}
+const midLat = (bbox) => (bbox[1] + bbox[3]) / 2;
 const isFarmTab = () => state.tab !== 'trends';
 
 function coordText(lat, lon) {
@@ -119,18 +130,36 @@ async function borderOf(iso) {
 function setRegionButton() {
   const btn = $('region-toggle');
   const on = state.regionShown === state.mapCountry.iso;
-  btn.textContent = on ? `Hide trend map: ${state.mapCountry.label}` : `Show trend map: ${state.mapCountry.label}`;
-  btn.classList.toggle('on', on);
+  const can = canDo('region');
+  btn.disabled = !can;
+  btn.textContent = !can ? `No trend map for ${currentVar().name.toLowerCase()}`
+    : on ? `Hide trend map: ${state.mapCountry.label}` : `Show trend map: ${state.mapCountry.label}`;
+  btn.classList.toggle('on', on && can);
+}
+
+/** The chosen measurement has no trend map: say so calmly, keep the wish so the map returns later. */
+function regionUnavailable(country) {
+  const v = currentVar();
+  state.regionToken += 1;
+  globe.hideCells();
+  state.regionShown = null;
+  setRegionButton();
+  if (!$('world-toggle').checked || !canDo('world')) $('legend').hidden = true;
+  const text = `Trend maps are not available for ${v.name.toLowerCase()} yet. Click any place to see its trend there, or pick another measurement to see the map of ${country.label}.`;
+  $('region-note').textContent = text;
+  if (!state.selection || state.selection.kind === 'country') showMessage(panel, `${v.name} in ${country.label}`, text);
 }
 
 async function showRegion(country) {
   const v = currentVar();
+  state.regionWanted = true;
+  if (!canDo('region')) return regionUnavailable(country);
   const token = ++state.regionToken;
   $('region-note').textContent = `Fetching NASA data for ${country.label}… The first time can take up to a minute.`;
   showMessage(panel, `${v.name} in ${country.label}`, 'Fetching NASA data for this country and testing every grid cell. '
     + 'The first time can take up to a minute; after that it is instant.');
   try {
-    const [grid, border] = await Promise.all([api.region(country.bbox, v.code), borderOf(country.iso)]);
+    const [grid, border] = await Promise.all([api.region(country.bbox, v.code, country.iso), borderOf(country.iso)]);
     if (token !== state.regionToken || isFarmTab()) return;
     const { fc, range, counts } = gridToGeoJSON(grid, border);
     state.lastCounts = counts;
@@ -138,7 +167,7 @@ async function showRegion(country) {
     state.regionShown = country.iso;
     setRegionButton();
     $('region-note').textContent = `Inside ${country.label}: ${counts.increasing} cells rising, ${counts.decreasing} falling, `
-      + `${counts.not_proven} not proven (of ${counts.total}). Each cell is about 55 by 60 km.`;
+      + `${counts.not_proven} not proven (of ${counts.total}). Each cell is ${cellSizeText(midLat(country.bbox))}.`;
     $('legend').innerHTML = legendHTML(v, range, 'region');
     $('legend').hidden = false;
     showMessage(panel, `${v.name} in ${country.label}`, (state.mock ? 'Sample mode: the map shows the fixed Egypt sample. ' : '')
@@ -146,24 +175,36 @@ async function showRegion(country) {
     return counts;
   } catch (e) {
     if (token !== state.regionToken) return;
-    hideRegion();
+    hideRegion(true); // keep the wish: another measurement may work for this country
     $('region-note').textContent = e.message;
     showMessage(panel, `${v.name} in ${country.label}`, e.message, 'warn');
   }
 }
 
-function hideRegion() {
+function hideRegion(keepWanted = false) {
   state.regionToken += 1; // cancel a country map that is still loading
   globe.hideCells();
   state.regionShown = null;
+  if (!keepWanted) state.regionWanted = false;
   setRegionButton();
   $('region-note').textContent = '';
-  if (!$('world-toggle').checked) $('legend').hidden = true;
+  if (!$('world-toggle').checked || !canDo('world')) $('legend').hidden = true;
 }
 
 let worldLegend = null;
 async function loadWorld() {
   const v = currentVar();
+  $('world-toggle').disabled = !canDo('world');
+  if (!canDo('world')) {
+    // No whole Earth grid for this measurement yet: explain instead of asking the server for an error.
+    globe.hideWorld();
+    worldLegend = null;
+    if (!state.regionShown) $('legend').hidden = true;
+    const have = worldNames();
+    $('world-note').textContent = `The whole Earth view is ready for ${have.length ? listText(have) : 'no measurement'} only so far. `
+      + `For ${v.name.toLowerCase()}, pick a country or click a place.`;
+    return;
+  }
   if (!$('world-toggle').checked || isFarmTab()) { globe.hideWorld(); if (!$('world-toggle').checked) $('world-note').textContent = ''; return; }
   $('world-note').textContent = 'Loading the world map…';
   try {
@@ -193,10 +234,8 @@ async function ensureFarm() {
     f.outlook = o;
     f.cells = buildFarmCells(o, border);
     f.border = border;
-    const sel = $('crop-select');
-    sel.innerHTML = o.crops.map((c) => `<option value="${c.id}">${c.name}</option>`).join('');
-    sel.value = f.crop;
-    $('farm-note').textContent = `${f.cells.length} grid cells of about 55 by 60 km cover Egypt. Click one to see every crop.`;
+    setupFarmControls(o);
+    $('farm-note').textContent = `${f.cells.length} grid cells of ${cellSizeText(midLat(EGYPT.bbox))} cover Egypt. Click one to see every crop.`;
     return true;
   } catch (e) {
     $('farm-note').textContent = e.message;
@@ -204,13 +243,53 @@ async function ensureFarm() {
   }
 }
 
-function cropInfo() {
+/**
+ * Fit the farming controls to the outlook file (FAO calculator or a trained model): the crop list,
+ * one button per horizon, and only the views and water modes the file has data for.
+ */
+function setupFarmControls(o) {
   const f = state.farm;
-  const c = f.outlook.crops.find((x) => x.id === f.crop);
-  if (!c) return '';
-  const season = c.season_months >= 12 ? 'a tree: it must survive all 12 months' : `growing season of about ${c.season_months} months`;
-  return `${c.name} (${c.scientific_name}): grows best at ${c.temp_opt_c[0]} to ${c.temp_opt_c[1]} °C, survives ${c.temp_abs_c[0]} to ${c.temp_abs_c[1]} °C; ${season}. Source: FAO ECOCROP.`;
+  if (!o.crops.some((c) => c.id === f.crop)) f.crop = o.crops[0].id;
+  const sel = $('crop-select');
+  sel.innerHTML = '';
+  for (const c of o.crops) {
+    const opt = document.createElement('option');
+    opt.value = c.id;
+    opt.textContent = c.name;
+    sel.appendChild(opt);
+  }
+  sel.value = f.crop;
+
+  const last = o.horizons.length - 1;
+  f.h = Math.min(f.h, last);
+  $('horizon-seg').innerHTML = o.horizons.map((y, i) => `<button data-h="${i}" class="${i === f.h ? 'on' : ''}">${i === 0 ? 'Now' : y}</button>`).join('');
+  bindSeg('#horizon-seg [data-h]', (b) => { f.h = Number(b.dataset.h); });
+
+  if (!hasMode(o, f.mode)) f.mode = hasMode(o, 'irrigated') ? 'irrigated' : 'rainfed';
+  document.querySelectorAll('[data-mode]').forEach((b) => {
+    b.disabled = !hasMode(o, b.dataset.mode);
+    b.title = b.disabled ? 'This outlook has no scores for this water mode.' : '';
+    b.classList.toggle('on', b.dataset.mode === f.mode);
+  });
+
+  const heat = hasHeat(o);
+  if (!heat) f.cropView = 'score';
+  document.querySelectorAll('[data-crop-view]').forEach((b) => {
+    if (b.dataset.cropView === 'heat') b.hidden = !heat;
+    b.classList.toggle('on', b.dataset.cropView === f.cropView);
+  });
+  const change = document.querySelector('[data-land-view="change"]');
+  change.hidden = last === 0;
+  change.textContent = `Change by ${o.horizons[last]}`;
+  if (last === 0) { f.landView = 'count'; document.querySelector('[data-land-view="count"]').classList.add('on'); }
+
+  $('farm-intro').innerHTML = '';
+  $('farm-intro').append('Farming analysis for ', Object.assign(document.createElement('strong'), { textContent: (o.region && o.region.name) || 'Egypt' }),
+    `${o.source ? `, from ${o.source}` : ''}. ${last > 0 ? "Future views assume today's measured trends continue; they are not forecasts." : ''}`);
 }
+
+const cropInfo = () => cropInfoText(state.farm.outlook, state.farm.crop);
+const cropName = () => (state.farm.outlook.crops.find((c) => c.id === state.farm.crop) || state.farm.outlook.crops[0]).name;
 
 function renderFarm() {
   const f = state.farm;
@@ -221,7 +300,8 @@ function renderFarm() {
     $('crop-info').textContent = cropInfo();
     res = cropMap(o, f.cells, f.crop, f.mode, f.h, f.cropView);
   } else {
-    res = landMap(o, f.cells, state.tab === 'decisions' ? 'irrigated' : f.mode, f.h, state.tab === 'decisions' ? 'change' : f.landView);
+    res = landMap(o, f.cells, state.tab === 'decisions' ? decisionMode() : f.mode, f.h,
+      state.tab === 'decisions' ? (o.horizons.length > 1 ? 'change' : 'count') : f.landView);
   }
   globe.showCells(res.map, f.border);
   $('legend').innerHTML = res.legend;
@@ -232,9 +312,13 @@ function renderFarm() {
   $('horizon-label').textContent = fixed ? 'When (fixed for this view)' : 'When';
   if (state.tab === 'decisions' && !f.fromList) showDecisions();
   else if (f.k !== null) openFarmCell(f.k, f.fromList);
-  else showMessage(panel, state.tab === 'crops' ? `Where can ${o.crops.find((c) => c.id === f.crop).name.toLowerCase()} grow?` : 'Farming potential in Egypt',
-    'Click any cell on the map to see every crop for that place: now, in 2035, and how many years before the heat becomes too much.');
+  else showMessage(panel, state.tab === 'crops' ? `Where can ${cropName().toLowerCase()} grow?` : 'Farming potential in Egypt',
+    `Click any cell on the map to see every crop for that place: now${o.horizons.length > 1 ? `, in ${o.horizons[o.horizons.length - 1]}` : ''}`
+    + `${hasHeat(o) ? ', and how many years before the heat becomes too much' : ''}.`);
 }
+
+// The Decisions tab is about irrigated farming; an outlook with rain-fed scores only uses those.
+const decisionMode = () => (hasMode(state.farm.outlook, 'irrigated') ? 'irrigated' : 'rainfed');
 
 function showDecisions() {
   const f = state.farm;
@@ -261,7 +345,7 @@ function openFarmCell(k, fromList = false) {
   const cell = f.cells.find((c) => c.k === k);
   if (!cell) return;
   const label = `${farmPlace(cell.lat, cell.lon)} · ${coordText(cell.lat, cell.lon)}`;
-  const mode = state.tab === 'decisions' ? 'irrigated' : f.mode;
+  const mode = state.tab === 'decisions' ? decisionMode() : f.mode;
   panel.hidden = false;
   panel.innerHTML = `<button class="btn close" aria-label="Close panel">×</button>
     ${fromList ? '<button class="btn" id="back-to-list" style="margin-bottom:8px">← Back to the list</button>' : ''}
@@ -346,8 +430,9 @@ function fillVariables() {
   sel.onchange = () => {
     state.varCode = sel.value;
     $('var-definition').textContent = currentVar().definition;
+    setRegionButton();
     loadWorld();
-    if (state.regionShown) showRegion(state.mapCountry);
+    if (state.regionShown || state.regionWanted) showRegion(state.mapCountry);
     loadPointTrend();
   };
 }
@@ -362,6 +447,7 @@ async function init() {
     state.countries = countries;
     state.places = places;
     fillVariables();
+    setRegionButton();
     setupSearch({
       input: $('search-input'), list: $('search-list'), countries, places,
       onPick: (r) => (r.kind === 'country'
@@ -388,7 +474,6 @@ async function init() {
   bindSeg('[data-crop-view]', (b) => { state.farm.cropView = b.dataset.cropView; });
   bindSeg('[data-land-view]', (b) => { state.farm.landView = b.dataset.landView; });
   bindSeg('[data-mode]', (b) => { state.farm.mode = b.dataset.mode; });
-  bindSeg('[data-h]', (b) => { state.farm.h = Number(b.dataset.h); });
 }
 
 /* ====================== guided tour ====================== */
@@ -417,12 +502,16 @@ const tour = createTour({
   },
   selectPoint: (lat, lon) => select({ kind: 'point', lat, lon, label: placeName(lat, lon), coords: coordText(lat, lon) }),
   setCrop: (crop, view) => {
-    state.farm.crop = crop;
-    state.farm.cropView = view;
-    $('crop-select').value = crop;
-    document.querySelectorAll('[data-crop-view]').forEach((b) => b.classList.toggle('on', b.dataset.cropView === view));
+    const o = state.farm.outlook;
+    if (!o) return null;
+    // A model's file may not have this crop or this view: fall back to what it does have.
+    state.farm.crop = o.crops.some((c) => c.id === crop) ? crop : o.crops[0].id;
+    state.farm.cropView = view === 'heat' && !hasHeat(o) ? 'score' : view;
+    $('crop-select').value = state.farm.crop;
+    document.querySelectorAll('[data-crop-view]').forEach((b) => b.classList.toggle('on', b.dataset.cropView === state.farm.cropView));
     state.farm.k = null;
     renderFarm();
+    return { id: state.farm.crop, name: cropName(), view: state.farm.cropView };
   },
   showMethods: () => showMethods(),
 });

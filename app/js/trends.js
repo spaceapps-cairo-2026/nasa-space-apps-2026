@@ -45,11 +45,54 @@ function mix(a, b, t) {
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; }
 
+/** Decimals that keep a number of this size readable: 0.29, 0.033, 0.0044. */
+function decimalsFor(x, digits = 2) {
+  const a = Math.abs(x);
+  return a !== 0 && a < 0.01 ? 4 : a < 0.1 ? 3 : digits;
+}
+
 function fmt(x, digits = 2) {
   if (x === null || x === undefined || Number.isNaN(x)) return 'n/a';
-  const a = Math.abs(x);
-  const d = a !== 0 && a < 0.01 ? 4 : a < 0.1 ? 3 : digits;
-  return (x > 0 ? '+' : '') + x.toFixed(d);
+  return (x > 0 ? '+' : '') + x.toFixed(decimalsFor(x, digits));
+}
+
+/** Both ends of a range with the same decimals (those of the larger end): "+0.03" and "+0.51". */
+function fmtRange(lo, hi) {
+  const d = decimalsFor(Math.max(Math.abs(lo), Math.abs(hi)));
+  const one = (x) => (x > 0 ? '+' : '') + x.toFixed(d);
+  return [one(lo), one(hi)];
+}
+
+/**
+ * A p-value (or q-value) as a percentage: how often a trend at least this strong shows up by luck
+ * when nothing is really changing. It is NOT the chance that the trend is real.
+ */
+export function luckPercent(p) {
+  if (p === null || p === undefined || Number.isNaN(p)) return null;
+  if (p < 0.001) return 'less than 0.1%';
+  const x = p * 100;
+  return `${x < 9.95 ? x.toFixed(1) : Math.round(x)}%`;
+}
+
+function oneIn(p) {
+  if (p < 0.001) return 'fewer than 1 in 1,000';
+  if (p > 0.4) return null;
+  return `about 1 in ${Math.round(1 / p).toLocaleString('en-US')}`;
+}
+
+/** The "Could this be luck?" box of the result panel. */
+function luckHTML(p, conf) {
+  const pct = luckPercent(p);
+  if (pct === null) return '';
+  const odds = oneIn(p);
+  const verdict = conf === 'strong' ? 'Under 1%, so we call this strong evidence of a real change.'
+    : conf === 'moderate' ? 'Under 5%, so we call this moderate evidence of a real change.'
+      : '5% or more, so luck is a reasonable explanation: not proven.';
+  return `<div class="luck ${conf}">
+      <div class="luck-top"><span class="luck-label">Could this be luck?</span><span class="luck-value">${pct}</span></div>
+      <p>If nothing were really changing here, normal year to year ups and downs would still give a trend
+      this strong ${pct} of the time${odds ? ` (${odds})` : ''}. ${verdict}</p>
+    </div>`;
 }
 
 /** Color for a proven slope, t in [-1, 1] relative to the map's range. */
@@ -161,6 +204,11 @@ export function legendHTML(variable, range, kind = 'region') {
     ? '<div class="note">Whole Earth: only proven changes are colored; clear means not proven.</div>'
     : `<div class="np"><i></i>Flat grey tile: not proven, could be normal year to year variation</div>
     <div class="note">Raised columns are proven changes; taller means a bigger change.</div>`;
+  // No proven cell on this map: there is no color scale to show.
+  if (!(range > 1e-8)) {
+    return `<div class="note">${esc(v.name)}: no proven change on this map, so nothing is colored.</div>
+      ${kind === 'world' ? '' : '<div class="np"><i></i>Flat grey tile: not proven, could be normal year to year variation</div>'}`;
+  }
   return `<div class="note">${esc(v.name)}: change per decade (${esc(v.unit)})</div>
     <div class="bar" style="background:linear-gradient(90deg,${pal[0]},${pal[1]},${pal[2]})"></div>
     <div class="scale"><span>-${r}</span><span>0</span><span>+${r}</span></div>
@@ -195,7 +243,9 @@ export function showTrend(panel, res, placeLabel, mockNote = null) {
     ${mockNote ? `<div class="callout warn">${esc(mockNote)}</div>` : ''}
     ${t.level === -1 ? '<div class="callout warn">No data here: too few valid years for a trend.</div>' : `<span class="badge ${conf}">${LEVEL_TEXT[conf]}</span>
     <div class="rate">${fmt(t.slope_per_decade)} ${esc(v.unit)} per decade</div>
-    ${t.slope_low !== null && t.slope_high !== null ? `<p class="range">Likely between ${fmt(t.slope_low)} and ${fmt(t.slope_high)} per decade (95% range)</p>` : ''}`}
+    ${t.slope_low !== null && t.slope_high !== null ? `<p class="range">Best estimate. With 95% confidence the true rate is between
+      <strong>${fmtRange(t.slope_low, t.slope_high)[0]}</strong> and <strong>${fmtRange(t.slope_low, t.slope_high)[1]}</strong> ${esc(v.unit)} per decade.</p>` : ''}
+    ${luckHTML(t.p, conf)}`}
     <div class="chart" id="trend-chart"></div>
     <p class="sentence">${esc(res.sentence)}</p>
     ${res.caution ? `<div class="callout warn">${esc(res.caution)}</div>` : ''}
@@ -203,13 +253,17 @@ export function showTrend(panel, res, placeLabel, mockNote = null) {
     <details>
       <summary>How we know</summary>
       <dl>
-        <dt>p-value</dt><dd>${pTxt}</dd>
+        <dt>p-value</dt><dd>${pTxt}${luckPercent(t.p) ? ` (${luckPercent(t.p)})` : ''}</dd>
         <dt>Years used</dt><dd>${used} of ${res.series.length}</dd>
         <dt>Change starts</dt><dd>${t.change_point_year ?? 'no clear start'}</dd>
         <dt>Method</dt><dd>${esc(t.method)}</dd>
         <dt>Data</dt><dd>${esc(v.source)}${res.data_from ? ` (${esc(res.data_from)})` : ''}</dd>
       </dl>
-      <p>The p-value is the chance of seeing a trend this strong if nothing were really changing. It is not the chance that the trend is true.</p>
+      <p><strong>The luck percentage</strong> (the p-value) is how often a trend this strong would appear if nothing were
+      really changing. It is not the chance that the trend is true, so we never say "97% real".</p>
+      <p><strong>The 95%</strong> is not a result and it is the same for every place: it is the confidence level we chose.
+      Ranges built this way contain the true rate about 95 times out of 100. A wide range means the data is noisy;
+      a range that includes 0 means the change is not proven.</p>
     </details>`);
   drawChart(document.getElementById('trend-chart'), res, conf);
 }
@@ -221,7 +275,8 @@ export function showCellSummary(panel, props, variable, label, reason) {
     <div class="where">${esc(label)}</div>
     <span class="badge ${props.confidence}">${LEVEL_TEXT[props.confidence]}</span>
     <div class="rate">${fmt(Number(props.slope))} ${esc(v.unit)} per decade</div>
-    <p class="range">q-value ${props.q === null || props.q === undefined ? 'n/a' : Number(props.q).toFixed(3)} (corrected for testing many cells at once)</p>
+    <p class="range">${props.q === null || props.q === undefined ? 'No test result for this cell.'
+      : `Chance of a trend this strong by luck alone, after correcting for testing many cells at once: <strong>${luckPercent(Number(props.q))}</strong>`}</p>
     <div class="callout info">${esc(reason)}</div>`);
 }
 

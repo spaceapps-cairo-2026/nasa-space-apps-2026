@@ -40,13 +40,15 @@ export function createTour(ctx) {
       dwell: 7000,
     },
     {
-      run: async () => { await ctx.setTab('crops'); ctx.setCrop('apple', 'score'); },
-      text: () => 'What does it mean for food? Apples fit Egypt\'s cooler north, but the south is already too hot for them.',
+      run: async () => { await ctx.setTab('crops'); return ctx.setCrop('apple', 'score'); },
+      text: (c) => (c && c.id === 'apple' ? 'What does it mean for food? Apples fit Egypt\'s cooler north, but the south is already too hot for them.'
+        : `What does it mean for food? Green shows where ${c ? c.name.toLowerCase() : 'each crop'} fits Egypt today, brown where it cannot grow.`),
       dwell: 6500,
     },
     {
       run: async () => ctx.setCrop('apple', 'heat'),
-      text: () => 'Years until each crop reaches its heat limit, if the measured warming continues. Taller and redder = sooner.',
+      text: (c) => (c && c.view === 'heat' ? 'Years until each crop reaches its heat limit, if the measured warming continues. Taller and redder = sooner.'
+        : 'Every place gets a score from 0 to 100 for every crop, today and for the years ahead.'),
       dwell: 6500,
     },
     {
@@ -56,8 +58,13 @@ export function createTour(ctx) {
     },
     {
       run: async () => { await ctx.setTab('trends'); await ctx.reset(); return ctx.showMethods(); },
-      text: (v) => (v ? `And we test ourselves: our engine raises false alarms only ${(v.checks.false_alarms.false_alarm_rate['Egypt-like noise'] * 100).toFixed(1)}% of the time, and our world trend agrees with NASA's independent GISTEMP record.`
-        : 'And we test ourselves against NASA\'s independent records.'),
+      text: (v) => {
+        if (!v) return 'And we test ourselves against NASA\'s independent records.';
+        const x = v.checks.cross_check;
+        const rate = (r) => `${r.per_decade > 0 ? '+' : ''}${r.per_decade.toFixed(2)}`;
+        return `And we test ourselves: on trendless data with Egypt's noise our engine raises a false alarm only ${(v.checks.false_alarms.false_alarm_rate['Egypt-like noise'] * 100).toFixed(1)}% of the time, `
+          + `and our world warming rate (${rate(x.ours)} °C per decade) is consistent with NASA's independent GISTEMP record (${rate(x.reference)}): the 95% ranges overlap.`;
+      },
       dwell: 8000,
     },
     {

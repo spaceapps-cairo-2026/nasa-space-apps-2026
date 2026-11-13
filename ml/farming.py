@@ -52,6 +52,11 @@ GRID_STEP = (0.5, 0.625)
 SUITABLE = 50  # a crop "fits" a place when it scores at least this
 METHOD = ("FAO ECOCROP suitability on NASA POWER monthly climate (2016 to 2025 average), best growing season of "
           "the year; future = each cell's own 2001 to 2025 trend continued, with its 95% range. Not a forecast.")
+SOURCE = "NASA POWER climate and FAO ECOCROP crop needs"
+SCORE_NOTE = ("Scores follow FAO ECOCROP: 100 when every month of the growing season is inside the crop's ideal "
+              "temperature range, 0 if any month is outside what the crop can survive. \"Heat limit\" = years until "
+              "the hottest month of the season reaches that survival limit, if this place keeps warming at its "
+              "measured rate.")
 
 
 # ---------- climate ----------
@@ -242,6 +247,9 @@ def build() -> dict:
                                                           float(lons[-1] + dlon / 2), float(lats[-1] + dlat / 2)]},
         "grid": {"lat0": float(lats[0]), "lon0": float(lons[0]), "dlat": dlat, "dlon": dlon, "nrows": len(lats), "ncols": len(lons)},
         "method": METHOD,
+        "source": SOURCE,              # shown as "Source: ..." and "from ..." in the app
+        "score_note": SCORE_NOTE,      # how to read a score, shown under "How we know" in the cell panel
+        "climate_period": f"{BASE_START} to {BASE_END}",
         "horizons": HORIZONS,
         "suitable_threshold": SUITABLE,
         "inside": "".join("1" if v else "0" for v in inside.ravel()),

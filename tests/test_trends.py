@@ -147,6 +147,21 @@ def test_error_messages_are_plain_sentences():
         assert "[" not in text and "grid" not in text and "—" not in text
 
 
+def test_sentence_says_luck_as_a_percentage_and_keeps_the_sign_of_the_range():
+    var = live.variable_info("RH2M")
+    base = {"period": "2001-2025", "level_name": "moderate evidence", "change_point_year": None}
+    # Range all on one side: sizes only.
+    text = live.sentence(var, {**base, "level": 1, "slope_per_decade": 0.99, "slope_low": 0.05, "slope_high": 1.81, "p": 0.0265})
+    assert "95% range 0.05 to 1.81" in text and "by luck only 2.6% of the time" in text and "p =" not in text
+    # Range crossing zero (it happens for trends that are only just proven): the minus sign must stay.
+    text = live.sentence(var, {**base, "level": 1, "slope_per_decade": 0.99, "slope_low": -0.05, "slope_high": 1.81, "p": 0.0478})
+    assert "from -0.05 to +1.81" in text and "0.05 to 1.81)" not in text
+    # Not proven: still a percentage, never "no change".
+    text = live.sentence(var, {**base, "level": 0, "level_name": "not proven", "slope_per_decade": -0.16, "slope_low": -0.6, "slope_high": 0.2, "p": 0.441})
+    assert "not proven" in text and "44% of the time" in text and "no change" not in text
+    assert [live.luck_percent(p) for p in (0.0004, 0.00289, 0.0996, 1.0)] == ["less than 0.1%", "0.3%", "10%", "100%"]
+
+
 def test_cell_share_of_a_simple_shape():
     import borders
     # A rectangle from 0 to 1 N and 0 to 0.9375 E: covers column 0, half of column 1, none of column 2.
