@@ -1,12 +1,16 @@
-# Space Apps 2026: team repo
+# Space Apps 2026 Cairo: Earth System Trend Detective
 
-Three Claude accounts, three lanes, one contract. Read `CLAUDE.md` first.
+A 3D Earth that shows how NASA measurements changed since 2001, where, how fast and how sure we are, and turns those trends into farming decisions.
+
+1. **What we build:** `PROJECT_PLAN.md` (single source of truth)
+2. **Who does what, in which order:** `TASKS.md`
+3. **Team rules for people and Claude:** `CLAUDE.md`
 
 ```
-data/  (lane C)  ->  data/processed/features.parquet
-ml/    (lane A)  ->  ml/outputs/predictions.json   (must match contracts/prediction.schema.json)
-api/   (lane B)  ->  serves the bundle at /api/*
-app/   (lane B)  ->  map + chart + "why this score", served at /
+data/  (lane C)  ->  NASA POWER grids + points, crop table
+ml/    (lane A)  ->  trend, viability, crop, projection engines -> ml/outputs/
+api/   (lane B)  ->  FastAPI serving ml/outputs/ and live point trends
+app/   (lane B)  ->  globe, maps, charts, tabs, methods page, tour
 ```
 
 Every lane can work from minute one because `contracts/fixtures/` holds valid fake output.
@@ -21,7 +25,7 @@ python run.py mock         # open http://localhost:8000
 
 ## Team setup (first time)
 See `docs/TEAM_SETUP.md`. Short version: lead runs `scripts/setup_team.ps1` once; each teammate runs
-`gh repo clone ORG/nasa-space-apps-2026 D:\nasa_space_apps; powershell -ExecutionPolicy Bypass -File D:\nasa_space_apps\scripts\join_team.ps1`
+`gh repo clone spaceapps-cairo-2026/nasa-space-apps-2026 D:\nasa_space_apps; powershell -ExecutionPolicy Bypass -File D:\nasa_space_apps\scripts\join_team.ps1`
 
 ## Running two accounts on one laptop
 In PowerShell:

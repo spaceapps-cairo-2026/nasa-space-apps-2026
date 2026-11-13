@@ -35,7 +35,7 @@ Every push runs the tests on GitHub (`.github/workflows/check.yml`). A red check
 2. Install Git, Python 3.10+, GitHub CLI (`winget install --id GitHub.cli`), Claude Code. Run `gh auth login` once.
 3. One paste:
    ```powershell
-   gh repo clone ORG/nasa-space-apps-2026 D:\nasa_space_apps; powershell -ExecutionPolicy Bypass -File D:\nasa_space_apps\scripts\join_team.ps1
+   gh repo clone spaceapps-cairo-2026/nasa-space-apps-2026 D:\nasa_space_apps; powershell -ExecutionPolicy Bypass -File D:\nasa_space_apps\scripts\join_team.ps1
    ```
    Pick your lane when asked.
 

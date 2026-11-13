@@ -4,21 +4,24 @@ Read this whole file before doing anything. It is loaded automatically by Claude
 
 ## What we are building
 
-- The chosen challenge and the problem statement live in `docs/CHALLENGE.md`.
+**Read `PROJECT_PLAN.md` first. It is the single source of truth (features F0 to F6, lanes, decisions D1 to D9).**
+If anything in other docs conflicts with PROJECT_PLAN.md, PROJECT_PLAN.md wins.
+**Then read `TASKS.md`:** the task list, who claimed what, and which tasks must wait for others (`needs:`).
+
 - The one sentence pitch lives at the top of `docs/PITCH.md`.
-- If either is still a template, STOP and ask the human which challenge we picked.
+- Algorithms are NOT fixed in advance. When you reach a decision listed in PROJECT_PLAN.md section 9, propose options with evidence on our data, let the human choose, and record it in `docs/DECISIONS.md`.
 - Background research (rules, judging criteria, past winners, competition) is in `docs/RESEARCH.md`.
-- Data sources and how to get them: `docs/DATA.md`. Statistics and AI spec: `docs/METHODS.md`. Read METHODS before writing any analysis code.
+- Data sources and how to get them: `docs/DATA.md`. Candidate statistics methods and lessons so far: `docs/METHODS.md`. Read METHODS before writing any analysis code.
 
 ## Lanes: who owns what
 
-| Lane | Account | Branch | Owns (may edit) | Must not edit |
+| Lane | Who | Branch | Owns (may edit) | Must not edit |
 |---|---|---|---|---|
-| A: Integrator + ML | Mohammed, account 1 | `lane/a-ml` | `ml/`, `contracts/`, `CLAUDE.md`, `docs/DECISIONS.md` | `app/` |
+| A: Integrator + analysis | Mohammed, account 1 | `lane/a-ml` | `ml/`, `contracts/`, `CLAUDE.md`, `PROJECT_PLAN.md`, `docs/DECISIONS.md`, `docs/METHODS.md` | `app/` |
 | B: API + App | Mohammed, account 2 | `lane/b-app` | `api/`, `app/` | `ml/`, `data/` |
-| C: Data + Science + Story | Friend's account | `lane/c-data` | `data/`, `docs/RESEARCH.md`, `docs/PITCH.md`, `docs/REFERENCES.md`, `demo/` | `app/`, `ml/` |
+| C: Data + Science + Story | teammates | `lane/c-data` (or `lane/c-<task>` per person) | `data/`, `docs/DATA.md`, `docs/RESEARCH.md`, `docs/PITCH.md`, `docs/REFERENCES.md`, `demo/` | `app/`, `ml/` |
 
-Everyone may append to `TASKS.md` and `docs/LOG.md`.
+Everyone may edit their own lane's section of `TASKS.md` (claim, tick) and append to `docs/LOG.md`. Before starting a task, check its `needs:` in `TASKS.md`; if a needed task is not on `main` yet, build on the fixtures in `contracts/fixtures/`.
 
 ## The rules
 
@@ -31,8 +34,8 @@ Everyone may append to `TASKS.md` and `docs/LOG.md`.
 7. **Cite as you go.** Every dataset, library, image, and AI tool used goes into `docs/REFERENCES.md` the moment you use it. Space Apps requires all external resources to be listed.
 8. **Leave a trail.** When you finish a task, tick it in `TASKS.md` and add one line to `docs/LOG.md`: `HH:MM | lane | what changed`.
 9. **Boring and working beats clever and broken.** No new framework or library after Saturday 13:00 without lane A's OK.
-10. **Statistics honesty.** Never call something significant unless the corrected Mann-Kendall test AND the FDR q-value pass. Say "not proven", never "no change". Never claim causes; say "consistent with".
-11. **Ask the human when unsure about scope.** Do not invent product features that are not in `docs/CHALLENGE.md`.
+10. **Statistics honesty.** Never call something significant unless the trend test chosen in decision D1 AND the FDR q-value pass (until D1 is made: corrected Mann-Kendall, see METHODS). Say "not proven", never "no change". Never claim causes; say "consistent with".
+11. **Ask the human when unsure about scope.** Do not invent product features that are not in `PROJECT_PLAN.md`.
 
 ## Commands
 
@@ -52,7 +55,7 @@ Everyone is on Windows. Run every command as `python run.py <cmd>` in PowerShell
 ## Style
 
 - Python 3.10+, type hints, small functions.
-- Frontend is plain HTML + JS with CDN libraries (Leaflet, Plotly). No build step.
+- Frontend is plain HTML + JS, no build step. Libraries (Plotly, the map library and the globe library chosen in D3) are bundled in `app/vendor/`.
 - Never use long dashes in any user facing text, slides, or docs.
 
 ## Where things live

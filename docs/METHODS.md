@@ -1,4 +1,7 @@
-# Methods spec (lane A builds this from Sat 09:00)
+# Methods notes (REFERENCE ONLY, not decisions)
+
+These are candidate methods and lessons from Friday's data checks. The actual choices are decisions D1 to D5 in `PROJECT_PLAN.md` section 9.
+Sections 6 (trend fingerprints) and the MODIS areas belong to an earlier concept and are optional.
 
 Every term is defined in plain words, because judges and users must follow it too.
 
@@ -20,9 +23,11 @@ Every term is defined in plain words, because judges and users must follow it to
 - **Mann-Kendall** asks: across all pairs of years, do later values beat earlier values more often than chance would allow? It only uses the order (bigger or smaller), so it does not assume a straight line or a bell curve.
 - **Autocorrelation** means one year resembles the previous one (a wet year often follows a wet year). That makes random wiggles look like trends, so plain Mann-Kendall raises false alarms (one public team measured 21% instead of 5%).
 - Use `pymannkendall`:
-  - default: `yue_wang_modification_test` (variance correction),
-  - also store: `original_test`, `hamed_rao_modification_test`, `seasonal_test`.
-  - Our first look found these variants disagree on many Egypt cells. Show that disagreement honestly on the Methods page, and only call a trend significant when the default test passes AND FDR passes.
+  - default: `hamed_rao_modification_test` (autocorrelation correction),
+  - also store: `original_test`, `pre_whitening_modification_test`, `seasonal_test`.
+  - DO NOT use `yue_wang_modification_test` from pymannkendall: on the real Cairo series it returned p = 0.0 while every other variant gave p of about 0.02 to 0.025, and a 10,000 run simulation gave 0.016. It collapses on short annual series.
+  - Sanity check for any p-value: simulate 10,000 trendless series with the same noise level and count how often their Sen slope is as large as the real one. That fraction must be close to the test's p.
+  - Our first look found these variants disagree on many Egypt cells (Yue-Wang was the outlier). Show that disagreement honestly on the Methods page, and only call a trend significant when the default test passes AND FDR passes.
 - **p-value**: the chance of seeing a trend at least this strong if there were truly no trend.
 
 ## 4. Many places at once: false discovery rate (FDR)

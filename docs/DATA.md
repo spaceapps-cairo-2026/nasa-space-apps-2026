@@ -16,10 +16,19 @@ soil moisture or precipitation, prefer it over our choices below.
 - Get it: `python data/power_fetch.py` (9 seconds, cached in data/cache/power).
 - First look (Hamed-Rao / Yue-Wang Mann-Kendall on annual means):
   - T2M: 202 cells significantly warming, 0 cooling, median +0.24 C/decade.
-  - T2M_MAX: falls in the west and south, rises in the east (Sinai, Red Sea). The number of significant cells changes a lot between test variants (65 vs 266). **This is exactly why FDR and a robust method matter; show it on the Methods page.**
+  - T2M_MAX: falls in the west and south, rises in the east (Sinai, Red Sea). The number of significant cells changes a lot between test variants (65 with Hamed-Rao vs 266 with Yue-Wang). Yue-Wang turned out to be broken on short series (see METHODS.md), so trust the lower number until rechecked with FDR.
   - PRECTOTCORR: "significant" increases over hyper-arid desert. **Suspect artifact** (near-zero values, many ties). Treat precipitation over desert with a caution label.
 
-## 2. MODIS via AppEEARS (land, 1 km, 5 areas) : SUBMIT TONIGHT
+## 1b. NASA POWER point API (any location on Earth) : VERIFIED, NO LOGIN
+- `https://power.larc.nasa.gov/api/temporal/monthly/point?parameters=T2M,T2M_MAX,T2M_MIN,PRECTOTCORR,GWETROOT,RH2M&community=AG&latitude=LAT&longitude=LON&start=2001&end=2025&format=JSON`
+- About 1.3 s per point. Cache every point used in the demo.
+
+## 1c. FAO ECOCROP crop requirements : SOURCE VERIFIED
+- Per crop: optimal and absolute minimum/maximum temperature and annual rainfall (plus other descriptors).
+- FAO data sheets: https://ecocrop.apps.fao.org/ecocrop/srv/en/ (search a crop, open its data sheet). Also packaged for 1,710 plants in the R package Recocrop (`ecocropPars`).
+- Lane C: build `data/crops/crops.csv` for the crops chosen in decision D6, one row per crop, with the source link per row.
+
+## 2. MODIS via AppEEARS (OPTIONAL, P2 evidence layer only)
 
 AppEEARS is NASA's service that cuts satellite products down to your area and dates, and returns ready files.
 

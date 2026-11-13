@@ -1,5 +1,5 @@
 # Run by EACH teammate after cloning:
-#   gh repo clone ORG/nasa-space-apps-2026 D:\nasa_space_apps
+#   gh repo clone spaceapps-cairo-2026/nasa-space-apps-2026 D:\nasa_space_apps
 #   powershell -ExecutionPolicy Bypass -File D:\nasa_space_apps\scripts\join_team.ps1
 #
 # Installs packages into your global Python, runs tests, downloads the Egypt climate data
