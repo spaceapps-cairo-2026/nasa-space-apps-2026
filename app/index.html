@@ -2,41 +2,62 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Space Apps 2026</title>
-  <link rel="stylesheet" href="vendor/leaflet.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>CropShift Earth</title>
+  <link rel="stylesheet" href="vendor/maplibre-gl.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <div>
-      <h1 id="title">Project name</h1>
-      <p id="subtitle">One sentence pitch goes here</p>
+  <div id="globe" aria-label="Interactive globe"></div>
+
+  <header id="topbar" class="glass">
+    <div class="brand"><span class="mark" aria-hidden="true"></span>CropShift Earth</div>
+    <div class="search">
+      <label for="search-input" class="sr-only">Search a country or city</label>
+      <input id="search-input" type="search" placeholder="Search a country or city" autocomplete="off" role="combobox"
+             aria-expanded="false" aria-controls="search-list" />
+      <ul id="search-list" role="listbox" hidden></ul>
     </div>
-    <div id="badges"></div>
   </header>
 
-  <main>
-    <section id="map"></section>
-    <aside>
-      <div class="controls">
-        <label>Minimum score <span id="minval">0.00</span>
-          <input id="min" type="range" min="0" max="1" step="0.01" value="0" />
-        </label>
-      </div>
-      <div id="detail">
-        <h2>Click a point</h2>
-        <p class="muted">Details, time series and the reasons behind the score appear here.</p>
-      </div>
-      <div id="series"></div>
-      <div id="why"></div>
-    </aside>
-  </main>
+  <aside id="sidebar" class="glass">
+    <nav class="tabs" role="tablist" aria-label="Modes">
+      <button role="tab" aria-selected="true" id="tab-trends">Trends</button>
+      <button role="tab" aria-selected="false" disabled title="Coming soon">Farmland</button>
+      <button role="tab" aria-selected="false" disabled title="Coming soon">Crops</button>
+      <button role="tab" aria-selected="false" disabled title="Coming soon">Decisions</button>
+    </nav>
 
-  <footer id="footer"></footer>
+    <section class="block">
+      <label for="var-select" class="label">Measurement</label>
+      <select id="var-select"></select>
+      <p id="var-definition" class="definition"></p>
+    </section>
 
-  <script src="vendor/leaflet.js"></script>
+    <section class="block">
+      <div class="label">Selected place</div>
+      <p id="selection-text" class="selection">None yet. Click anywhere on Earth or search a place.</p>
+    </section>
+
+    <section class="block">
+      <div class="label">Regional map</div>
+      <button id="region-toggle" class="btn wide">Show Egypt trend map</button>
+      <p id="region-note" class="note"></p>
+      <div id="legend" hidden></div>
+    </section>
+
+    <div class="toolbar">
+      <button id="btn-home" class="btn">Whole Earth</button>
+      <button id="btn-proj" class="btn">Switch to 2D</button>
+    </div>
+  </aside>
+
+  <section id="panel" class="glass" aria-live="polite" hidden></section>
+
+  <div id="toast" role="status" hidden></div>
+
+  <script src="vendor/maplibre-gl.js"></script>
   <script src="vendor/plotly.min.js"></script>
-  <script src="app.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
