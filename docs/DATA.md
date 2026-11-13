@@ -2,12 +2,32 @@
 
 **Start with `data/README.md`:** what each dataset represents, which feature uses it, and what is already in the repo.
 
-## 0. Official challenge resources (PASTE HERE)
+## 0. Official challenge resources (pasted Fri 13 Nov from the Resources tab)
 
-The official Resources tab was down/blocked for automated reading. Lane C: open
-https://www.spaceappschallenge.org/2026/challenges/earth-system-trend-detective/?tab=resources
-and paste every resource name + link here. If a listed dataset covers NDVI, land temperature,
-soil moisture or precipitation, prefer it over our choices below.
+Source: https://www.spaceappschallenge.org/2026/challenges/earth-system-trend-detective/?tab=resources
+
+### NASA data and resources
+| Resource | What it is | Use for us |
+|---|---|---|
+| [Giovanni](https://giovanni.gsfc.nasa.gov/) | Menus of many NASA variables; makes time series and lets you download them | Cross-check our POWER trends for a few points; easiest route to GLDAS, GPM, MERRA-2 variables |
+| [Hydrology Time Series](https://disc.gsfc.nasa.gov/information/tools?title=Hydrology%20Time%20Series) | Time series of hydrology variables (GLDAS, NLDAS) | Optional: soil moisture and evapotranspiration check |
+| [AppEEARS](https://appeears.earthdatacloud.nasa.gov/) | Cuts and transforms geospatial data, includes time series | MODIS NDVI and land temperature (section 2, optional) |
+| [Climate Data Online (NOAA CDO)](https://www.ncei.noaa.gov/cdo-web/) | Global station weather and climate archive with a map tool | Optional: compare a Cairo station with the POWER grid |
+| [SeaWiFS chlorophyll time series paper (NASA NTRS)](https://ntrs.nasa.gov/api/citations/20090042747/downloads/20090042747.pdf) | Research article showing time series creation and significance testing | Cite in the Methods page as a worked example of the method |
+
+### Space agency partner resources
+| Resource | What it is | Use for us |
+|---|---|---|
+| [KNMI Climate Explorer](https://climexp.knmi.nl/) | Web tool to explore and analyse climate data | Optional independent check of a trend |
+| [Statistical test methods to detect trends (article)](https://medium.com/%40snp.kriss/statistical-test-methods-to-detect-trends-in-time-series-data-b361a0ec530b) | Overview of trend tests | Background for D1 |
+| [A Comprehensive Guide to Statistical Significance](https://www.statsig.com/perspectives/a-comprehensive-guide-to-statistical-significance) | Guide to significance testing | Background for D2 wording |
+| [RADARSAT Constellation Mission data (CSA)](https://donnees-data.asc-csa.gc.ca/en/dataset/rcm) | Canadian radar satellites | Not used (record too short and not our region) |
+| Geo.ca | Canada's open geospatial data | Not used (Canada only) |
+| [SWOT mission (CSA)](https://www.asc-csa.gc.ca/eng/satellites/swot/) | Surface water elevation for lakes and rivers, since 2023 | Not used: record too short for a trend (good teaching point for the Methods page) |
+| [Monitoring ecosystems from space (CSA)](https://www.asc-csa.gc.ca/eng/satellites/everyday-lives/monitoring-and-protecting-our-ecosystems-from-space.asp) | Background reading | Not used |
+| [SAR Python tutorial (CSA)](https://github.com/asc-csa/Synthetic_Aperture_Radar_Tutorial) | Radar imagery tutorial | Not used |
+
+The statement also names MODIS, OMI, AIRS, GPM, MERRA-2 and GLDAS. NASA POWER is built on MERRA-2, so our core data is one of the named sources.
 
 ## 1. NASA POWER (climate, all Egypt) : VERIFIED, NO LOGIN
 

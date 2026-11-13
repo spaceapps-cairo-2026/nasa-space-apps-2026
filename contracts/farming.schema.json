@@ -1,0 +1,94 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "farming.schema.json",
+  "title": "FarmingOutlook (F2 farmland, F3 crops, F4 decisions)",
+  "description": "v0.4, reviewed by lane A. Served by GET /api/farming?country=EGY from ml/outputs/farming_<ISO>.json. Written today by python ml/farming.py (FAO ECOCROP calculator); a trained model replaces it by writing the same file. Check a file with: python run.py farming-check. Flat arrays use index k = i * ncols + j, row i from the south, column j from the west, and have nrows * ncols values. Only the fields under 'required' are needed: the app shows every other field when it is present and hides that part when it is not.",
+  "type": "object",
+  "required": ["version", "region", "grid", "method", "horizons", "inside", "crops", "suitability"],
+  "$defs": {
+    "score_grid": {
+      "type": "array",
+      "description": "One value per cell: integer 0 to 100 (100 = ideal), null outside the country.",
+      "items": {"type": ["integer", "null"], "minimum": 0, "maximum": 100}
+    },
+    "number_grid": {
+      "type": "array",
+      "description": "One value per cell, null where there is none.",
+      "items": {"type": ["number", "null"]}
+    },
+    "per_crop_scores": {
+      "type": "object",
+      "description": "crop id -> one score_grid per horizon, in the order of 'horizons'.",
+      "additionalProperties": {"type": "array", "items": {"$ref": "#/$defs/score_grid"}}
+    },
+    "per_mode_per_crop": {
+      "type": "object",
+      "description": "mode (irrigated, rainfed) -> crop id -> one grid.",
+      "additionalProperties": {"type": "object", "additionalProperties": {"$ref": "#/$defs/number_grid"}}
+    },
+    "range": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}
+  },
+  "properties": {
+    "version": {"type": "string"},
+    "region": {"type": "object", "required": ["id", "name", "bbox"]},
+    "grid": {
+      "type": "object",
+      "required": ["lat0", "lon0", "dlat", "dlon", "nrows", "ncols"],
+      "properties": {
+        "lat0": {"type": "number"}, "lon0": {"type": "number"},
+        "dlat": {"type": "number"}, "dlon": {"type": "number"},
+        "nrows": {"type": "integer", "minimum": 1}, "ncols": {"type": "integer", "minimum": 1}
+      }
+    },
+    "method": {"type": "string", "minLength": 1, "description": "One or two sentences describing the model, shown in the app under 'How we know'."},
+    "source": {"type": "string", "description": "Optional. Short name of the data behind the scores, shown as 'Source: ...', e.g. 'NASA POWER climate and FAO ECOCROP crop needs'."},
+    "score_note": {"type": "string", "description": "Optional. How to read a score, in plain words, shown under 'How we know' in the place panel."},
+    "climate_period": {"type": "string", "description": "Optional. The years temp_now_c is averaged over, e.g. '2016 to 2025'."},
+    "horizons": {
+      "type": "array",
+      "description": "The years the scores are given for, first = now. The app makes one button per year, e.g. [2025, 2030, 2035]. One year is enough.",
+      "items": {"type": "integer"}, "minItems": 1, "maxItems": 4
+    },
+    "inside": {"type": "string", "pattern": "^[01]*$", "description": "One character per cell: 1 = the cell touches the country."},
+    "evidence": {"type": "string", "pattern": "^[SMN-]*$", "description": "Optional. One character per cell: strength of the warming trend (S strong, M moderate, N not proven, - no data)."},
+    "suitable_threshold": {"type": "number", "description": "Optional (default 50). Score at which a crop 'fits' a place."},
+    "crops": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "name"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+          "name": {"type": "string"},
+          "scientific_name": {"type": "string"},
+          "season_months": {"type": "integer", "minimum": 1, "maximum": 12},
+          "temp_opt_c": {"$ref": "#/$defs/range"},
+          "temp_abs_c": {"$ref": "#/$defs/range"}
+        }
+      }
+    },
+    "suitability": {
+      "type": "object",
+      "description": "At least one water mode. A mode that is missing has its button switched off in the app.",
+      "minProperties": 1,
+      "properties": {
+        "irrigated": {"$ref": "#/$defs/per_crop_scores"},
+        "rainfed": {"$ref": "#/$defs/per_crop_scores"}
+      },
+      "additionalProperties": false
+    },
+    "years_to_heat_limit": {
+      "type": "object",
+      "description": "Optional. crop id -> grid of years until the crop gets too hot (99 = safe, null = not applicable). Without it the 'Years to heat limit' view is hidden.",
+      "additionalProperties": {"$ref": "#/$defs/number_grid"}
+    },
+    "temp_now_c": {"$ref": "#/$defs/number_grid"},
+    "rain_now_mm": {"$ref": "#/$defs/number_grid"},
+    "temp_trend_per_decade": {"$ref": "#/$defs/number_grid"},
+    "rain_trend_mm_per_decade": {"$ref": "#/$defs/number_grid"},
+    "suitability_10_low": {"$ref": "#/$defs/per_mode_per_crop", "description": "Optional: last horizon, low end of the uncertainty."},
+    "suitability_10_high": {"$ref": "#/$defs/per_mode_per_crop", "description": "Optional: last horizon, high end of the uncertainty."},
+    "best_start_month": {"$ref": "#/$defs/per_mode_per_crop", "description": "Optional: 0 = January, start of the best season now."}
+  }
+}

@@ -2,41 +2,129 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Space Apps 2026</title>
-  <link rel="stylesheet" href="vendor/leaflet.css" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>CropShift Earth</title>
+  <link rel="stylesheet" href="vendor/maplibre-gl.css" />
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
-  <header>
-    <div>
-      <h1 id="title">Project name</h1>
-      <p id="subtitle">One sentence pitch goes here</p>
+  <div id="globe" aria-label="Interactive globe"></div>
+
+  <header id="topbar" class="glass">
+    <div class="brand"><span class="mark" aria-hidden="true"></span>CropShift Earth
+      <button id="btn-tour" class="btn tour-btn" title="Play the 60 second story">▶ Tour</button></div>
+    <div class="search">
+      <label for="search-input" class="sr-only">Search a country or city</label>
+      <input id="search-input" type="search" placeholder="Search a country or city" autocomplete="off" role="combobox"
+             aria-expanded="false" aria-controls="search-list" />
+      <ul id="search-list" role="listbox" hidden></ul>
     </div>
-    <div id="badges"></div>
   </header>
 
-  <main>
-    <section id="map"></section>
-    <aside>
-      <div class="controls">
-        <label>Minimum score <span id="minval">0.00</span>
-          <input id="min" type="range" min="0" max="1" step="0.01" value="0" />
-        </label>
-      </div>
-      <div id="detail">
-        <h2>Click a point</h2>
-        <p class="muted">Details, time series and the reasons behind the score appear here.</p>
-      </div>
-      <div id="series"></div>
-      <div id="why"></div>
-    </aside>
-  </main>
+  <aside id="sidebar" class="glass">
+    <nav class="tabs" role="tablist" aria-label="Modes">
+      <button role="tab" aria-selected="true" data-tab="trends" id="tab-trends">Trends</button>
+      <button role="tab" aria-selected="false" data-tab="crops" id="tab-crops">Crops</button>
+      <button role="tab" aria-selected="false" data-tab="farmland" id="tab-farmland">Farmland</button>
+      <button role="tab" aria-selected="false" data-tab="decisions" id="tab-decisions">Decisions</button>
+    </nav>
 
-  <footer id="footer"></footer>
+    <!-- Trends tab -->
+    <section class="block" data-for="trends">
+      <label for="var-select" class="label">Measurement</label>
+      <select id="var-select"></select>
+      <p id="var-definition" class="definition"></p>
+    </section>
 
-  <script src="vendor/leaflet.js"></script>
+    <section class="block" data-for="trends">
+      <div class="label">Selected place</div>
+      <p id="selection-text" class="selection">None yet. Click anywhere on Earth or search a place.</p>
+    </section>
+
+    <section class="block" data-for="trends">
+      <div class="label">Trend maps</div>
+      <label class="check"><input type="checkbox" id="world-toggle" checked /> Color the whole Earth (zoomed out)</label>
+      <p id="world-note" class="note"></p>
+      <button id="region-toggle" class="btn wide">Show trend map: Egypt</button>
+      <p id="region-note" class="note"></p>
+    </section>
+
+    <!-- Farming tabs (Crops, Farmland, Decisions) -->
+    <section class="block" data-for="crops farmland decisions" hidden>
+      <p class="note" id="farm-intro">Farming analysis for <strong>Egypt</strong>.</p>
+    </section>
+
+    <section class="block" data-for="crops" hidden>
+      <label for="crop-select" class="label">Crop</label>
+      <select id="crop-select"></select>
+      <p id="crop-info" class="definition"></p>
+      <div class="label">Show</div>
+      <div class="seg" role="group" aria-label="Crop map">
+        <button data-crop-view="score" class="on">Suitability</button>
+        <button data-crop-view="heat">Years to heat limit</button>
+      </div>
+    </section>
+
+    <section class="block" data-for="farmland" hidden>
+      <div class="label">Show</div>
+      <div class="seg" role="group" aria-label="Farmland map">
+        <button data-land-view="count" class="on">Crops that fit</button>
+        <button data-land-view="change">Change by 2035</button>
+      </div>
+    </section>
+
+    <section class="block" data-for="crops farmland" hidden>
+      <div class="label">Water</div>
+      <div class="seg" role="group" aria-label="Water">
+        <button data-mode="irrigated" class="on">Irrigated</button>
+        <button data-mode="rainfed">Rain only</button>
+      </div>
+      <div class="label" id="horizon-label">When</div>
+      <div class="seg" role="group" aria-label="Time horizon" id="horizon-seg">
+        <button data-h="0" class="on">Now</button>
+        <button data-h="1">2030</button>
+        <button data-h="2">2035</button>
+      </div>
+    </section>
+
+    <section class="block" data-for="crops farmland decisions" hidden>
+      <p id="farm-note" class="note"></p>
+    </section>
+
+    <div id="legend" hidden></div>
+
+    <button id="btn-methods" class="btn wide methods-btn">How we know: method and checks</button>
+    <div class="toolbar">
+      <button id="btn-home" class="btn">Whole Earth</button>
+      <button id="btn-proj" class="btn">Switch to 2D</button>
+    </div>
+  </aside>
+
+  <section id="panel" class="glass" aria-live="polite" hidden></section>
+
+  <div id="welcome" role="dialog" aria-modal="true" aria-labelledby="welcome-title" hidden>
+    <div class="welcome-card glass">
+      <div class="kicker">NASA Space Apps 2026 · Be An Earth System Trend Detective</div>
+      <h1 id="welcome-title">Is your planet really changing?</h1>
+      <p class="welcome-lead">CropShift Earth tests 25 years of NASA climate data for any place on Earth, tells you if a change is
+        <strong>proven</strong> or just normal ups and downs, and shows what it means for the crops we grow.</p>
+      <ul class="welcome-list">
+        <li><strong>Trends:</strong> click anywhere, or pick a country, to see what is changing, where, how fast, and how sure we are.</li>
+        <li><strong>Crops, Farmland, Decisions:</strong> which crops fit Egypt today and in 2035, and how many years until the heat becomes too much.</li>
+        <li><strong>How we know:</strong> the checks we ran on our own method.</li>
+      </ul>
+      <div class="welcome-actions">
+        <button id="welcome-tour" class="btn tour-btn big">▶ Play the 60 second tour</button>
+        <button id="welcome-explore" class="btn big">Explore on my own</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" role="status" hidden></div>
+
+  <script src="vendor/maplibre-gl.js"></script>
   <script src="vendor/plotly.min.js"></script>
-  <script src="app.js"></script>
+  <script src="vendor/polygon-clipping.umd.min.js"></script>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>

@@ -24,7 +24,7 @@ The official statement asks for a tool that can:
 | R6 | Determine if the change is **significant** | F1 confidence label per place, "not proven" when it could be normal variation |
 | R7 | (Statement's twist) a variable can trend one way in one region and the opposite way in another from the same process | F2/F3 maps show gains and losses side by side, called out in the demo |
 
-**Wording rule for R6.** A significance test does NOT give "the probability the trend is true". It gives how likely a trend this strong would appear if nothing were really changing. So the app shows **confidence levels** (for example: strong evidence / moderate evidence / not proven), with the exact number available on hover. Never display "87% true".
+**Wording rule for R6.** A significance test does NOT give "the probability the trend is true". It gives how likely a trend this strong would appear if nothing were really changing. So the app shows **confidence levels** (for example: strong evidence / moderate evidence / not proven), with the exact number shown next to it as "Could this be luck?": the percentage of times a trend this strong appears when nothing is really changing (the p-value, or q on maps). Never display "87% true".
 
 ## 3. Users and the decision each one makes
 

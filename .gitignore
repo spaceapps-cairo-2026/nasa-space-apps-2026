@@ -15,3 +15,5 @@ ml/artifacts/
 *.tif
 .DS_Store
 .pip-cache/
+ml/outputs/world_*.json
+dist/
