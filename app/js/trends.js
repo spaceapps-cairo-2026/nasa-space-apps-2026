@@ -1,6 +1,6 @@
 // Trends tab (F1): result panel, chart, colors for the regional map.
 /* global Plotly */
-import { clipCellToGeometry } from './geo.js';
+import { borderTouchIndex, cutCell } from './geo.js';
 
 const LEVEL_TEXT = { strong: 'Strong evidence', moderate: 'Moderate evidence', not_proven: 'Not proven' };
 const PALETTES = {
@@ -26,57 +26,118 @@ function fmt(x, digits = 2) {
   return (x > 0 ? '+' : '') + x.toFixed(d);
 }
 
+const CONF = { S: 'strong', M: 'moderate', N: 'not_proven' };
+
+/** Color for a proven slope, t in [-1, 1] relative to the map's range. */
+function colorFor(pal, t) { return t < 0 ? mix(pal[1], pal[0], -t) : mix(pal[1], pal[2], t); }
+
+/** Range for the color scale: 95th percentile of proven |slope|, so one extreme cell does not wash out the rest. */
+function rangeOf(slopes) {
+  if (!slopes.length) return 1e-9;
+  const a = slopes.map(Math.abs).sort((x, y) => x - y);
+  return Math.max(a[Math.floor(0.95 * (a.length - 1))], 1e-9);
+}
+
 /**
- * Region trend -> GeoJSON with color and column height per cell.
- * With a border geometry, every cell is cut to the border: cells in the sea or in
- * neighbouring countries disappear, cells on the coast keep only their land part.
- * Not proven cells get height 0 (drawn as flat tiles); proven ones become columns.
+ * GridTrend (contracts/api.md) -> GeoJSON cells for the region map.
+ * With a border, each cell is cut to it (sea and neighbour cells disappear, coast cells keep their
+ * land part). Not proven cells get height 0 (flat tiles); proven ones become columns.
  */
-export function cellsToGeoJSON(region, border = null) {
-  const pal = paletteFor(region.variable.code);
-  const features = [];
-  const counts = { increasing: 0, decreasing: 0, not_proven: 0, total: 0 };
+export function gridToGeoJSON(g, border = null) {
+  const { lat0, lon0, dlat, dlon, nrows, ncols } = g.grid;
+  const pal = paletteFor(g.variable.code);
+  const touched = border ? borderTouchIndex(border, lat0, lon0, dlat, dlon) : null;
+  const gap = Math.min(0.025, dlon * 0.04); // thin gap so neighbouring cells read as separate
   const kept = [];
-  for (const c of region.cells) {
-    const [w, s, e, n] = c.bounds;
-    const g = Math.min(0.025, (e - w) * 0.04); // thin gap so neighbouring cells read as separate
-    const inner = [w + g, s + g, e - g, n - g];
-    let geometry = { type: 'Polygon', coordinates: [[[inner[0], inner[1]], [inner[2], inner[1]], [inner[2], inner[3]], [inner[0], inner[3]], [inner[0], inner[1]]]] };
-    if (border) {
-      const clipped = clipCellToGeometry(inner, border);
-      if (!clipped.geometry || clipped.share < 0.08) continue; // slivers of a few km look like noise
-      geometry = clipped.geometry;
+  for (let i = 0; i < nrows; i++) {
+    for (let j = 0; j < ncols; j++) {
+      const k = i * ncols + j;
+      const c = g.confidence[k];
+      if (c === '-') continue;
+      const lat = lat0 + i * dlat, lon = lon0 + j * dlon;
+      const full = [lon - dlon / 2, lat - dlat / 2, lon + dlon / 2, lat + dlat / 2];
+      const inner = [full[0] + gap, full[1] + gap, full[2] - gap, full[3] - gap];
+      const geometry = border
+        ? cutCell(full, inner, border, touched, `${i},${j}`)
+        : { type: 'Polygon', coordinates: [[[inner[0], inner[1]], [inner[2], inner[1]], [inner[2], inner[3]], [inner[0], inner[3]], [inner[0], inner[1]]]] };
+      if (geometry) kept.push({ lat, lon, slope: g.slope_per_decade[k], q: g.q[k], confidence: CONF[c], geometry });
     }
-    kept.push([c, geometry]);
   }
-  const sig = kept.filter(([c]) => c.confidence !== 'not_proven').map(([c]) => Math.abs(c.slope_per_decade));
-  const range = Math.max(...sig, 1e-9);
-  for (const [c, geometry] of kept) {
+  const range = rangeOf(kept.filter((c) => c.confidence !== 'not_proven').map((c) => c.slope));
+  const counts = { increasing: 0, decreasing: 0, not_proven: 0, total: kept.length };
+  const features = kept.map((c) => {
     let color = NOT_PROVEN_COLOR, height = 0;
-    if (c.confidence !== 'not_proven') {
-      const t = Math.max(-1, Math.min(1, c.slope_per_decade / range));
-      color = t < 0 ? mix(pal[1], pal[0], -t) : mix(pal[1], pal[2], t);
+    if (c.confidence === 'not_proven') counts.not_proven += 1;
+    else {
+      const t = Math.max(-1, Math.min(1, c.slope / range));
+      color = colorFor(pal, t);
       height = 6000 + 50000 * Math.abs(t);
+      counts[c.slope > 0 ? 'increasing' : 'decreasing'] += 1;
     }
-    counts.total += 1;
-    counts[c.confidence === 'not_proven' ? 'not_proven' : c.direction] += 1;
-    features.push({
-      type: 'Feature',
-      properties: { id: c.id, lat: c.lat, lon: c.lon, slope: c.slope_per_decade, p: c.p, q: c.q, confidence: c.confidence, color, height },
-      geometry,
-    });
-  }
+    return { type: 'Feature', properties: { lat: c.lat, lon: c.lon, slope: c.slope, q: c.q, confidence: c.confidence, color, height }, geometry: c.geometry };
+  });
   return { range, counts, fc: { type: 'FeatureCollection', features } };
 }
 
-export function legendHTML(variable, range) {
+const MERC_MAX_LAT = 85.0511;
+
+/**
+ * GridTrend for the whole Earth -> an image for MapLibre. The grid is in latitude steps, MapLibre
+ * images are stretched in Web Mercator, so rows are resampled to Mercator here.
+ * Proven warming red, proven cooling blue, not proven left clear so the planet shows through.
+ */
+export function worldImage(g) {
+  const { lat0, lon0, dlat, dlon, nrows, ncols } = g.grid;
+  const pal = paletteFor(g.variable.code).map(hex);
+  const proven = [];
+  for (let k = 0; k < g.confidence.length; k++) if (g.confidence[k] === 'S' || g.confidence[k] === 'M') proven.push(g.slope_per_decade[k]);
+  const range = rangeOf(proven);
+  const W = ncols, H = 720;
+  const canvas = document.createElement('canvas');
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  const img = ctx.createImageData(W, H);
+  for (let y = 0; y < H; y++) {
+    const merc = Math.PI * (1 - (2 * (y + 0.5)) / H);
+    const lat = (Math.atan(Math.sinh(merc)) * 180) / Math.PI;
+    const i = Math.round((lat - lat0) / dlat);
+    if (i < 0 || i >= nrows) continue;
+    for (let j = 0; j < W; j++) {
+      const k = i * ncols + j;
+      const c = g.confidence[k];
+      if (c !== 'S' && c !== 'M') continue;
+      const t = Math.max(-1, Math.min(1, g.slope_per_decade[k] / range));
+      const [a, b] = t < 0 ? [pal[1], pal[0]] : [pal[1], pal[2]];
+      const u = 0.3 + 0.7 * Math.abs(t); // start at a visible tint: proven but small is never near-white
+      const o = (y * W + j) * 4;
+      img.data[o] = a[0] + (b[0] - a[0]) * u;
+      img.data[o + 1] = a[1] + (b[1] - a[1]) * u;
+      img.data[o + 2] = a[2] + (b[2] - a[2]) * u;
+      img.data[o + 3] = c === 'S' ? 215 : 160;
+    }
+  }
+  ctx.putImageData(img, 0, 0);
+  // MapLibre cannot place an image that starts past the date line, so snap the 0.3 degree
+  // half-cell offset to exactly -180 / +180 (invisible at world scale).
+  const west = Math.max(-180, lon0 - dlon / 2), east = west + 360;
+  return {
+    url: canvas.toDataURL('image/png'),
+    coordinates: [[west, MERC_MAX_LAT], [east, MERC_MAX_LAT], [east, -MERC_MAX_LAT], [west, -MERC_MAX_LAT]],
+    range,
+  };
+}
+
+export function legendHTML(variable, range, kind = 'region') {
   const pal = paletteFor(variable.code);
   const r = fmt(range).replace('+', '');
+  const notes = kind === 'world'
+    ? '<div class="note">Whole Earth: only proven changes are colored; clear means not proven.</div>'
+    : `<div class="np"><i></i>Flat grey tile: not proven, could be normal year to year variation</div>
+    <div class="note">Raised columns are proven changes; taller means a bigger change.</div>`;
   return `<div class="note">${esc(variable.name)}: change per decade (${esc(variable.unit)})</div>
     <div class="bar" style="background:linear-gradient(90deg,${pal[0]},${pal[1]},${pal[2]})"></div>
     <div class="scale"><span>-${r}</span><span>0</span><span>+${r}</span></div>
-    <div class="np"><i></i>Flat grey tile: not proven, could be normal year to year variation</div>
-    <div class="note">Raised columns are proven changes; taller means a bigger change.</div>`;
+    ${notes}`;
 }
 
 function shell(panel, inner) {
@@ -129,7 +190,7 @@ export function showCellSummary(panel, props, variable, label, reason) {
     <div class="where">${esc(label)}</div>
     <span class="badge ${props.confidence}">${LEVEL_TEXT[props.confidence]}</span>
     <div class="rate">${fmt(Number(props.slope))} ${esc(variable.unit)} per decade</div>
-    <p class="range">q-value ${Number(props.q).toFixed(3)} (corrected for testing many cells at once)</p>
+    <p class="range">q-value ${props.q === null || props.q === undefined ? 'n/a' : Number(props.q).toFixed(3)} (corrected for testing many cells at once)</p>
     <div class="callout info">${esc(reason)}</div>`);
 }
 

@@ -3,22 +3,24 @@ import { api, loadStatic } from './api.js';
 import { Globe } from './globe.js';
 import { setupSearch } from './search.js';
 import { describePlace } from './geo.js';
-import { cellsToGeoJSON, legendHTML, showCellSummary, showLoading, showMessage, showTrend } from './trends.js';
+import { gridToGeoJSON, legendHTML, showCellSummary, showLoading, showMessage, showTrend, worldImage } from './trends.js';
 
 const $ = (id) => document.getElementById(id);
-// Region id -> country code, and the detailed border file used to clip its map.
-const REGION_FOR_ISO = { EGY: 'egypt' };
-const REGION_BORDER = { egypt: 'data/regions/EGY.geojson' };
+// Most detailed border per country: Egypt has its own 1:10m file, the rest use 1:50m.
+const DETAILED_BORDER = { EGY: 'data/regions/EGY.geojson' };
+const EGYPT = { iso: 'EGY', label: 'Egypt', bbox: [24.7, 22, 36.866, 31.586] };
 
 const state = {
   variables: [],
-  regions: [],
   countries: null,
   places: null,
+  borders50: null,
   borders: {},
   varCode: 'T2M',
-  selection: null, // {kind: 'point'|'city'|'country', lat, lon, label, iso}
-  regionShown: null, // region id or null
+  selection: null, // {kind: 'point'|'city'|'country', lat, lon, label, coords, iso, bbox}
+  mapCountry: EGYPT, // the country the "Show trend map" button uses
+  regionShown: null, // iso of the country map on screen
+  regionToken: 0, // ignore answers to outdated requests
 };
 
 const panel = $('panel');
@@ -46,6 +48,8 @@ const globe = new Globe('globe', {
   onCell: (props) => openCell(props),
 });
 
+/* ---------- single place ---------- */
+
 async function loadPointTrend() {
   const s = state.selection;
   if (!s || s.kind === 'country') return;
@@ -60,6 +64,21 @@ async function loadPointTrend() {
   }
 }
 
+async function openCell(props) {
+  const v = currentVar();
+  const lat = Number(props.lat), lon = Number(props.lon);
+  const label = `Grid cell, ${placeName(lat, lon)} · ${coordText(lat, lon)}`;
+  showLoading(panel, `${v.name}, grid cell`);
+  try {
+    const res = await api.cell(lat, lon, v.code);
+    showTrend(panel, res, label);
+  } catch (e) {
+    showCellSummary(panel, props, v, label, `${e.message} The numbers above come from the map.`);
+  }
+}
+
+/* ---------- selection ---------- */
+
 function select(sel) {
   state.selection = sel;
   const kindText = { point: 'Point', city: 'City (30 km around the center)', country: 'Country' }[sel.kind];
@@ -67,69 +86,93 @@ function select(sel) {
   if (sel.kind === 'point') globe.selectPoint(sel.lon, sel.lat);
   if (sel.kind === 'city') globe.selectCity(sel.lon, sel.lat);
   if (sel.kind === 'country') {
+    state.mapCountry = { iso: sel.iso, label: sel.label, bbox: sel.bbox };
     globe.selectCountry(sel.iso, sel.bbox);
-    const region = REGION_FOR_ISO[sel.iso];
-    if (region && state.regions.some((r) => r.id === region)) {
-      showRegion(region);
-      showMessage(panel, sel.label, 'Each column is one grid cell (about 55 km). Click a column, or click any point, to see its trend.');
-    } else {
-      const names = state.regions.map((r) => r.name.split(' (')[0]).join(', ') || 'none yet';
-      showMessage(panel, sel.label, `Regional maps are available for: ${names}. Click any point inside ${sel.label} to see its trend.`);
-    }
+    showRegion(state.mapCountry);
     return;
   }
   loadPointTrend();
 }
 
-async function showRegion(regionId) {
-  const v = currentVar();
-  const btn = $('region-toggle');
-  try {
-    const [region, border] = await Promise.all([api.region(regionId, v.code), loadBorder(regionId)]);
-    const { fc, range, counts } = cellsToGeoJSON(region, border);
-    globe.showCells(fc, border);
-    state.regionShown = regionId;
-    btn.textContent = 'Hide Egypt trend map';
-    btn.classList.add('on');
-    $('region-note').textContent = `Inside the border: ${counts.increasing} cells rising, ${counts.decreasing} falling, `
-      + `${counts.not_proven} not proven (of ${counts.total}). Cells are about 55 by 60 km.`;
-    $('legend').innerHTML = legendHTML(v, range);
-    $('legend').hidden = false;
-  } catch (e) {
-    hideRegion();
-    $('region-note').textContent = e.message;
+/* ---------- country trend map ---------- */
+
+async function borderOf(iso) {
+  if (!(iso in state.borders)) {
+    if (DETAILED_BORDER[iso]) {
+      state.borders[iso] = (await loadStatic(DETAILED_BORDER[iso])).geometry;
+    } else {
+      state.borders50 = state.borders50 || await loadStatic('data/borders_50m.geojson');
+      const f = state.borders50.features.find((x) => x.properties.iso === iso);
+      state.borders[iso] = f ? f.geometry : null;
+    }
   }
+  return state.borders[iso];
 }
 
-async function loadBorder(regionId) {
-  if (!(regionId in state.borders)) {
-    const path = REGION_BORDER[regionId];
-    state.borders[regionId] = path ? (await loadStatic(path)).geometry : null;
+function setRegionButton() {
+  const btn = $('region-toggle');
+  const on = state.regionShown === state.mapCountry.iso;
+  btn.textContent = on ? `Hide trend map: ${state.mapCountry.label}` : `Show trend map: ${state.mapCountry.label}`;
+  btn.classList.toggle('on', on);
+}
+
+async function showRegion(country) {
+  const v = currentVar();
+  const token = ++state.regionToken;
+  $('region-note').textContent = `Fetching NASA data for ${country.label}… The first time can take up to a minute.`;
+  showMessage(panel, `${v.name} in ${country.label}`, 'Fetching NASA data for this country and testing every grid cell. '
+    + 'The first time can take up to a minute; after that it is instant.');
+  try {
+    const [grid, border] = await Promise.all([api.region(country.bbox, v.code, country.label), borderOf(country.iso)]);
+    if (token !== state.regionToken) return;
+    const { fc, range, counts } = gridToGeoJSON(grid, border);
+    globe.showCells(fc, border);
+    state.regionShown = country.iso;
+    setRegionButton();
+    $('region-note').textContent = `Inside ${country.label}: ${counts.increasing} cells rising, ${counts.decreasing} falling, `
+      + `${counts.not_proven} not proven (of ${counts.total}). Each cell is about 55 by 60 km.`;
+    $('legend').innerHTML = legendHTML(v, range, 'region');
+    $('legend').hidden = false;
+    showMessage(panel, `${v.name} in ${country.label}`, grid.mock
+      ? 'Sample data: the live engine is not connected yet. Click a column, or any point, to see its trend.'
+      : 'Click a column, or any point, to see its trend.');
+  } catch (e) {
+    if (token !== state.regionToken) return;
+    hideRegion();
+    $('region-note').textContent = e.message;
+    showMessage(panel, `${v.name} in ${country.label}`, e.message, 'warn');
   }
-  return state.borders[regionId];
 }
 
 function hideRegion() {
   globe.hideCells();
   state.regionShown = null;
-  $('region-toggle').textContent = 'Show Egypt trend map';
-  $('region-toggle').classList.remove('on');
-  $('legend').hidden = true;
+  setRegionButton();
   $('region-note').textContent = '';
+  if (!$('world-toggle').checked) $('legend').hidden = true;
 }
 
-async function openCell(props) {
+/* ---------- whole Earth layer ---------- */
+
+async function loadWorld() {
   const v = currentVar();
-  const lat = Number(props.lat), lon = Number(props.lon);
-  const label = `Grid cell, ${placeName(lat, lon)} · ${coordText(lat, lon)}`;
-  showLoading(panel, `${v.name}, grid cell`);
+  if (!$('world-toggle').checked) { globe.hideWorld(); $('world-note').textContent = ''; return; }
+  $('world-note').textContent = 'Loading the world map…';
   try {
-    const res = await api.cell(state.regionShown, props.id, v.code);
-    showTrend(panel, res, label);
+    const g = await api.world(v.code);
+    const img = worldImage(g);
+    globe.showWorld(img);
+    const s = g.summary;
+    $('world-note').textContent = `Whole Earth: ${s.n_increasing.toLocaleString()} cells proven rising, `
+      + `${s.n_decreasing.toLocaleString()} proven falling, ${s.n_not_proven.toLocaleString()} not proven.`;
+    if (!state.regionShown) { $('legend').innerHTML = legendHTML(v, img.range, 'world'); $('legend').hidden = false; }
   } catch (e) {
-    showCellSummary(panel, props, v, label, `${e.message} The numbers above come from the regional map.`);
+    globe.hideWorld();
+    $('world-note').textContent = e.message;
   }
 }
+
+/* ---------- setup ---------- */
 
 function fillVariables() {
   const sel = $('var-select');
@@ -145,18 +188,18 @@ function fillVariables() {
   sel.onchange = () => {
     state.varCode = sel.value;
     $('var-definition').textContent = currentVar().definition;
-    if (state.regionShown) showRegion(state.regionShown);
+    loadWorld();
+    if (state.regionShown) showRegion(state.mapCountry);
     loadPointTrend();
   };
 }
 
 async function init() {
   try {
-    const [vars, regs, countries, places] = await Promise.all([
-      api.variables(), api.regions(), loadStatic('data/countries.geojson'), loadStatic('data/places.json'),
+    const [vars, countries, places] = await Promise.all([
+      api.variables(), loadStatic('data/countries.geojson'), loadStatic('data/places.json'),
     ]);
     state.variables = vars.variables;
-    state.regions = regs.regions;
     state.countries = countries;
     state.places = places;
     fillVariables();
@@ -166,14 +209,17 @@ async function init() {
         ? select({ kind: 'country', iso: r.iso, bbox: r.bbox, label: r.name })
         : select({ kind: 'city', lat: r.lat, lon: r.lon, label: `${r.name}, ${r.country}`, coords: coordText(r.lat, r.lon) })),
     });
+    loadWorld();
   } catch (e) {
     toast(`Could not reach the server: ${e.message}`);
   }
+  setRegionButton();
   $('region-toggle').onclick = () => {
-    if (state.regionShown) return hideRegion();
-    showRegion('egypt');
-    globe.selectCountry('EGY', [24.7, 22, 36.866, 31.586]);
+    if (state.regionShown === state.mapCountry.iso) return hideRegion();
+    globe.selectCountry(state.mapCountry.iso, state.mapCountry.bbox);
+    showRegion(state.mapCountry);
   };
+  $('world-toggle').onchange = loadWorld;
   $('btn-home').onclick = () => globe.home();
   $('btn-proj').onclick = () => { $('btn-proj').textContent = globe.toggleProjection() ? 'Switch to 2D' : 'Switch to 3D'; };
 }

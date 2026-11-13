@@ -141,6 +141,26 @@ export class Globe {
     this.map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 80, pitch: 35, duration: 2600, essential: true, maxZoom: 6 });
   }
 
+  /** Whole-Earth trend layer (an image), visible when zoomed out, fading out as you zoom in. */
+  showWorld({ url, coordinates }) {
+    const add = () => {
+      if (this.map.getSource('world')) {
+        this.map.getSource('world').updateImage({ url, coordinates });
+        this.map.setLayoutProperty('world', 'visibility', 'visible');
+        return;
+      }
+      this.map.addSource('world', { type: 'image', url, coordinates });
+      this.map.addLayer({ id: 'world', type: 'raster', source: 'world',
+        paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 2.8, 0.85, 4.2, 0], 'raster-fade-duration': 0 } }, 'countries-line');
+    };
+    const tryAdd = () => { try { add(); } catch { setTimeout(tryAdd, 300); } }; // style may still be loading
+    tryAdd();
+  }
+
+  hideWorld() {
+    if (this.map.getLayer('world')) this.map.setLayoutProperty('world', 'visibility', 'none');
+  }
+
   showCells(fc, border = null) {
     this.map.getSource('cells').setData(fc);
     this.map.getSource('regionBorder').setData(border ? { type: 'Feature', properties: {}, geometry: border } : EMPTY);

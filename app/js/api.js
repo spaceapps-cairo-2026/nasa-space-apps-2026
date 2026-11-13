@@ -18,8 +18,12 @@ export const api = {
   variables: () => getJSON('/api/variables'),
   regions: () => getJSON('/api/regions'),
   point: (lat, lon, v, name) => getJSON('/api/trend/point', { lat: lat.toFixed(4), lon: lon.toFixed(4), var: v, name }),
-  region: (region, v) => getJSON('/api/trend/region', { region, var: v }),
-  cell: (region, cell, v) => getJSON('/api/trend/cell', { region, cell, var: v }),
+  // bbox = [west, south, east, north]; the backend live-fetches NASA data for that box.
+  region: (bbox, v, name) => getJSON('/api/trend/region', {
+    west: bbox[0].toFixed(3), south: bbox[1].toFixed(3), east: bbox[2].toFixed(3), north: bbox[3].toFixed(3), var: v, name,
+  }),
+  world: (v) => getJSON('/api/trend/world', { var: v }),
+  cell: (lat, lon, v) => getJSON('/api/trend/cell', { lat: lat.toFixed(3), lon: lon.toFixed(3), var: v }),
 };
 
 export async function loadStatic(path) {

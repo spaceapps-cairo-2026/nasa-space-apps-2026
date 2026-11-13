@@ -1,17 +1,1 @@
-{
- "version": "0.3",
- "regions": [
-  {
-   "id": "egypt",
-   "name": "Egypt (grid box 22 to 32 N, 25 to 35 E)",
-   "bbox": [
-    24.6875,
-    21.75,
-    35.3125,
-    32.25
-   ],
-   "n_cells": 357,
-   "grid": "0.5 x 0.625 degrees (NASA POWER / MERRA-2)"
-  }
- ]
-}
+{"version":"0.3","regions":[{"id":"egypt","name":"Egypt","bbox":[24.6875,21.75,35.3125,32.25]}]}

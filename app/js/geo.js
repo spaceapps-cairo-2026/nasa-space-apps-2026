@@ -47,6 +47,33 @@ export function describePlace(lat, lon, countries, places) {
   return cname || 'Open ocean';
 }
 
+/**
+ * Cut one grid cell to a border, fast: a cell whose 4 corners agree (all inside or all outside)
+ * and that no border vertex falls into is kept whole or dropped without polygon clipping;
+ * only cells on the border are clipped exactly. `touched` is a Set of "row,col" keys of cells
+ * that contain a border vertex (see borderTouchIndex).
+ */
+export function cutCell(full, inner, border, touched, key) {
+  const [w, s, e, n] = full;
+  const ins = [[w, s], [e, s], [e, n], [w, n]].map(([x, y]) => inGeometry(x, y, border));
+  const hasVertex = touched.has(key);
+  if (!hasVertex && ins.every((v) => !v)) return null;
+  if (!hasVertex && ins.every(Boolean)) {
+    const [a, b, c, d] = inner;
+    return { type: 'Polygon', coordinates: [[[a, b], [c, b], [c, d], [a, d], [a, b]]] };
+  }
+  const clipped = clipCellToGeometry(inner, border);
+  return clipped.geometry && clipped.share >= 0.08 ? clipped.geometry : null;
+}
+
+export function borderTouchIndex(border, lat0, lon0, dlat, dlon) {
+  const touched = new Set();
+  for (const poly of polygonsOf(border)) {
+    for (const ring of poly) for (const [x, y] of ring) touched.add(`${Math.round((y - lat0) / dlat)},${Math.round((x - lon0) / dlon)}`);
+  }
+  return touched;
+}
+
 function ringArea(r) {
   let a = 0;
   for (let i = 0; i < r.length - 1; i++) a += r[i][0] * r[i + 1][1] - r[i + 1][0] * r[i][1];

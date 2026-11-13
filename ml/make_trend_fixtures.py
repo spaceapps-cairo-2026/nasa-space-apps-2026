@@ -120,49 +120,83 @@ def point_fixture() -> dict:
     }
 
 
-def region_fixture(code: str = "T2M") -> tuple[dict, dict]:
+GRID_STEP = (0.5, 0.625)  # NASA POWER grid (lat, lon)
+GRID_METHOD = ("PLACEHOLDER until D1: annual means, straight-line trend with a t-test per cell "
+               "(vectorized, fast enough for the whole world), Benjamini-Hochberg FDR over the cells of the map")
+WORLD = ROOT / "data" / "processed" / "world"
+
+
+def grid_trend(lats: np.ndarray, lons: np.ndarray, ann: np.ndarray, region: dict, code: str) -> dict:
+    """ann: [n_lat, n_lon, n_years] yearly means (NaN = missing) -> GridTrend (contracts/api.md)."""
+    from scipy import stats
+    x = np.arange(START, END + 1, dtype=float)
+    x -= x.mean()
+    valid = np.isfinite(ann)
+    n = valid.sum(-1)
+    nz = np.maximum(n, 1)
+    xm = np.where(valid, x, 0).sum(-1) / nz
+    ym = np.where(valid, ann, 0).sum(-1) / nz
+    dx = np.where(valid, x - xm[..., None], 0.0)
+    dy = np.where(valid, ann - ym[..., None], 0.0)
+    sxx = (dx * dx).sum(-1)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        b = (dx * dy).sum(-1) / sxx
+        resid = np.where(valid, dy - b[..., None] * dx, 0.0)
+        se = np.sqrt((resid ** 2).sum(-1) / np.maximum(n - 2, 1) / sxx)
+        p = 2 * stats.t.sf(np.abs(b / se), np.maximum(n - 2, 1))
+    ok = (n >= 15) & np.isfinite(p) & np.isfinite(b)
+    q = np.full(p.shape, np.nan)
+    q[ok] = multipletests(p[ok], method="fdr_bh")[1]
+    conf = np.full(p.shape, "-", dtype="<U1")
+    conf[ok] = np.where(q[ok] < 0.01, "S", np.where(q[ok] < 0.05, "M", "N"))
+    slope = np.where(ok, b * 10, np.nan)
+    flat = lambda a, d: [None if not np.isfinite(v) else round(float(v), d) for v in a.ravel()]
+    proven = ok & (conf != "N")
+    dlat, dlon = GRID_STEP
+    return {
+        "version": VERSION, "region": {**region, "n_cells": int(ok.sum()), "grid": "0.5 x 0.625 degrees (NASA POWER / MERRA-2)"},
+        "variable": VAR[code], "period": {"start": START, "end": END}, "method": GRID_METHOD,
+        "grid": {"lat0": float(lats[0]), "lon0": float(lons[0]), "dlat": dlat, "dlon": dlon, "nrows": len(lats), "ncols": len(lons)},
+        "slope_per_decade": flat(slope, 3), "q": flat(q, 4), "confidence": "".join(conf.ravel()),
+        "summary": {
+            "n_cells": int(ok.sum()), "n_increasing": int((proven & (slope > 0)).sum()),
+            "n_decreasing": int((proven & (slope < 0)).sum()), "n_not_proven": int((ok & (conf == "N")).sum()),
+            "median_slope_per_decade": round(float(np.nanmedian(slope)), 4),
+        },
+    }
+
+
+def egypt_annual(code: str) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     df = pd.read_parquet(GRID)
     df = df[df["variable"] == code].copy()
     df["year"] = df["time"].str[:4].astype(int)
-    dlat, dlon = EGYPT_CELL
-    cells, ps = [], []
-    for (cid, lat, lon), g in df.groupby(["cell_id", "lat", "lon"]):
-        monthly = {y: gg["value"].dropna().tolist() for y, gg in g.groupby("year")}
-        t = trend_of(annual_means(monthly, code))
-        cells.append({
-            "id": cid, "lat": lat, "lon": lon,
-            "bounds": [lon - dlon / 2, lat - dlat / 2, lon + dlon / 2, lat + dlat / 2],
-            "slope_per_decade": t["slope_per_decade"], "p": t["p"], "q": None,
-            "confidence": "not_proven", "direction": "no_clear_trend", "change_start_year": None,
-        })
-        ps.append(t["p"])
-    q = multipletests(ps, method="fdr_bh")[1]
-    for c, qq in zip(cells, q):
-        c["q"] = round(float(qq), 6)
-        c["confidence"] = confidence(c["q"])
-        if c["confidence"] != "not_proven":
-            c["direction"] = "increasing" if c["slope_per_decade"] > 0 else "decreasing"
-    lats, lons = df["lat"].unique(), df["lon"].unique()
-    region = {
-        "id": "egypt", "name": "Egypt (grid box 22 to 32 N, 25 to 35 E)",
-        "bbox": [float(lons.min() - dlon / 2), float(lats.min() - dlat / 2), float(lons.max() + dlon / 2), float(lats.max() + dlat / 2)],
-        "n_cells": len(cells), "grid": "0.5 x 0.625 degrees (NASA POWER / MERRA-2)",
-    }
-    slopes = [c["slope_per_decade"] for c in cells]
-    summary = {
-        "n_cells": len(cells),
-        "n_increasing": sum(c["direction"] == "increasing" for c in cells),
-        "n_decreasing": sum(c["direction"] == "decreasing" for c in cells),
-        "n_not_proven": sum(c["confidence"] == "not_proven" for c in cells),
-        "median_slope_per_decade": round(float(np.median(slopes)), 4),
-    }
-    trend = {"version": VERSION, "region": region, "variable": VAR[code], "period": {"start": START, "end": END},
-             "method": METHOD, "cells": cells, "summary": summary}
-    return trend, region
+    g = df.groupby(["lat", "lon", "year"])["value"]
+    ann = g.mean().where(g.count() >= 9).unstack("year").reindex(columns=range(START, END + 1))
+    lats, lons = np.sort(df["lat"].unique()), np.sort(df["lon"].unique())
+    cube = np.full((len(lats), len(lons), END - START + 1), np.nan)
+    li, lj = {v: i for i, v in enumerate(lats)}, {v: j for j, v in enumerate(lons)}
+    for (lat, lon), row in ann.iterrows():
+        cube[li[lat], lj[lon], :] = row.to_numpy()
+    return lats, lons, cube
+
+
+def region_fixture(code: str = "T2M") -> tuple[dict, dict]:
+    lats, lons, cube = egypt_annual(code)
+    dlat, dlon = GRID_STEP
+    region = {"id": "egypt", "name": "Egypt",
+              "bbox": [float(lons[0] - dlon / 2), float(lats[0] - dlat / 2), float(lons[-1] + dlon / 2), float(lats[-1] + dlat / 2)]}
+    return grid_trend(lats, lons, cube, region, code), region
+
+
+def world_fixture(code: str = "T2M") -> dict:
+    with np.load(WORLD / f"{code}_annual.npz") as z:
+        lats, lons, vals, years = z["lats"], z["lons"], z["values"].astype(float), z["years"]
+    assert int(years[0]) == START and int(years[-1]) == END
+    return grid_trend(lats, lons, vals, {"id": "world", "name": "Whole Earth", "bbox": [-180.3125, -90.25, 179.6875, 90.25]}, code)
 
 
 def write(name: str, obj: dict) -> None:
-    (FIX / name).write_text(json.dumps(obj, indent=1, ensure_ascii=False), encoding="utf-8")
+    (FIX / name).write_text(json.dumps(obj, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
     print("wrote", FIX / name)
 
 
@@ -171,6 +205,9 @@ if __name__ == "__main__":
     reg_trend, region = region_fixture("T2M")
     write("regions.json", {"version": VERSION, "regions": [region]})
     write("trend_region_egypt_T2M.json", reg_trend)
+    world = world_fixture("T2M")
+    (FIX / "trend_world_T2M.json").write_text(json.dumps(world, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
+    print("wrote world fixture, summary:", world["summary"])
     pt = point_fixture()
     write("trend_point_cairo_T2M.json", pt)
     print("Cairo:", pt["sentence"])

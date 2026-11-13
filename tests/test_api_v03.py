@@ -11,6 +11,8 @@ from fastapi.testclient import TestClient
 
 ROOT = Path(__file__).resolve().parents[1]
 SCHEMA = json.loads((ROOT / "contracts" / "trend.schema.json").read_text(encoding="utf-8"))
+EGYPT = {"south": 22.0, "north": 31.7, "west": 24.7, "east": 36.9, "name": "Egypt"}
+KENYA = {"south": -4.7, "north": 5.0, "west": 33.9, "east": 41.9, "name": "Kenya"}
 
 
 def validate(obj: dict, def_name: str) -> None:
@@ -35,14 +37,27 @@ def test_point_trend(client):
     validate(r.json(), "TrendResult")
 
 
-def test_region_trend(client):
-    r = client.get("/api/trend/region", params={"region": "egypt", "var": "T2M"})
+@pytest.mark.parametrize("box", [EGYPT, KENYA])
+def test_region_trend_any_country(client, box):
+    r = client.get("/api/trend/region", params={**box, "var": "T2M"})
     assert r.status_code == 200
-    validate(r.json(), "RegionTrend")
+    g = r.json()
+    validate(g, "GridTrend")
+    gr = g["grid"]
+    assert box["south"] <= gr["lat0"] and gr["lat0"] + (gr["nrows"] - 1) * gr["dlat"] <= box["north"]
 
 
-def test_errors_are_404_or_422(client):
+def test_world_trend(client):
+    r = client.get("/api/trend/world", params={"var": "T2M"})
+    assert r.status_code == 200
+    validate(r.json(), "GridTrend")
+
+
+def test_errors(client):
     assert client.get("/api/trend/point", params={"lat": 0, "lon": 0, "var": "NOPE"}).status_code == 404
     assert client.get("/api/trend/point", params={"lat": 120, "lon": 0}).status_code == 422
-    assert client.get("/api/trend/region", params={"region": "mars"}).status_code == 404
-    assert client.get("/api/trend/cell", params={"region": "egypt", "cell": "x"}).status_code == 404
+    assert client.get("/api/trend/region", params={"south": 10, "north": 5, "west": 0, "east": 1}).status_code == 422
+    russia = {"south": 41, "north": 82, "west": -180, "east": 180}
+    assert client.get("/api/trend/region", params=russia).status_code == 413
+    assert client.get("/api/trend/world", params={"var": "RH2M"}).status_code == 404
+    assert client.get("/api/trend/cell", params={"lat": 30, "lon": 31.25}).status_code == 404

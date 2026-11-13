@@ -50,8 +50,8 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 
 - [x] **B1** D3: choose globe and map libraries, bundle them into `app/vendor/` (must work offline except map tiles) | needs: none | owner: Eyad + Claude
 - [x] **B2** F0: globe, country/city search, click a point, fly to the area, outline it, pass the selection to every tab | needs: B1 | owner: Eyad + Claude
-- [ ] **B3** F1 Trends tab on fixtures: measurement picker, time series chart with trend line, rate per decade, confidence label, trend map for any selected country and the whole globe with "not proven" in grey, plain sentence | needs: A1 | owner: ___
-- [ ] **B4** API: `/trend/point` and `/trend/region` on fixtures (`MOCK=1`), then real data; `/trend/region` works for any country: calls `region_monthly()` (live fetch, cached) then the engine, with a loading state in the app; farming endpoints answer "farming analysis available for: Egypt" outside focus countries | needs: A1 (real: A4, C1) | owner: ___
+- [x] **B3** F1 Trends tab on fixtures: measurement picker, time series chart with trend line, rate per decade, confidence label, trend map for any selected country and the whole globe with "not proven" in grey, plain sentence | needs: A1 | owner: Eyad + Claude
+- [ ] **B4** API: `/trend/point` and `/trend/region` on fixtures (`MOCK=1`), then real data; `/trend/region` works for any country: calls `region_monthly()` (live fetch, cached) then the engine, with a loading state in the app; farming endpoints answer "farming analysis available for: Egypt" outside focus countries | needs: A1 (real: A4, C1) | owner: Eyad + Claude (fixtures part done; real data waits for A4)
 - [ ] **B5** Methods page layout (F5); text and validation numbers come later from A and C | needs: none | owner: ___
 - [ ] **B6** Farmland tab (F2): gaining / losing / stable map, horizon selector (now, +5, +10), "crossing" highlight, projection label | needs: A2 | owner: ___
 - [ ] **B7** Crops tab (F3): mode A crop to places, mode B place to crops, irrigation toggle | needs: A2 | owner: ___
@@ -87,5 +87,6 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 ## Lane B inbox
 
 ## Lane C inbox
+- REQUEST (from B, Fri 22:20): add to docs/REFERENCES.md: Natural Earth 1:50m admin 0 countries (app/data/borders_50m.geojson, cuts every country's trend map to its border).
 - REQUEST (from B, Fri 20:15): add to docs/REFERENCES.md: Natural Earth 1:110m countries and 1:50m populated places (public domain, naturalearthdata.com), used for borders and search in app/data/.
 - REQUEST (from B, Fri 21:05): also add: Natural Earth 1:10m admin 0 (detailed Egypt border, app/data/regions/EGY.geojson); polygon-clipping 0.15.7 (MIT, cuts map cells to the border); Sentinel-2 cloudless 2020 by EOX (close-up imagery, CC BY-NC-SA 4.0, contains modified Copernicus Sentinel data 2020); NASA GIBS VIIRS SNPP true color 2025-07-20 (fallback close-up imagery).
