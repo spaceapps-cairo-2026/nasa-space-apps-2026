@@ -6,6 +6,7 @@ import { describePlace } from './geo.js';
 import { gridToGeoJSON, legendHTML, showCellSummary, showLoading, showMessage, showTrend, varInfo, worldImage } from './trends.js';
 import { buildFarmCells, cellPanelHTML, cropMap, decisionLists, landMap } from './farming.js';
 import { methodsHTML } from './methods.js';
+import { createTour } from './tour.js';
 
 const $ = (id) => document.getElementById(id);
 // Most detailed border per country: Egypt has its own 1:10m file, the rest use 1:50m.
@@ -97,10 +98,9 @@ function select(sel) {
   if (sel.kind === 'country') {
     state.mapCountry = { iso: sel.iso, label: sel.label, bbox: sel.bbox };
     globe.selectCountry(sel.iso, sel.bbox);
-    showRegion(state.mapCountry);
-    return;
+    return showRegion(state.mapCountry);
   }
-  loadPointTrend();
+  return loadPointTrend();
 }
 
 async function borderOf(iso) {
@@ -133,6 +133,7 @@ async function showRegion(country) {
     const [grid, border] = await Promise.all([api.region(country.bbox, v.code), borderOf(country.iso)]);
     if (token !== state.regionToken || isFarmTab()) return;
     const { fc, range, counts } = gridToGeoJSON(grid, border);
+    state.lastCounts = counts;
     globe.showCells(fc, border);
     state.regionShown = country.iso;
     setRegionButton();
@@ -142,6 +143,7 @@ async function showRegion(country) {
     $('legend').hidden = false;
     showMessage(panel, `${v.name} in ${country.label}`, (state.mock ? 'Sample mode: the map shows the fixed Egypt sample. ' : '')
       + (grid.mean_sentence ? `${grid.mean_sentence} ` : '') + 'Click a column, or any point, to see its trend.');
+    return counts;
   } catch (e) {
     if (token !== state.regionToken) return;
     hideRegion();
@@ -151,6 +153,7 @@ async function showRegion(country) {
 }
 
 function hideRegion() {
+  state.regionToken += 1; // cancel a country map that is still loading
   globe.hideCells();
   state.regionShown = null;
   setRegionButton();
@@ -288,6 +291,7 @@ async function showMethods() {
     panel.innerHTML = `<button class="btn close" aria-label="Close panel">×</button>${methodsHTML(v)}`;
     panel.querySelector('.close').onclick = () => { panel.hidden = true; };
     panel.scrollTop = 0;
+    return v;
   } catch (e) {
     showMessage(panel, 'How we know', e.message, 'warn');
   }
@@ -387,5 +391,58 @@ async function init() {
   bindSeg('[data-h]', (b) => { state.farm.h = Number(b.dataset.h); });
 }
 
+/* ====================== guided tour ====================== */
+
+function countryByIso(iso) {
+  const f = state.countries && state.countries.features.find((x) => x.properties.iso === iso);
+  return f ? { iso, bbox: f.properties.bbox, label: f.properties.name } : null;
+}
+
+const tour = createTour({
+  reset: async () => {
+    hideRegion();
+    globe.clearSelection();
+    state.selection = null;
+    $('selection-text').textContent = 'None yet. Click anywhere on Earth or search a place.';
+    panel.hidden = true;
+  },
+  home: () => globe.home(),
+  closePanel: () => { panel.hidden = true; },
+  setTab: (tab) => setTab(tab),
+  selectCountry: async (iso) => {
+    const c = countryByIso(iso);
+    if (!c) return null;
+    const counts = await select({ kind: 'country', ...c });
+    return counts || null;
+  },
+  selectPoint: (lat, lon) => select({ kind: 'point', lat, lon, label: placeName(lat, lon), coords: coordText(lat, lon) }),
+  setCrop: (crop, view) => {
+    state.farm.crop = crop;
+    state.farm.cropView = view;
+    $('crop-select').value = crop;
+    document.querySelectorAll('[data-crop-view]').forEach((b) => b.classList.toggle('on', b.dataset.cropView === view));
+    state.farm.k = null;
+    renderFarm();
+  },
+  showMethods: () => showMethods(),
+});
+$('btn-tour').onclick = () => tour.start();
+
+/* ====================== welcome ====================== */
+
+function closeWelcome() {
+  $('welcome').hidden = true;
+  try { localStorage.setItem('cropshift-welcomed', '1'); } catch { /* private window: fine */ }
+}
+$('welcome-tour').onclick = () => { closeWelcome(); tour.start(); };
+$('welcome-explore').onclick = closeWelcome;
+$('welcome').addEventListener('click', (e) => { if (e.target.id === 'welcome') closeWelcome(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('welcome').hidden) closeWelcome(); });
+let welcomed = false;
+try { welcomed = localStorage.getItem('cropshift-welcomed') === '1'; } catch { /* show it */ }
+// ?welcome in the address forces it (useful before a demo); ?nowelcome hides it (useful for recording).
+const params = new URLSearchParams(window.location.search);
+if (params.has('welcome') || (!welcomed && !params.has('nowelcome'))) $('welcome').hidden = false;
+
 init();
-window.__cropshift = { globe, state }; // handy for debugging in the browser console
+window.__cropshift = { globe, state, tour }; // handy for debugging in the browser console

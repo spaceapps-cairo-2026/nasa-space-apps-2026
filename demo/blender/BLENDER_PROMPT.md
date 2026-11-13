@@ -151,8 +151,8 @@ focal length 35 to 50 mm, very slight depth of field only in Shot 2 (focus on Eg
 ## Notes for the team (not part of the prompt)
 - **The numbers are not final yet.** The backend method (decision D1) may change the counts.
   When the backend is final, re-run the export (see the top of `export_for_blender.cjs`), re-run
-  the Blender script, and re-render Shot 2. Example: the placeholder method gave 92 rising cells,
-  the next one 66: never hard-code the number. Always copy the on-screen numbers from
+  the Blender script, and re-render Shot 2. Example: early methods gave 92, then 66; the final engine on the full Egypt box gives 104.
+  Never hard-code the number. Always copy the on-screen numbers from
   `data/summary.json`, never type them from memory.
 - **Text and music go in the video editor** (CapCut, DaVinci Resolve or Clipchamp), not in
   Blender. Use English subtitles. Keep each text line on screen at least 2 seconds.

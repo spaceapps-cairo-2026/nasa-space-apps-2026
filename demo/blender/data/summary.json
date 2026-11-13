@@ -1,21 +1,21 @@
 {
- "source_file": "contracts\\fixtures\\trend_region.json",
+ "source_file": "demo\\blender\\data\\egypt_region_full.json",
  "variable": "average air temperature",
  "unit": "°C",
  "period": "2001-2025",
  "method": "Sen's slope; Mann-Kendall test with variance scaled by lag 1 autocorrelation (effective sample size); Benjamini-Hochberg FDR on maps",
  "counts": {
-  "total": 316,
-  "rising": 90,
+  "total": 323,
+  "rising": 104,
   "falling": 0,
-  "not_proven": 226
+  "not_proven": 219
  },
  "color_scale_max_slope_per_decade": 0.456,
  "fastest_cell": {
   "lat": 25.5,
   "lon": 34.375,
   "slope_per_decade": 0.5712,
-  "q": 0.00062
+  "q": 0.00081
  },
  "note": "Copy on-screen numbers from here. Re-run this export when the backend is final."
 }

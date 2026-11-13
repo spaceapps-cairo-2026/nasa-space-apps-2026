@@ -3,14 +3,15 @@
 // Run from the repo root:   node demo/blender/export_for_blender.cjs
 // Input:  a trend_region answer from lane A's engine (contracts/api.md). Default:
 //         contracts/fixtures/trend_region.json (Egypt, made by the real engine, method D1).
-//         For a fresh answer:  curl "http://localhost:8000/api/trend/region?lat_min=22&lat_max=32&lon_min=25&lon_max=35&variable=T2M" -o egypt.json
+//         For a fresh answer:  curl "http://localhost:8000/api/trend/region?lat_min=22&lat_max=31.586&lon_min=24.7&lon_max=36.866&variable=T2M" -o demo/blender/data/egypt_region_full.json
 //                              node demo/blender/export_for_blender.cjs egypt.json
 // Output: demo/blender/data/egypt_cells.geojson, egypt_border.geojson, summary.json
 const fs = require('fs');
 const path = require('path');
 
 const REPO = path.resolve(__dirname, '..', '..');
-const INPUT = process.argv[2] || path.join(REPO, 'contracts', 'fixtures', 'trend_region.json');
+// Default: the full Egypt box as the app requests it (22 to 31.6 N, 24.7 to 36.9 E), saved from the real engine.
+const INPUT = process.argv[2] || path.join(__dirname, 'data', 'egypt_region_full.json');
 const BORDER_JSON = path.join(REPO, 'app', 'data', 'regions', 'EGY.geojson');
 const polygonClipping = require(path.join(REPO, 'app', 'vendor', 'polygon-clipping.umd.min.js'));
 const OUT = path.join(__dirname, 'data');

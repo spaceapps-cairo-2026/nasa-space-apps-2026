@@ -57,7 +57,7 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 - [x] **B7** Crops tab (F3): mode A crop to places, mode B place to crops, irrigation toggle | needs: A2 | owner: Eyad + Claude
 - [x] **B8** Decisions tab (F4): investor and planner lists, each row opens the map and evidence | needs: A2 | owner: Eyad + Claude
 - [ ] **B9** D9: hosting; first deploy by Sat 20:00 | needs: B2, B3, B4 | owner: ___
-- [ ] **B10** Guided tour (F6): one button plays the story end to end, from cached data | needs: B2 to B8, C7 | owner: ___
+- [x] **B10** Guided tour (F6): one button plays the story end to end, from cached data | needs: B2 to B8, C7 | owner: Eyad + Claude
 
 ## Lane C: data + science + story (`data/`, story docs, `demo/`)
 
@@ -71,7 +71,7 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 - [ ] **C8** Demo video with English subtitles, and slides | needs: feature freeze (Sun 14:00) | owner: ___
 - [ ] **C9** (P2, only if time) D7: prepare 1 or 2 more focus countries for the farming features (data is already in the world grid; needs irrigation and crop notes per country) | needs: none | owner: ___
 - [x] **C11** Live region fetch: `region_monthly()` in `data/power_world_fetch.py` (any box on Earth, cached on disk); world temperature yearly means in `data/processed/world/` | owner: Mohammed (Claude)
-- [ ] **C12** Before the demo: fetch once every region and point the tour uses, so the demo runs from the local cache | needs: C7 | owner: ___
+- [x] **C12** Before the demo: fetch once every region and point the tour uses, so the demo runs from the local cache | needs: C7 | owner: Eyad + Claude (python demo/warm_cache.py)
 - [ ] **C13** (optional, not required) Bulk world download `python run.py world` (about 4 hours, resumable): makes every region instant and enables the globe overview for all 6 measurements | needs: none | owner: Mohammed
 - [ ] **C10** (P2, only if time) MODIS evidence layer via AppEEARS | needs: none | owner: ___
 
