@@ -11,7 +11,7 @@ If anything in other docs conflicts with PROJECT_PLAN.md, PROJECT_PLAN.md wins.
 - The one sentence pitch lives at the top of `docs/PITCH.md`.
 - Algorithms are NOT fixed in advance. When you reach a decision listed in PROJECT_PLAN.md section 9, propose options with evidence on our data, let the human choose, and record it in `docs/DECISIONS.md`.
 - Background research (rules, judging criteria, past winners, competition) is in `docs/RESEARCH.md`.
-- Data sources and how to get them: `docs/DATA.md`. Candidate statistics methods and lessons so far: `docs/METHODS.md`. Read METHODS before writing any analysis code.
+- Which dataset is for which feature, and what each column means: `data/README.md`. Sources and verification notes: `docs/DATA.md`. Candidate statistics methods and lessons so far: `docs/METHODS.md`. Read METHODS before writing any analysis code.
 
 ## Lanes: who owns what
 

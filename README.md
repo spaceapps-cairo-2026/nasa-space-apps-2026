@@ -5,6 +5,7 @@ A 3D Earth that shows how NASA measurements changed since 2001, where, how fast 
 1. **What we build:** `PROJECT_PLAN.md` (single source of truth)
 2. **Who does what, in which order:** `TASKS.md`
 3. **Team rules for people and Claude:** `CLAUDE.md`
+4. **Which dataset is for what:** `data/README.md`
 
 ```
 data/  (lane C)  ->  NASA POWER grids + points, crop table

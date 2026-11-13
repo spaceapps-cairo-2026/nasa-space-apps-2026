@@ -1,5 +1,7 @@
 # Data plan (verified Fri 13 Nov, 11:15 Cairo)
 
+**Start with `data/README.md`:** what each dataset represents, which feature uses it, and what is already in the repo.
+
 ## 0. Official challenge resources (PASTE HERE)
 
 The official Resources tab was down/blocked for automated reading. Lane C: open
