@@ -1,6 +1,7 @@
-"""Lane B: API that serves the PredictionBundle and the static app.
+"""Lane B: API. Serves live trends (contracts/api.md v0.3), the old PredictionBundle and the static app.
 
-Run:  MOCK=1 uvicorn api.main:app --reload --port 8000
+Run:  python run.py mock   (fixtures, no internet needed)
+      python run.py api    (real data: Egypt from the repo, the rest of the world live from NASA)
 """
 from __future__ import annotations
 
@@ -9,14 +10,15 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "contracts" / "fixtures" / "sample_predictions.json"
 REAL = ROOT / "ml" / "outputs" / "predictions.json"
-API_VERSION = "0.2"
+FIXTURES = ROOT / "contracts" / "fixtures"
+API_VERSION = "0.3"
 
 
 def is_mock() -> bool:
@@ -39,7 +41,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], a
 
 @app.get("/health")
 def health() -> dict:
-    return {"status": "ok", "mock": is_mock(), "version": API_VERSION}
+    return {"status": "ok", "mock": os.getenv("MOCK", "1") == "1", "version": API_VERSION}
 
 
 @app.get("/api/meta")
@@ -66,5 +68,69 @@ def item(item_id: str) -> dict:
     raise HTTPException(status_code=404, detail="item not found")
 
 
-# Static app last, so /api routes win.
-app.mount("/", StaticFiles(directory=ROOT / "app", html=True), name="app")
+# ---------- live trends (F1) ----------
+
+def _fixture(name: str) -> dict:
+    path = FIXTURES / name
+    return _load(str(path), path.stat().st_mtime)
+
+
+def _live():
+    """The trend engine is imported only when real data is asked for (mock mode never needs it)."""
+    import sys
+    if str(ROOT / "ml") not in sys.path:
+        sys.path.insert(0, str(ROOT / "ml"))
+    import live
+    return live
+
+
+def _call(fn, *args):
+    live = _live()
+    try:
+        return fn(live)(*args)
+    except live.BadRequest as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    except live.RegionTooLarge as exc:
+        raise HTTPException(status_code=413, detail=str(exc))
+    except live.SourceUnavailable as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+
+def trend_mock() -> bool:
+    """Trends are real unless MOCK=1 (they need no precomputed file, only the repo data or NASA)."""
+    return os.getenv("MOCK", "1") == "1"
+
+
+@app.get("/api/variables")
+def variables() -> dict:
+    if trend_mock():
+        return _fixture("variables.json")
+    return _call(lambda live: live.variables)
+
+
+@app.get("/api/trend/point")
+def trend_point(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180),
+                variable: str = "T2M") -> dict:
+    if trend_mock():
+        return _fixture("trend_point.json")
+    return _call(lambda live: live.point_trend, variable, lat, lon)
+
+
+@app.get("/api/trend/region")
+def trend_region(lat_min: float, lat_max: float, lon_min: float, lon_max: float,
+                 variable: str = "T2M") -> dict:
+    if trend_mock():
+        return _fixture("trend_region.json")
+    return _call(lambda live: live.region_trend, variable, lat_min, lat_max, lon_min, lon_max)
+
+
+@app.get("/api/trend/world")
+def trend_world(variable: str = "T2M", stride: int = 2) -> dict:
+    if trend_mock():
+        return _fixture("trend_world.json")
+    return _call(lambda live: live.world_trend, variable, stride)
+
+
+# Static app last, so /api routes win. The UI is dropped into app/; the API also runs without it.
+if (ROOT / "app").is_dir():
+    app.mount("/", StaticFiles(directory=ROOT / "app", html=True), name="app")
