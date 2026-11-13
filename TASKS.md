@@ -81,6 +81,7 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 - [ ] Make the repo public; **submit by 20:00**; improve until 23:59
 
 ## Lane A inbox
+- REQUEST (from B, Fri 18:55): record D3 in docs/DECISIONS.md: MapLibre GL JS 5.6.0 globe projection, NASA GIBS Blue Marble base imagery. Compared against CesiumJS with prototypes; note MapLibre cannot pick fill-extrusion in globe mode, so the app clicks an invisible flat fill layer. Library is vendored in app/vendor.
 
 ## Lane B inbox
 
