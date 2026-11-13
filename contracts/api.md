@@ -1,4 +1,4 @@
-# API contract (v0.3)
+# API contract (v0.4)
 
 Owned by lane A. Lane B implements it in `api/main.py`. The app only talks to these endpoints.
 
@@ -8,10 +8,10 @@ Start it: `python run.py mock` (fixtures, no internet) or `python run.py api` (r
 
 | Method | Path | Returns |
 |---|---|---|
-| GET | `/health` | `{"status": "ok", "mock": true/false, "version": "0.3"}` |
+| GET | `/health` | `{"status": "ok", "mock": true/false, "version": "0.4"}` |
 | GET | `/api/variables` | the measurement picker: `{version, period, variables: [{code, name, unit, source, point, region, world}]}` |
 | GET | `/api/trend/point?lat=&lon=&variable=T2M` | `trend_point`: one place, yearly series, trend line, rate, confidence, sentence |
-| GET | `/api/trend/region?lat_min=&lat_max=&lon_min=&lon_max=&variable=T2M` | `trend_region`: trend map for every grid cell in the box (compact grid), counts, region average series |
+| GET | `/api/trend/region?lat_min=&lat_max=&lon_min=&lon_max=&variable=T2M&country=` | `trend_region`: trend map for every grid cell in the box (compact grid), counts, region average series. `country` is optional (ISO 3 letter code, for example `EGY`): see "Country maps" below |
 | GET | `/api/trend/world?variable=T2M&stride=2` | `trend_world`: whole Earth overview (compact grid). `stride` 1, 2, 4 or 8 = keep every n-th cell |
 | GET | `/` | the static app in `app/` (if the folder exists) |
 | GET | `/api/meta`, `/api/predictions`, `/api/items/{id}` | old v0.2 PredictionBundle, kept so nothing breaks; not used by F1 |
@@ -47,8 +47,20 @@ Exact shapes: `contracts/trend.schema.json`. Examples made by the real engine: `
 - Say "not proven", never "no change".
 - `sentence` is ready to show as is. `caution` (may be null) must be shown when present.
 - **Region grid:** `grid.slope_per_decade[i][j]` belongs to the cell centered at `grid.lats[i]`, `grid.lons[j]`; the cell is `lat_step` x `lon_step` degrees. `null` = no data. Draw each cell as a rectangle.
-- The region is a **box**. If the user picked a country, the app clips the cells to the border.
+- The region is a **box**. If the user picked a country, send `country=<ISO>` as well (see "Country maps") and clip the drawn cells to the border.
 - `data_from`: `repo` (Egypt, in git), `cache` (fetched before), `nasa` (fetched just now).
+
+## Country maps (`country=`, new in v0.4)
+
+Without `country`, everything is computed over the whole box: sea and neighbouring countries are tested and counted too.
+With `country=EGY` (the box must still be sent, it says which data to load):
+
+- cells that do not touch the country come back as no data (`level` -1, `slope_per_decade` null);
+- `q` (the correction for testing many places) is computed over the country's cells only, so levels can differ from the box answer;
+- `summary`, `mean_series`, `mean_trend`, `sentence` and `mean_sentence` describe the country, and the sentences name it ("averaged over Egypt");
+- the answer carries `"country": {"iso": "EGY", "name": "Egypt"}` (null without the parameter).
+
+A cell touches the country when at least 8% of it is inside the border (the same rule the app uses to clip cells). Borders: `app/data/regions/<ISO>.geojson` when present, else `app/data/borders_50m.geojson` (Natural Earth). Example on Egypt, air temperature: the box has 357 cells and 131 proven warming; Egypt itself has 316 cells and 76 proven warming.
 
 ## Speed and errors
 
@@ -61,10 +73,12 @@ Exact shapes: `contracts/trend.schema.json`. Examples made by the real engine: `
 
 | Status | Meaning | `detail` |
 |---|---|---|
-| 400 | bad request (unknown variable, impossible box) | what to fix |
-| 413 | region needs more than 12 new tiles | ask the user to zoom in |
+| 400 | bad request (unknown measurement or country, impossible box, no map for this measurement) | a plain sentence that can be shown to the user as is |
+| 413 | region needs more than 12 blocks of NASA data that are not cached yet | a plain sentence asking for a smaller area, can be shown as is |
 | 422 | missing or non numeric parameter | FastAPI's standard message |
-| 502 | NASA could not be reached and the data is not cached | show "NASA data is not reachable right now" |
+| 502 | NASA could not be reached and the data is not cached | a plain sentence, can be shown as is |
+
+`/api/variables` says what exists before you ask: `region: false` means no trend map for that measurement, `world: false` means no whole Earth overview yet. The app should use these flags to disable the control instead of waiting for a 400.
 
 ## Mock mode
 
@@ -77,6 +91,7 @@ import sys; sys.path.insert(0, "ml")
 import live
 live.point_trend("T2M", 30.04, 31.24)             # -> trend_point
 live.region_trend("T2M", 22, 32, 25, 35)          # -> trend_region  (lat_min, lat_max, lon_min, lon_max)
+live.region_trend("T2M", 22, 32, 25, 35, country="EGY")   # the same, counted inside Egypt's border only
 live.world_trend("T2M", stride=2)                 # -> trend_world
 live.variables()
 # Errors: live.BadRequest (400), live.RegionTooLarge (413), live.SourceUnavailable (502)

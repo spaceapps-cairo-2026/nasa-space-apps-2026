@@ -1,4 +1,4 @@
-"""Lane B: API. Serves live trends (contracts/api.md v0.3), the old PredictionBundle and the static app.
+"""Lane B: API. Serves live trends (contracts/api.md v0.4), the old PredictionBundle and the static app.
 
 Run:  python run.py mock   (fixtures, no internet needed)
       python run.py api    (real data: Egypt from the repo, the rest of the world live from NASA)
@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "contracts" / "fixtures" / "sample_predictions.json"
 REAL = ROOT / "ml" / "outputs" / "predictions.json"
 FIXTURES = ROOT / "contracts" / "fixtures"
-API_VERSION = "0.3"
+API_VERSION = "0.4"
 
 
 def is_mock() -> bool:
@@ -118,10 +118,11 @@ def trend_point(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., 
 
 @app.get("/api/trend/region")
 def trend_region(lat_min: float, lat_max: float, lon_min: float, lon_max: float,
-                 variable: str = "T2M") -> dict:
+                 variable: str = "T2M", country: str | None = None) -> dict:
+    """country (ISO 3 letter code, optional): count and test only the cells of that country."""
     if trend_mock():
         return _fixture("trend_region.json")
-    return _call(lambda live: live.region_trend, variable, lat_min, lat_max, lon_min, lon_max)
+    return _call(lambda live: live.region_trend, variable, lat_min, lat_max, lon_min, lon_max, country)
 
 
 @app.get("/api/trend/world")

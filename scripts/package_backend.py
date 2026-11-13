@@ -18,7 +18,7 @@ DATA_SCRIPTS = ["data/power_point_fetch.py", "data/power_world_fetch.py", "data/
 DOCS = ["docs/METHODS.md", "docs/DECISIONS.md"]
 SKIP_PARTS = {"__pycache__", "outputs", "artifacts", ".pytest_cache"}
 
-README = """# CropShift Earth backend (trend engine + API), contract v0.3
+README = """# CropShift Earth backend (trend engine + API), contract v0.4
 
 This folder runs on its own. It answers: how much is a NASA measurement changing at a place,
 and how confident are we that the change is real and not normal year to year variation.

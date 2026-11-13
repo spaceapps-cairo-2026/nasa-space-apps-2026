@@ -2,197 +2,91 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "farming.schema.json",
   "title": "FarmingOutlook (F2 farmland, F3 crops, F4 decisions)",
-  "description": "Lane B addition for lane A to review. Served by GET /api/farming?country=EGY, built by python ml/farming.py. Flat arrays use index k = i * ncols + j, row i from the south, column j from the west.",
+  "description": "v0.4, reviewed by lane A. Served by GET /api/farming?country=EGY from ml/outputs/farming_<ISO>.json. Written today by python ml/farming.py (FAO ECOCROP calculator); a trained model replaces it by writing the same file. Check a file with: python run.py farming-check. Flat arrays use index k = i * ncols + j, row i from the south, column j from the west, and have nrows * ncols values. 'required' lists every field the app reads without a fallback today, so a file that passes the check cannot crash the Crops, Farmland or Decisions tabs.",
   "type": "object",
   "required": [
-    "version",
-    "region",
-    "grid",
-    "method",
-    "horizons",
-    "inside",
-    "crops",
-    "suitability",
-    "evidence",
-    "suitable_threshold"
+    "version", "region", "grid", "method", "horizons", "inside", "crops", "suitability", "evidence",
+    "suitable_threshold", "years_to_heat_limit", "temp_now_c", "rain_now_mm", "temp_trend_per_decade"
   ],
-  "properties": {
-    "version": {
-      "type": "string"
+  "$defs": {
+    "score_grid": {
+      "type": "array",
+      "description": "One value per cell: integer 0 to 100 (100 = ideal), null outside the country.",
+      "items": {"type": ["integer", "null"], "minimum": 0, "maximum": 100}
     },
-    "region": {
+    "number_grid": {
+      "type": "array",
+      "description": "One value per cell, null where there is none.",
+      "items": {"type": ["number", "null"]}
+    },
+    "per_crop_scores": {
       "type": "object",
-      "required": [
-        "id",
-        "name",
-        "bbox"
-      ]
+      "description": "crop id -> one score_grid per horizon, in the order of 'horizons'.",
+      "additionalProperties": {"type": "array", "items": {"$ref": "#/$defs/score_grid"}}
     },
+    "per_mode_per_crop": {
+      "type": "object",
+      "description": "mode (irrigated, rainfed) -> crop id -> one grid.",
+      "additionalProperties": {"type": "object", "additionalProperties": {"$ref": "#/$defs/number_grid"}}
+    },
+    "range": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2}
+  },
+  "properties": {
+    "version": {"type": "string"},
+    "region": {"type": "object", "required": ["id", "name", "bbox"]},
     "grid": {
       "type": "object",
-      "required": [
-        "lat0",
-        "lon0",
-        "dlat",
-        "dlon",
-        "nrows",
-        "ncols"
-      ],
+      "required": ["lat0", "lon0", "dlat", "dlon", "nrows", "ncols"],
       "properties": {
-        "lat0": {
-          "type": "number"
-        },
-        "lon0": {
-          "type": "number"
-        },
-        "dlat": {
-          "type": "number"
-        },
-        "dlon": {
-          "type": "number"
-        },
-        "nrows": {
-          "type": "integer"
-        },
-        "ncols": {
-          "type": "integer"
-        }
+        "lat0": {"type": "number"}, "lon0": {"type": "number"},
+        "dlat": {"type": "number"}, "dlon": {"type": "number"},
+        "nrows": {"type": "integer", "minimum": 1}, "ncols": {"type": "integer", "minimum": 1}
       }
     },
-    "method": {
-      "type": "string"
-    },
+    "method": {"type": "string", "minLength": 1, "description": "One sentence describing the model, shown in the app."},
     "horizons": {
       "type": "array",
-      "items": {
-        "type": "integer"
-      },
-      "minItems": 1
+      "description": "The three years behind the app's Now / 2030 / 2035 buttons, e.g. [2025, 2030, 2035].",
+      "items": {"type": "integer"}, "minItems": 3, "maxItems": 3
     },
-    "inside": {
-      "type": "string",
-      "pattern": "^[01]*$"
-    },
-    "evidence": {
-      "type": "string",
-      "pattern": "^[SMN-]*$"
-    },
-    "suitable_threshold": {
-      "type": "number"
-    },
+    "inside": {"type": "string", "pattern": "^[01]*$", "description": "One character per cell: 1 = the cell touches the country."},
+    "evidence": {"type": "string", "pattern": "^[SMN-]*$", "description": "One character per cell: strength of the warming trend (S strong, M moderate, N not proven, - no data)."},
+    "suitable_threshold": {"type": "number", "description": "Score at which a crop 'fits' a place."},
     "crops": {
       "type": "array",
+      "minItems": 1,
       "items": {
         "type": "object",
-        "required": [
-          "id",
-          "name",
-          "season_months"
-        ]
+        "required": ["id", "name", "scientific_name", "season_months", "temp_opt_c", "temp_abs_c"],
+        "properties": {
+          "id": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+          "name": {"type": "string"},
+          "scientific_name": {"type": "string"},
+          "season_months": {"type": "integer", "minimum": 1, "maximum": 12},
+          "temp_opt_c": {"$ref": "#/$defs/range"},
+          "temp_abs_c": {"$ref": "#/$defs/range"}
+        }
       }
     },
     "suitability": {
       "type": "object",
+      "required": ["irrigated", "rainfed"],
       "properties": {
-        "irrigated": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "array",
-            "items": {
-              "type": "array",
-              "items": {
-                "type": [
-                  "integer",
-                  "null"
-                ],
-                "minimum": 0,
-                "maximum": 100
-              }
-            }
-          }
-        },
-        "rainfed": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "array",
-            "items": {
-              "type": "array",
-              "items": {
-                "type": [
-                  "integer",
-                  "null"
-                ],
-                "minimum": 0,
-                "maximum": 100
-              }
-            }
-          }
-        }
-      },
-      "required": [
-        "irrigated"
-      ]
-    },
-    "suitability_10_low": {
-      "type": "object",
-      "additionalProperties": {
-        "type": "object",
-        "additionalProperties": {
-          "type": "array",
-          "items": {
-            "type": [
-              "integer",
-              "number",
-              "null"
-            ]
-          }
-        }
-      }
-    },
-    "suitability_10_high": {
-      "type": "object",
-      "additionalProperties": {
-        "type": "object",
-        "additionalProperties": {
-          "type": "array",
-          "items": {
-            "type": [
-              "integer",
-              "number",
-              "null"
-            ]
-          }
-        }
-      }
-    },
-    "best_start_month": {
-      "type": "object",
-      "additionalProperties": {
-        "type": "object",
-        "additionalProperties": {
-          "type": "array",
-          "items": {
-            "type": [
-              "integer",
-              "number",
-              "null"
-            ]
-          }
-        }
+        "irrigated": {"$ref": "#/$defs/per_crop_scores"},
+        "rainfed": {"$ref": "#/$defs/per_crop_scores"}
       }
     },
     "years_to_heat_limit": {
       "type": "object",
-      "additionalProperties": {
-        "type": "array",
-        "items": {
-          "type": [
-            "integer",
-            "number",
-            "null"
-          ]
-        }
-      }
-    }
+      "description": "crop id -> grid of years until the crop gets too hot (99 = safe, null = not applicable). A model without this idea writes null for every cell.",
+      "additionalProperties": {"$ref": "#/$defs/number_grid"}
+    },
+    "temp_now_c": {"$ref": "#/$defs/number_grid"},
+    "rain_now_mm": {"$ref": "#/$defs/number_grid"},
+    "temp_trend_per_decade": {"$ref": "#/$defs/number_grid"},
+    "rain_trend_mm_per_decade": {"$ref": "#/$defs/number_grid"},
+    "suitability_10_low": {"$ref": "#/$defs/per_mode_per_crop", "description": "Optional: last horizon, low end of the uncertainty."},
+    "suitability_10_high": {"$ref": "#/$defs/per_mode_per_crop", "description": "Optional: last horizon, high end of the uncertainty."},
+    "best_start_month": {"$ref": "#/$defs/per_mode_per_crop", "description": "Optional: 0 = January, start of the best season now."}
   }
 }

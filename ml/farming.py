@@ -42,7 +42,7 @@ CROPS = ROOT / "data" / "crops" / "crops.csv"
 BORDER = ROOT / "app" / "data" / "regions" / "EGY.geojson"
 OUTS = [ROOT / "ml" / "outputs" / "farming_EGY.json", ROOT / "contracts" / "fixtures" / "farming_EGY.json"]
 
-VERSION = "0.3"
+VERSION = "0.4"
 START, END = 2001, 2025
 BASE_START, BASE_END = 2016, 2025          # "climate now" = last 10 years
 BASE_CENTER = (BASE_START + BASE_END) / 2  # 2020.5
@@ -259,9 +259,24 @@ def build() -> dict:
     }
 
 
+def is_ours(path: Path) -> bool:
+    """True if the file is missing or was written by this calculator (not by a trained model)."""
+    if not path.exists():
+        return True
+    try:
+        return json.loads(path.read_text(encoding="utf-8")).get("method") == METHOD
+    except (json.JSONDecodeError, OSError):
+        return False
+
+
 if __name__ == "__main__":
+    import sys
     out = build()
     for path in OUTS:
+        # ml/outputs/ is where a trained model puts its answer: never replace that by accident.
+        if "outputs" in path.parts and not is_ours(path) and "--force" not in sys.argv:
+            print("kept", path, "(written by another model; use --force to replace it with the FAO calculator)")
+            continue
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(out, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
         print("wrote", path, f"{path.stat().st_size / 1024:.0f} KB")

@@ -131,6 +131,49 @@ def test_bad_requests():
         live.region_trend("T2M", 32, 22, 25, 35)
     with pytest.raises(live.BadRequest):
         live.region_trend("T2M_MIN", 22, 32, 25, 35)
+    with pytest.raises(live.BadRequest):
+        live.region_trend("T2M", 22, 32, 25, 35, country="XXX")     # no such country
+    with pytest.raises(live.BadRequest):
+        live.region_trend("T2M", 22, 32, 25, 35, country="FRA")     # France is not in this box
+
+
+def test_error_messages_are_plain_sentences():
+    """The app shows these as they are: no Python lists, no internal words."""
+    for call in (lambda: live.region_trend("T2M_MIN", 22, 32, 25, 35), lambda: live.world_trend("T2M_MIN")):
+        with pytest.raises(live.BadRequest) as exc:
+            call()
+        text = str(exc.value)
+        assert "daily minimum air temperature" in text and text.endswith(".")
+        assert "[" not in text and "grid" not in text and "—" not in text
+
+
+def test_cell_share_of_a_simple_shape():
+    import borders
+    # A rectangle from 0 to 1 N and 0 to 0.9375 E: covers column 0, half of column 1, none of column 2.
+    shape = {"type": "Polygon", "coordinates": [[[0, 0], [0.9375, 0], [0.9375, 1], [0, 1], [0, 0]]]}
+    share = borders.cell_share([0.25, 0.75, 1.25], [0.3125, 0.9375, 1.5625], 0.5, 0.625, shape)
+    assert np.allclose(share, [[1, 0.5, 0], [1, 0.5, 0], [0, 0, 0]])
+    # A hole is not part of the shape.
+    holed = {"type": "Polygon", "coordinates": [shape["coordinates"][0], [[0, 0], [0.625, 0], [0.625, 0.5], [0, 0.5], [0, 0]]]}
+    assert borders.cell_share([0.25], [0.3125], 0.5, 0.625, holed)[0, 0] == 0
+
+
+def test_country_map_covers_the_country_only():
+    """With country=, sea and neighbours are no data and the counts, FDR and average use Egypt only."""
+    box = live.region_trend("T2M", 22, 32, 25, 35)
+    egy = live.region_trend("T2M", 22, 32, 25, 35, country="egy")
+    validate(egy)
+    assert box["country"] is None and egy["country"] == {"iso": "EGY", "name": "Egypt"}
+    assert 300 < egy["summary"]["cells"] < box["summary"]["cells"] == 357
+    assert egy["summary"]["with_data"] == egy["summary"]["cells"]
+    g = egy["grid"]
+    sea = (g["lats"].index(32.0), g["lons"].index(30.0))            # Mediterranean
+    cairo = (g["lats"].index(30.0), g["lons"].index(31.25))
+    assert g["level"][sea[0]][sea[1]] == -1 and g["slope_per_decade"][sea[0]][sea[1]] is None
+    assert g["level"][cairo[0]][cairo[1]] >= 0
+    assert box["grid"]["level"][sea[0]][sea[1]] >= 0                 # the box answer still has the sea cell
+    assert "Egypt's" in egy["sentence"] and "averaged over Egypt" in egy["mean_sentence"]
+    assert egy["summary"]["increasing"] <= box["summary"]["increasing"]
 
 
 # ---------- API ----------
@@ -162,4 +205,8 @@ def test_api_real_on_egypt(monkeypatch):
     assert r.status_code == 200 and r.json()["kind"] == "trend_point"
     assert c.get("/api/trend/point?lat=30&lon=31&variable=NOPE").status_code == 400
     assert c.get("/api/trend/region?lat_min=32&lat_max=22&lon_min=25&lon_max=35").status_code == 400
+    r = c.get("/api/trend/region?lat_min=22&lat_max=32&lon_min=25&lon_max=35&variable=T2M&country=EGY")
+    assert r.status_code == 200 and r.json()["country"]["name"] == "Egypt"
+    validate(r.json())
+    assert c.get("/api/trend/region?lat_min=22&lat_max=32&lon_min=25&lon_max=35&country=XXX").status_code == 400
     os.environ["MOCK"] = "1"

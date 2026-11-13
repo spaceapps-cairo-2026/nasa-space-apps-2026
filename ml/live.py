@@ -1,9 +1,9 @@
 """Lane A: live trends. Gets the data (Egypt from the repo, anywhere else from NASA with a disk
-cache), runs the trend engine, and returns the JSON shapes defined in contracts/api.md (v0.3).
+cache), runs the trend engine, and returns the JSON shapes defined in contracts/api.md (v0.4).
 
 This is what the API calls:
     point_trend(variable, lat, lon)                               -> "trend_point"
-    region_trend(variable, lat_min, lat_max, lon_min, lon_max)    -> "trend_region"
+    region_trend(variable, lat_min, lat_max, lon_min, lon_max, country=None)   -> "trend_region"
     world_trend(variable="T2M", stride=2)                         -> "trend_world"
     variables()                                                   -> the measurement picker
 
@@ -25,11 +25,12 @@ for _p in (ROOT / "ml", ROOT / "data"):
     if str(_p) not in sys.path:
         sys.path.insert(0, str(_p))
 
+import borders  # noqa: E402
 import power_point_fetch as point_src  # noqa: E402
 import power_world_fetch as world_src  # noqa: E402
 import trends as T  # noqa: E402
 
-VERSION = "0.3"
+VERSION = "0.4"
 PERIOD = f"{T.START_YEAR}-{T.END_YEAR}"
 YEARS = list(range(T.START_YEAR, T.END_YEAR + 1))
 SOURCE = "NASA POWER (MERRA-2), monthly, 0.5 x 0.625 degree grid"
@@ -50,6 +51,8 @@ _VARS = {
     "GWETROOT": ("root zone soil wetness", "fraction (0 to 1)", 3, True),
     "RH2M": ("relative humidity", "%", 2, True),
 }
+NOT_REACHABLE = ("NASA data is not reachable right now and this place is not saved on this computer yet. "
+                 "Check the internet connection and try again.")
 METHOD_TEXT = ("Sen's slope; Mann-Kendall test with variance scaled by lag 1 autocorrelation "
                "(effective sample size); Benjamini-Hochberg FDR on maps")
 
@@ -66,9 +69,15 @@ class SourceUnavailable(RuntimeError):
     """NASA could not be reached and the data is not in the local cache."""
 
 
+def _names(codes) -> str:
+    """Plain names for a list of measurement codes: "a, b and c"."""
+    names = [_VARS[c][0] for c in codes]
+    return names[0] if len(names) == 1 else ", ".join(names[:-1]) + " and " + names[-1]
+
+
 def variable_info(code: str) -> dict:
     if code not in _VARS:
-        raise BadRequest(f"unknown variable {code}; choose from {list(_VARS)}")
+        raise BadRequest(f"Unknown measurement {code}. Choose one of: {', '.join(_VARS)}.")
     name, unit, _, _ = _VARS[code]
     return {"code": code, "name": name, "unit": unit, "source": SOURCE}
 
@@ -186,10 +195,13 @@ def _missing_tiles(var: str, lat_min: float, lat_max: float, lon_min: float, lon
 
 def region_data(var: str, lat_min: float, lat_max: float, lon_min: float, lon_max: float) -> dict:
     """Monthly grid for a box: Egypt from the repo, anything else live from NASA (cached on disk)."""
-    if var not in _VARS or not _VARS[var][3]:
-        raise BadRequest(f"variable {var} has no region grid; choose from {[c for c in _VARS if _VARS[c][3]]}")
+    variable_info(var)
+    if not _VARS[var][3]:
+        raise BadRequest(f"Trend maps are not available for {_VARS[var][0]} yet. Click a place to see its trend "
+                         f"there, or pick another measurement for the map.")
     if not (-90 <= lat_min < lat_max <= 90 and -180 <= lon_min < lon_max <= 180):
-        raise BadRequest("box must satisfy -90 <= lat_min < lat_max <= 90 and -180 <= lon_min < lon_max <= 180")
+        raise BadRequest("The selected area is not a valid box: south must be below north and west below east "
+                         "(latitude -90 to 90, longitude -180 to 180).")
     if _in_egypt(lat_min, lat_max, lon_min, lon_max) and EGYPT_TABLE.exists():
         lats, lons, values = _egypt_monthly(var)
         r = (lats >= lat_min) & (lats <= lat_max)
@@ -197,14 +209,15 @@ def region_data(var: str, lat_min: float, lat_max: float, lon_min: float, lon_ma
         return {"lats": lats[r], "lons": lons[c], "values": values[r][:, c], "from": "repo"}
     missing = _missing_tiles(var, lat_min, lat_max, lon_min, lon_max)
     if missing > MAX_NEW_TILES:
-        raise RegionTooLarge(f"this region needs {missing} new NASA tiles (limit {MAX_NEW_TILES}); "
-                             f"zoom in or select a smaller area")
+        raise RegionTooLarge(f"This area is too large to load in one go for {_VARS[var][0]}: it needs {missing} blocks "
+                             f"of NASA data that are not saved on this computer yet (the limit is {MAX_NEW_TILES}). "
+                             f"Choose a smaller country or area.")
     try:
         res = world_src.region_monthly(var, lat_min, lat_max, lon_min, lon_max)
     except ValueError as exc:
         raise BadRequest(str(exc)) from exc
     except Exception as exc:
-        raise SourceUnavailable(f"could not fetch NASA POWER data: {exc}") from exc
+        raise SourceUnavailable(NOT_REACHABLE) from exc
     return {"lats": res["lats"], "lons": res["lons"], "values": res["values"],
             "from": "cache" if missing == 0 else "nasa"}
 
@@ -232,9 +245,9 @@ def point_data(var: str, lat: float, lon: float) -> dict:
     try:
         res = point_src.point_monthly(cell_lat, cell_lon)
     except Exception as exc:
-        raise SourceUnavailable(f"could not fetch NASA POWER data: {exc}") from exc
+        raise SourceUnavailable(NOT_REACHABLE) from exc
     if var not in res["values"]:
-        raise SourceUnavailable(f"NASA POWER returned no {var} for this point")
+        raise SourceUnavailable(f"NASA has no {_VARS[var][0]} data for this place.")
     return {"lat": cell_lat, "lon": cell_lon, "values": res["values"][var],
             "from": "cache" if res["cached"] else "nasa"}
 
@@ -286,24 +299,45 @@ def _map_block(annual: np.ndarray) -> tuple[dict, dict]:
     return {"slope": slope, "p": res["p"], "q": q, "level": level, "mean": res["mean"]}, counts
 
 
-def _region_sentence(var: dict, c: dict) -> str:
+def _region_sentence(var: dict, c: dict, place: str | None = None) -> str:
     if not c["with_data"]:
-        return f"There is no NASA data for {var['name']} in this region."
+        return f"There is no NASA data for {var['name']} in {place or 'this region'}."
     pct = lambda k: f"{100 * c[k] / c['with_data']:.0f}%"   # noqa: E731
+    whose = f"{place}'s" if place else "this region's"
     return (f"Since {T.START_YEAR}, {var['name']} is rising with convincing evidence in {pct('increasing')} "
-            f"of this region's {c['with_data']} grid cells and falling in {pct('decreasing')}. "
+            f"of {whose} {c['with_data']} grid cells and falling in {pct('decreasing')}. "
             f"In the other {pct('not_proven')} a change is not proven.")
 
 
+def _country_mask(iso: str, lats: np.ndarray, lons: np.ndarray) -> tuple[str, np.ndarray]:
+    """(country name, mask [lat, lon]) of the cells that touch the country."""
+    try:
+        name, mask = borders.country_mask(iso, lats, lons, world_src.LAT_STEP, world_src.LON_STEP)
+    except borders.UnknownCountry as exc:
+        raise BadRequest(f"Unknown country code {iso}. Use the 3 letter ISO code, for example EGY.") from exc
+    if not mask.any():
+        raise BadRequest(f"{name} is not inside the selected area.")
+    return name, mask
+
+
 @lru_cache(maxsize=64)
-def _region_trend(variable: str, lat_min: float, lat_max: float, lon_min: float, lon_max: float) -> dict:
+def _region_trend(variable: str, lat_min: float, lat_max: float, lon_min: float, lon_max: float,
+                  country: str | None = None) -> dict:
     var = variable_info(variable)
     data = region_data(variable, lat_min, lat_max, lon_min, lon_max)
     lats, lons = data["lats"], data["lons"]
     if len(lats) == 0 or len(lons) == 0:
-        raise BadRequest("the box contains no grid cell; make it at least 0.5 x 0.625 degrees")
+        raise BadRequest("The selected area is smaller than one grid cell. Make it at least 0.5 x 0.625 degrees.")
     annual = T.annual_means(data["values"])
+    place = None
+    if country:
+        # Cells outside the country become "no data" BEFORE testing, so the false discovery
+        # correction, the counts and the average all cover the country only.
+        place, mask = _country_mask(country, lats, lons)
+        annual = np.where(mask[:, :, None], annual, np.nan)
     m, counts = _map_block(annual)
+    if country:
+        counts["cells"] = int(mask.sum())
     nd = _VARS[variable][2] + 2
 
     # Region average (cells weighted by their real area) for the chart.
@@ -317,6 +351,7 @@ def _region_trend(variable: str, lat_min: float, lat_max: float, lon_min: float,
     return {
         "version": VERSION, "kind": "trend_region", "variable": var, "period": PERIOD,
         "bbox": {"lat_min": lat_min, "lat_max": lat_max, "lon_min": lon_min, "lon_max": lon_max},
+        "country": {"iso": country, "name": place} if country else None,
         "grid": {
             "lats": [float(v) for v in lats], "lons": [float(v) for v in lons],
             "lat_step": world_src.LAT_STEP, "lon_step": world_src.LON_STEP,
@@ -329,8 +364,8 @@ def _region_trend(variable: str, lat_min: float, lat_max: float, lon_min: float,
         "mean_series": _series(mean_series),
         "mean_trend_line": _trend_line(mean_series, mean_trend["slope_per_decade"]),
         "mean_trend": mean_trend,
-        "sentence": _region_sentence(var, counts),
-        "mean_sentence": sentence(var, mean_trend, where="averaged over this region"),
+        "sentence": _region_sentence(var, counts, place),
+        "mean_sentence": sentence(var, mean_trend, where=f"averaged over {place or 'this region'}"),
         "caution": ("Most of this region gets almost no rain, so rain trends here are very small "
                     "amounts of water. Read them with care.") if arid else None,
         "method": METHOD_TEXT,
@@ -338,10 +373,16 @@ def _region_trend(variable: str, lat_min: float, lat_max: float, lon_min: float,
     }
 
 
-def region_trend(variable: str, lat_min: float, lat_max: float, lon_min: float, lon_max: float) -> dict:
-    """Trend map for every grid cell inside a box, as a compact grid (rows = lats, columns = lons)."""
+def region_trend(variable: str, lat_min: float, lat_max: float, lon_min: float, lon_max: float,
+                 country: str | None = None) -> dict:
+    """Trend map for every grid cell inside a box, as a compact grid (rows = lats, columns = lons).
+
+    country (ISO 3 letter code, optional): keep only the cells that touch that country. Cells outside
+    it are "no data", and the correction for many places, the counts and the average use the country only.
+    """
     t0 = time.perf_counter()
-    out = dict(_region_trend(variable, float(lat_min), float(lat_max), float(lon_min), float(lon_max)))
+    iso = country.strip().upper() if country and country.strip() else None
+    out = dict(_region_trend(variable, float(lat_min), float(lat_max), float(lon_min), float(lon_max), iso))
     out["seconds"] = round(time.perf_counter() - t0, 3)
     return out
 
@@ -354,13 +395,17 @@ def world_trend(variable: str = "T2M", stride: int = 2) -> dict:
     var = variable_info(variable)
     src = WORLD_DIR / f"{variable}_annual.npz"
     if not src.exists():
-        raise BadRequest(f"no world grid for {variable} yet; available: "
-                         f"{[c for c in _VARS if (WORLD_DIR / f'{c}_annual.npz').exists()]}")
+        ready = [c for c in _VARS if (WORLD_DIR / f"{c}_annual.npz").exists()]
+        only = f"It is ready for {_names(ready)} only. " if ready else ""
+        raise BadRequest(f"The whole Earth map is not available for {var['name']} yet. {only}"
+                         f"Pick a country or click a place to see this measurement.")
     if stride not in (1, 2, 4, 8):
         raise BadRequest("stride must be 1, 2, 4 or 8")
     out_file = OUTPUTS / f"world_{variable}_s{stride}.json"
     if out_file.exists() and out_file.stat().st_mtime >= src.stat().st_mtime:
-        return json.loads(out_file.read_text())
+        saved = json.loads(out_file.read_text())
+        if saved.get("version") == VERSION:
+            return saved
     with np.load(src) as z:
         annual, lats, lons = z["values"], z["lats"], z["lons"]
     m, counts = _map_block(annual)                     # FDR over the full grid, then thin it out
