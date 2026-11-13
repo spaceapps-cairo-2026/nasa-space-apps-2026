@@ -84,3 +84,12 @@ def test_farming_matches_known_geography(client):
     assert f["suitability"]["irrigated"]["apple"][0][k] == 0
     assert f["suitability"]["irrigated"]["date_palm"][0][k] >= 60
     assert max(v or 0 for v in f["suitability"]["rainfed"]["wheat"][0]) < 50
+
+
+def test_validation(client):
+    r = client.get("/api/validation")
+    assert r.status_code == 200
+    v = r.json()
+    assert set(v["checks"]) >= {"cross_check", "false_alarms", "many_places", "farming"}
+    assert all(c["passed"] for c in v["checks"]["farming"]["checks"])
+    assert v["limitations"]

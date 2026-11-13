@@ -227,5 +227,14 @@ def farming(country: str = "EGY") -> dict:
     raise HTTPException(status_code=404, detail="The farming outlook has not been computed yet (python ml/farming.py).")
 
 
+@app.get("/api/validation")
+def validation() -> dict:
+    """Numbers for the Methods panel (ml/validate.py output, else the fixture)."""
+    for path in (ROOT / "ml" / "outputs" / "validation.json", FIXTURES / "validation.json"):
+        if path.exists():
+            return _load(str(path), path.stat().st_mtime)
+    raise HTTPException(status_code=404, detail="Validation has not been computed yet (python ml/validate.py).")
+
+
 # Static app last, so /api routes win.
 app.mount("/", StaticFiles(directory=ROOT / "app", html=True), name="app")

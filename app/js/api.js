@@ -24,6 +24,7 @@ export const api = {
   }),
   world: (v) => getJSON('/api/trend/world', { var: v }),
   farming: (country) => getJSON('/api/farming', { country }),
+  validation: () => getJSON('/api/validation'),
   cell: (lat, lon, v) => getJSON('/api/trend/cell', { lat: lat.toFixed(3), lon: lon.toFixed(3), var: v }),
 };
 

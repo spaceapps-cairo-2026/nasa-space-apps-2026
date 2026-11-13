@@ -5,6 +5,7 @@ import { setupSearch } from './search.js';
 import { describePlace } from './geo.js';
 import { gridToGeoJSON, legendHTML, showCellSummary, showLoading, showMessage, showTrend, worldImage } from './trends.js';
 import { buildFarmCells, cellPanelHTML, cropMap, decisionLists, landMap } from './farming.js';
+import { methodsHTML } from './methods.js';
 
 const $ = (id) => document.getElementById(id);
 // Most detailed border per country: Egypt has its own 1:10m file, the rest use 1:50m.
@@ -277,6 +278,21 @@ function openFarmPoint(lat, lon) {
   else showMessage(panel, placeName(lat, lon), 'Farming analysis is available for Egypt. Click a place inside Egypt, or use the Trends tab here.');
 }
 
+/* ====================== How we know ====================== */
+
+async function showMethods() {
+  showLoading(panel, 'How we know');
+  try {
+    const v = await api.validation();
+    panel.hidden = false;
+    panel.innerHTML = `<button class="btn close" aria-label="Close panel">×</button>${methodsHTML(v)}`;
+    panel.querySelector('.close').onclick = () => { panel.hidden = true; };
+    panel.scrollTop = 0;
+  } catch (e) {
+    showMessage(panel, 'How we know', e.message, 'warn');
+  }
+}
+
 /* ====================== tabs ====================== */
 
 async function setTab(tab) {
@@ -357,6 +373,7 @@ async function init() {
     showRegion(state.mapCountry);
   };
   $('world-toggle').onchange = loadWorld;
+  $('btn-methods').onclick = showMethods;
   $('btn-home').onclick = () => globe.home();
   $('btn-proj').onclick = () => { $('btn-proj').textContent = globe.toggleProjection() ? 'Switch to 2D' : 'Switch to 3D'; };
 

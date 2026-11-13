@@ -1,0 +1,130 @@
+{
+ "version": "0.3",
+ "checks": {
+  "cross_check": {
+   "title": "Cross-check with NASA's independent global record",
+   "ours": {
+    "label": "Our data (NASA POWER / MERRA-2), whole Earth, area weighted",
+    "per_decade": 0.184,
+    "ci_low": 0.1,
+    "ci_high": 0.268,
+    "p": 0.00014
+   },
+   "ours_no_antarctica": {
+    "label": "Our data without Antarctica",
+    "per_decade": 0.217,
+    "ci_low": 0.14,
+    "ci_high": 0.294,
+    "p": 5.8e-06
+   },
+   "arctic": {
+    "label": "Our data, Arctic only (north of 60 N)",
+    "per_decade": 0.361,
+    "ci_low": 0.138,
+    "ci_high": 0.585,
+    "p": 0.0028
+   },
+   "antarctica": {
+    "label": "Our data, Antarctica only (south of 60 S)",
+    "per_decade": -0.28,
+    "ci_low": -0.581,
+    "ci_high": 0.02,
+    "p": 0.066
+   },
+   "reference": {
+    "label": "NASA GISTEMP v4 (stations and ships, a different method)",
+    "per_decade": 0.261,
+    "ci_low": 0.203,
+    "ci_high": 0.319,
+    "p": 3.1e-09
+   },
+   "period": [
+    2001,
+    2025
+   ],
+   "agrees": true,
+   "plain": "From 2001 to 2025, NASA's GISTEMP record warms the planet +0.26 °C per decade. Our data gives +0.18 for the whole Earth, because it shows Antarctica cooling (-0.28); without Antarctica it gives +0.22, and the two 95% ranges overlap. Our data also shows the Arctic warming fastest (+0.36 °C per decade), the pattern known as Arctic amplification. The datasets measure slightly different things (air at 2 m vs surface and sea temperature), so we show both numbers instead of hiding the gap."
+  },
+  "false_alarms": {
+   "title": "How often the test cries wolf",
+   "method": "straight-line trend with a t-test per place (placeholder until decision D1)",
+   "target": 0.05,
+   "noise_sd_c": 0.435,
+   "year_to_year_resemblance": -0.32,
+   "false_alarm_rate": {
+    "Egypt-like noise": 0.009,
+    "strong year-to-year resemblance (0.5)": 0.244
+   },
+   "simulations": 4000,
+   "d1_candidates": {
+    "plain_mk": {
+     "false_alarm": 0.0085,
+     "false_alarm_strong": 0.208,
+     "finds_0_2_per_decade": 0.292
+    },
+    "hamed_rao_mk": {
+     "false_alarm": 0.094,
+     "false_alarm_strong": 0.204,
+     "finds_0_2_per_decade": 0.4445
+    },
+    "prewhitened_mk": {
+     "false_alarm": 0.0405,
+     "false_alarm_strong": 0.044,
+     "finds_0_2_per_decade": 0.3885
+    },
+    "tfpw_mk": {
+     "false_alarm": 0.017,
+     "false_alarm_strong": 0.2465,
+     "finds_0_2_per_decade": 0.301
+    },
+    "linear_t_test": {
+     "false_alarm": 0.0125,
+     "false_alarm_strong": 0.2265,
+     "finds_0_2_per_decade": 0.3135
+    }
+   },
+   "plain": "We made 4,000 fake 25-year series with Egypt's real noise and NO trend. The test called 0.9% of them a trend (the ideal is at most 5%). With strong year-to-year resemblance it rises to 24.4%, which is why the method choice (D1) is still being compared."
+  },
+  "many_places": {
+   "title": "Testing many places at once",
+   "cells": 357,
+   "p_below_0_05": 176,
+   "q_below_0_05": 106,
+   "lucky_if_no_trend": 18,
+   "plain": "Egypt has 357 grid cells. Testing each at p < 0.05 would show about 18 'trends' by pure luck even if nothing changed. Without correction 176 cells pass; after the false discovery rate correction 106 remain, and those are the ones the map calls proven."
+  },
+  "farming": {
+   "title": "Common-sense checks of the farming outlook",
+   "checks": [
+    {
+     "check": "Apples cannot survive Aswan's summer",
+     "passed": true,
+     "detail": "score 0"
+    },
+    {
+     "check": "Date palms do better in Aswan than in the Delta",
+     "passed": true,
+     "detail": "79 vs 72"
+    },
+    {
+     "check": "Wheat grows in the Delta's winter",
+     "passed": true,
+     "detail": "score 98"
+    },
+    {
+     "check": "Rain alone cannot grow wheat anywhere in Egypt",
+     "passed": true,
+     "detail": "best rain-only score 0"
+    }
+   ]
+  }
+ },
+ "limitations": [
+  "Each grid cell is about 55 by 60 km: it describes a region, not one farm.",
+  "NASA POWER is a model built from satellites and weather stations (MERRA-2): very good on large scales, less exact for one valley or oasis.",
+  "25 years is enough to detect strong trends; small ones may stay 'not proven' until more years are measured.",
+  "Future views assume today's measured trend continues in a straight line. They are not forecasts and ignore irrigation changes, new crop varieties and soil.",
+  "Crop needs come from FAO ECOCROP averages; real varieties differ, and soil, salinity and water supply are not included.",
+  "We never claim why something changes; we say a pattern is consistent with a cause."
+ ]
+}
