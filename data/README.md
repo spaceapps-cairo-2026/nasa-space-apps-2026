@@ -7,7 +7,7 @@ More detail on sources and how they were verified: `docs/DATA.md`.
 
 | # | Dataset | In the repo? | Used by | Task that brings it |
 |---|---|---|---|---|
-| 0 | NASA POWER grid, **whole world**, 2001 to 2025 | Yearly means: **temperature (`T2M`) is in the repo**; the other 5 measurements are still downloading (started Fri evening). Monthly tiles: lead's laptop only | F1 trend maps for any country and the whole globe | C11 |
+| 0 | NASA POWER grid, **any region of the world**, 2001 to 2025 | **Fetched live per region and cached on your disk.** World temperature yearly means (`T2M`) are in the repo | F1 trend maps for any country | done (C11); bulk download optional (C13) |
 | 1 | NASA POWER monthly grid, Egypt, 2001 to 2025 | **Yes** | F2 farmland, F3 crops, F4 decisions for Egypt; testing trend methods (D1) | done |
 | 2 | NASA POWER point data, any place on Earth | No: fetched live by the app; demo points get cached | F1 city and point trends, F6 tour | C1 |
 | 3 | FAO ECOCROP crop requirements, 20 candidate crops | **Yes** | F3 crops (and F2 viability, F4 decisions) | done; final 8 to 12 picked in D6 (C3) |
@@ -22,6 +22,16 @@ More detail on sources and how they were verified: `docs/DATA.md`.
 
 **Why:** trends (F1) must work as a map anywhere on Earth. Farming features (F2 to F4) stay limited to focus countries.
 
+**How we get it: live fetch, no waiting.** Ask for any box on Earth and get its monthly values. Tiles already on disk are instant; missing ones are fetched from NASA now (about 5 to 40 s for a country, depending on size) and kept in `data/cache/power_world/`, so each tile is fetched only once.
+```python
+import sys; sys.path.insert(0, "data")
+from power_world_fetch import region_monthly
+r = region_monthly("T2M", lat_min=30, lat_max=46, lon_min=129, lon_max=146)   # Japan
+r["values"]   # float32 array [latitude, longitude, month], 300 months from 2001-01; NaN = no data
+r["lats"], r["lons"], r["months"]
+```
+The bulk download of the whole world (`python run.py world`, about 4 hours) is **optional**: it only makes every region instant.
+
 **Source:** the same NASA POWER service and the same 6 measurements as the Egypt grid in section 1 (see the measurement table there). Checked: over Egypt the world download equals the Egypt download exactly (107,100 values compared).
 
 **Grid:** 361 latitudes (-90 to 90, step 0.5) x 576 longitudes (-180 to 179.375, step 0.625) = 207,936 cells. Jan 2001 to Dec 2025.
@@ -30,7 +40,7 @@ More detail on sources and how they were verified: `docs/DATA.md`.
 
 | File | What | In git? |
 |---|---|---|
-| `data/processed/world/<VARIABLE>_annual.npz` | **Use this one.** Yearly mean per cell, 2001 to 2025 (a year needs at least 9 valid months) | Yes, once the download finishes |
+| `data/processed/world/<VARIABLE>_annual.npz` | Whole world at once: yearly mean per cell, 2001 to 2025 (a year needs at least 9 valid months). For the globe overview | `T2M` yes; others only if the bulk download is finished |
 | `data/cache/power_world/<VARIABLE>_monthly.npy` | All 300 months per cell, 250 MB per measurement | No, lead's laptop only (ask for a copy if you need monthly values) |
 | `data/cache/power_world/<VARIABLE>/*.npz` | The 648 downloaded tiles per measurement | No |
 

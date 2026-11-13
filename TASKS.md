@@ -17,7 +17,7 @@ What we build and why: `PROJECT_PLAN.md`. This file is **who does what, and in w
 A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as each is ready (not at the next merge point), so all of lane B's screens can be built on fixtures by about 10:30.
 
 **Chains that must happen in order (coordinate these):**
-1. **F1 trends:** C11 world data + A1 contract + A3 method choice (D1, D2) → A4 trend engine (world) → **13:00 merge** → C5 validation, C6 pitch numbers
+1. **F1 trends:** A1 contract + A3 method choice (D1, D2) → A4 trend engine → **13:00 merge** → C5 validation, C6 pitch numbers
 2. **Live point:** C1 point fetch + A4 trend engine → B4 real `/trend/point`
 3. **Crops:** C3 crop table (D6) → A6 crop engine → A7 projections → A8 decision rankings
 4. **Farmland:** A4 trend engine → A5 viability score (D4) → A7 projections
@@ -36,10 +36,10 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 
 ## Lane A: analysis + integration (`ml/`, `contracts/`)
 
-- [ ] **A1** Contracts for F1: point trend, region trend and the **world trend layer** (compact grid, not one JSON object per cell; see `PROJECT_PLAN.md` section 6), fixtures, endpoints in `contracts/api.md`, and the Python signature of the trend function the API calls | needs: none | owner: ___
+- [ ] **A1** Contracts for F1: point trend and region trend map (compact grid, not one JSON object per cell; see `PROJECT_PLAN.md` section 6), fixtures, endpoints in `contracts/api.md`, and the Python signature of the trend function the API calls | needs: none | owner: ___
 - [ ] **A2** Contracts + fixtures for F2 viability, F3 crops (both modes, irrigated and rain-fed), F4 decisions, so lane B can build every tab on fake data | needs: A1 | owner: ___
 - [ ] **A3** D1 + D2: compare trend and confidence methods on the Egypt grid, pick one, set confidence levels and wording (with C), write it in `docs/DECISIONS.md` | needs: none | owner: ___
-- [ ] **A4** Trend engine: **world** trend layers for all 6 measurements from `data/processed/world/` to `ml/outputs/` (must work on whole arrays, not a slow loop over 207,936 cells; temperature first), plus the point function for live requests | needs: A1, A3 | owner: ___
+- [ ] **A4** Trend engine: a function that takes the arrays from `region_monthly()` (any region, live fetched) and returns the trend map; works on whole arrays, not a slow loop over cells. Plus the point function for live requests, and the world temperature overview from `data/processed/world/T2M_annual.npz` | needs: A1, A3 | owner: ___
 - [ ] **A5** D4: farming viability score per cell per year, its trend and confidence | needs: A4 | owner: ___
 - [ ] **A6** Crop suitability per cell per year, rain-fed and irrigated | needs: C3, A2 | owner: ___
 - [ ] **A7** D5: projections for +5 and +10 years with uncertainty, labeled "if current trends continue" | needs: A5, A6 | owner: ___
@@ -51,7 +51,7 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 - [ ] **B1** D3: choose globe and map libraries, bundle them into `app/vendor/` (must work offline except map tiles) | needs: none | owner: ___
 - [ ] **B2** F0: globe, country/city search, click a point, fly to the area, outline it, pass the selection to every tab | needs: B1 | owner: ___
 - [ ] **B3** F1 Trends tab on fixtures: measurement picker, time series chart with trend line, rate per decade, confidence label, trend map for any selected country and the whole globe with "not proven" in grey, plain sentence | needs: A1 | owner: ___
-- [ ] **B4** API: `/trend/point` and `/trend/region` on fixtures (`MOCK=1`), then real data; `/trend/region` works for any country (cut from the world layer); farming endpoints answer "farming analysis available for: Egypt" outside focus countries | needs: A1 (real: A4, C1) | owner: ___
+- [ ] **B4** API: `/trend/point` and `/trend/region` on fixtures (`MOCK=1`), then real data; `/trend/region` works for any country: calls `region_monthly()` (live fetch, cached) then the engine, with a loading state in the app; farming endpoints answer "farming analysis available for: Egypt" outside focus countries | needs: A1 (real: A4, C1) | owner: ___
 - [ ] **B5** Methods page layout (F5); text and validation numbers come later from A and C | needs: none | owner: ___
 - [ ] **B6** Farmland tab (F2): gaining / losing / stable map, horizon selector (now, +5, +10), "crossing" highlight, projection label | needs: A2 | owner: ___
 - [ ] **B7** Crops tab (F3): mode A crop to places, mode B place to crops, irrigation toggle | needs: A2 | owner: ___
@@ -70,7 +70,9 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 - [ ] **C7** Demo script: the tour story step by step and the list of points to cache for it | needs: B6, B7, B8 roughly working | owner: ___
 - [ ] **C8** Demo video with English subtitles, and slides | needs: feature freeze (Sun 14:00) | owner: ___
 - [ ] **C9** (P2, only if time) D7: prepare 1 or 2 more focus countries for the farming features (data is already in the world grid; needs irrigation and crop notes per country) | needs: none | owner: ___
-- [ ] **C11** World climate grid: `python run.py world` running on Mohammed's laptop since Fri evening; when all 6 measurements show 648/648 in `python run.py world --status`, commit `data/processed/world/*_annual.npz` | needs: none | owner: Mohammed
+- [x] **C11** Live region fetch: `region_monthly()` in `data/power_world_fetch.py` (any box on Earth, cached on disk); world temperature yearly means in `data/processed/world/` | owner: Mohammed (Claude)
+- [ ] **C12** Before the demo: fetch once every region and point the tour uses, so the demo runs from the local cache | needs: C7 | owner: ___
+- [ ] **C13** (optional, not required) Bulk world download `python run.py world` (about 4 hours, resumable): makes every region instant and enables the globe overview for all 6 measurements | needs: none | owner: Mohammed
 - [ ] **C10** (P2, only if time) MODIS evidence layer via AppEEARS | needs: none | owner: ___
 
 ## Everyone, Sunday

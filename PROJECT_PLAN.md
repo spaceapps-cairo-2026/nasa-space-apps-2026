@@ -61,7 +61,7 @@ Priority: **P0** = must exist for submission. **P1** = should exist (this is our
 - Measurement picker: at least air temperature, max temperature, precipitation, soil moisture, humidity.
 - For a **point or city**: time series 2001 to 2025, trend line, rate per decade in real units, confidence label, start year of change if detected (P1).
 - For a **country / region, anywhere in the world**: map of every grid cell colored by trend direction and size; cells without convincing evidence shown as "not proven" (grey). Zoomed out, the whole globe is colored the same way.
-- Works for **the whole world**: trend maps are precomputed on the NASA POWER world grid (207,936 cells); a single point or city is fetched live from NASA POWER.
+- Works for **the whole world** by **live fetch**: when a user selects a country or region, the app fetches its NASA POWER data on the spot, keeps it on disk, and computes the trend map. A single point or city is fetched live the same way. Nothing must be downloaded in advance.
 - Plain language sentence generated only from computed numbers, e.g. "Since 2001, average temperature here rose by 0.3 C per decade. Strong evidence this is a real change."
 - **Done when:** R1 to R6 are all visibly answered for Cairo, for one random point outside Egypt, and the trend map works for Egypt and for at least two countries on other continents.
 
@@ -106,11 +106,14 @@ Priority: **P0** = must exist for submission. **P1** = should exist (this is our
 | Feature | Where it works | How |
 |---|---|---|
 | F1 trend for a point or city | anywhere on Earth | fetched live from NASA POWER (about 1.3 s per point, no login) |
-| F1 trend map | **the whole world**, any country or region | precomputed on the NASA POWER world grid: 361 x 576 = 207,936 cells, 2001 to 2025 (`python run.py world`) |
+| F1 trend map | **the whole world**, any country or region | **live fetch with a local cache**: `region_monthly()` in `data/power_world_fetch.py` gets the 10 x 10 degree tiles covering the selection (first time: about 5 to 40 s depending on size; after that instant) |
+| F1 globe overview (whole Earth colored at once) | whole world | temperature is precomputed and in the repo (`data/processed/world/T2M_annual.npz`); other measurements only if the optional bulk download (`python run.py world`) has finished |
 | F2 farmland, F3 crops, F4 decisions | **focus countries only**: Egypt first, more chosen in D7 | precomputed per country; needs country specific care (irrigation, crop list) |
 
 - Outside the focus countries, the Farmland, Crops and Decisions tabs say "farming analysis available for: Egypt" instead of failing. The Trends tab always works.
-- **World map delivery:** 207,936 cells per measurement is too many to send as one JSON object per cell. Lane A ships each world trend layer as a compact grid (rate + confidence per cell), and the app draws it as one image layer on the globe; a selected country is cut out of that grid. The exact shape is part of task A1.
+- **Speed rule:** the first request for a new region waits for NASA, so the app shows a loading message ("fetching NASA data for this region..."). Everything used in the demo and the tour is fetched once beforehand, so the demo runs from the local cache.
+- **Big selections:** a very large country (Russia, Canada, USA) covers many tiles. The app asks the user to zoom in, or uses the precomputed temperature layer.
+- **Map delivery:** a region has hundreds to thousands of cells, so lane A ships a trend map as a compact grid (rate + confidence per cell), not one JSON object per cell. The exact shape is part of task A1.
 - Over the ocean, soil wetness does not exist and is shown as "no data"; temperature, rain and humidity trends are valid there.
 
 ## 7. System skeleton
@@ -157,7 +160,7 @@ Folder mapping in this repo:
 
 | Data | Use | Status |
 |---|---|---|
-| NASA POWER monthly grid, **whole world**, 0.5 x 0.625 deg, 2001 to 2025, same 6 measurements | F1 trend maps everywhere | Download started Fri evening (`python run.py world`, `--status` shows progress). Raw tiles stay on the lead's laptop (about 1 GB); yearly means per cell go in git (`data/processed/world/`) |
+| NASA POWER monthly grid, **any region of the world**, 0.5 x 0.625 deg, 2001 to 2025, same 6 measurements | F1 trend maps everywhere | **Live fetch per region, cached on disk** (`region_monthly()`), verified Fri. World temperature yearly means are in git. Optional bulk download of everything: `python run.py world` (about 4 hours, not required) |
 | NASA POWER monthly grid, Egypt, 0.5 deg, 2001 to 2025: T2M, T2M_MAX, PRECTOTCORR, GWETTOP, GWETROOT, RH2M | F2, F3, F4 for Egypt; method tests (D1) | Downloaded and working (`python run.py power`) |
 | NASA POWER monthly point API, any location (add T2M_MIN) | F1 point and city | Verified live |
 | FAO ECOCROP crop requirements (optimal and absolute temperature and rainfall ranges) | F3 | Source verified (FAO data sheets; also packaged for 1,710 plants). Lane C builds `data/crops/crops.csv` for the chosen crops |
@@ -203,7 +206,7 @@ The full task list, with which tasks run **in parallel** and which **wait for an
 | When (Cairo) | Phase | Merge point: must work on `main` |
 |---|---|---|
 | Fri (now) | 0: prepare, no product code | repo, lanes, data on every laptop (done) |
-| Sat 09:00 to 13:00 | 1: F0 + F1 skeleton | **13:00:** F1 on real data: world trend map for at least temperature, and one live point |
+| Sat 09:00 to 13:00 | 1: F0 + F1 skeleton | **13:00:** F1 on real data: trend map for Egypt and one other country by live fetch, and one live point |
 | Sat 13:00 to 20:00 | 2: F2 + F3 core | **20:00:** F0 to F3 on real data, first deploy (D9) |
 | Sat 20:00 to Sun 02:00 | 3: F4 + F5 | **02:00:** decisions tab and Methods page with real numbers |
 | Sun 02:00 to 08:00 | night | sleep in shifts; only long running jobs |
@@ -226,6 +229,6 @@ The full task list, with which tasks run **in parallel** and which **wait for an
 | 0.5 deg grid (about 55 km) too coarse for buying land | Say so in limitations; position as regional screening, the first step before field studies |
 | Globe library eats too much time | Fallback: 2D map with the same tabs (decide by Sat 12:00 if the globe is not working) |
 | Live point API slow or down during demo | Cache points used in the tour; demo runs from cache |
-| World trends are 207,936 cells x 6 measurements: a slow per cell loop would take hours | Trend engine works on whole arrays at once (task A4); temperature first, other measurements after; if a method is too slow for the world, run it overnight Sat |
-| World download not finished or NASA slows us down | Script resumes where it stopped; temperature is downloaded first; Egypt grid is already complete as fallback |
+| Live fetch of a new region is slow (5 to 40 s) or NASA is down during the demo | Every region and point used in the demo is fetched beforehand and served from the local cache; loading message for new regions; Egypt grid is in the repo as fallback |
+| Trend engine too slow for a big region | Engine works on whole arrays at once, not a loop over cells (task A4) |
 | Too many features | P0 first; P1 in order F2, F3, F4, F6; cut P2 freely |

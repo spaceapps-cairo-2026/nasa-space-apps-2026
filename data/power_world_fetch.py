@@ -26,6 +26,8 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -123,10 +125,52 @@ def download_tile(var: str, la: int, lo: int) -> str:
         return "cached"
     lats, lons, values = to_arrays(var, fetch_json(var, la, lo))
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp.npz")
+    # Unique temp name: the bulk download and a live request may fetch the same tile at once.
+    tmp = path.with_name(f"{path.stem}.{os.getpid()}_{threading.get_ident()}.tmp.npz")
     np.savez_compressed(tmp, lats=lats, lons=lons, values=values)
-    tmp.replace(path)                    # never leave a half written tile behind
+    try:
+        tmp.replace(path)                # never leave a half written tile behind
+    except OSError:                      # someone else just wrote the same tile
+        tmp.unlink(missing_ok=True)
+        if not path.exists():
+            raise
     return "downloaded"
+
+
+def region_monthly(var: str, lat_min: float, lat_max: float, lon_min: float, lon_max: float,
+                   workers: int = 4) -> dict:
+    """LIVE FETCH for one region: monthly values for every cell inside a bounding box.
+
+    Tiles already on disk are read instantly; missing tiles are fetched from NASA now
+    (about 5 seconds per 10 x 10 degree tile) and kept, so each tile is only ever fetched once.
+    Nothing has to be downloaded in advance. Used by the API for /trend/region.
+
+    Returns {"lats": [n_lat], "lons": [n_lon], "months": ["2001-01", ...],
+             "values": float32 array [n_lat, n_lon, 300], NaN = no data}.
+    """
+    if var not in VARIABLES:
+        raise ValueError(f"unknown variable {var}; choose from {list(VARIABLES)}")
+    if not (-90 <= lat_min < lat_max <= 90 and -180 <= lon_min < lon_max <= 180):
+        raise ValueError("box must satisfy -90 <= lat_min < lat_max <= 90 and -180 <= lon_min < lon_max <= 180")
+    rows = np.where((LATS >= lat_min) & (LATS <= lat_max))[0]
+    cols = np.where((LONS >= lon_min) & (LONS <= lon_max))[0]
+    la0s = range(int(np.floor(max(lat_min, -90) / TILE)) * TILE, int(np.ceil(lat_max / TILE)) * TILE, TILE)
+    lo0s = range(int(np.floor(lon_min / TILE)) * TILE, int(np.ceil(lon_max / TILE)) * TILE, TILE)
+    needed = [(la, lo) for la in la0s for lo in lo0s if -90 <= la < 90 and -180 <= lo < 180]
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        list(pool.map(lambda t: download_tile(var, *t), needed))
+
+    values = np.full((len(rows), len(cols), N_MONTHS), np.nan, dtype=np.float32)
+    row_pos = {int(r): k for k, r in enumerate(rows)}
+    col_pos = {int(c): k for k, c in enumerate(cols)}
+    for la, lo in needed:
+        with np.load(tile_path(var, la, lo)) as z:
+            for lat, lon, series in zip(z["lats"], z["lons"], z["values"]):
+                r, c = row_pos.get(lat_index(float(lat))), col_pos.get(lon_index(float(lon)))
+                if r is not None and c is not None:
+                    values[r, c, :] = series
+    months = [f"{START + m // 12}-{m % 12 + 1:02d}" for m in range(N_MONTHS)]
+    return {"lats": LATS[rows], "lons": LONS[cols], "months": months, "values": values}
 
 
 def download(var: str, workers: int, limit: int | None) -> int:
