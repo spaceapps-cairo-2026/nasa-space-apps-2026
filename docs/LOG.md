@@ -9,6 +9,9 @@ Fri 18:38 | C | GISTEMP (gistemp_global_annual.csv, check +0.280 C/decade 2003 t
 Fri 19:51 | C | data/power_world_fetch.py: world NASA POWER grid (648 tiles x 6 measurements), download started; plan section 6 now: trends worldwide, farming for focus countries
 Fri 20:41 | C | World temperature grid complete: data/processed/world/T2M_annual.npz (207,936 cells, 2001 to 2025); other 5 measurements still downloading
 Fri 21:54 | C | region_monthly(): live fetch of any region with disk cache (Egypt 0.02 s cached, Japan 42 s first time); plan and tasks switched to live fetch
+Fri 22:30 | A | D1 + D2 decided (effective sample size Mann-Kendall + Sen slope + FDR, 3 levels); trend engine ml/trends.py, live layer ml/live.py, contract v0.3 (trend.schema.json, 4 fixtures), ml/compare_methods.py evidence
+Fri 22:30 | C | data/power_point_fetch.py: any point on Earth, all 7 measurements in one request, disk cache (task C1)
+Fri 22:30 | B | API: /api/variables, /api/trend/point, /api/trend/region, /api/trend/world (mock and real); 16 new tests green
 Fri 20:15 | B | App rebuilt on MapLibre globe: search (177 countries, 1,251 cities), click any point, fly and outline, Trends panel with chart, rate, 95% range, confidence badge, Egypt 3D trend map with legend; v0.3 mock endpoints in api/main.py
 Fri 21:05 | B | Map cells clipped to Egypt's detailed border, not proven cells flat; place names on click; sharp close-up imagery (Sentinel-2, auto fallback to NASA VIIRS when blocked)
 Fri 22:20 | B | Synced lane B on main (team plan wins: our duplicate crop table dropped). Contract v0.3 DRAFT now follows PROJECT_PLAN section 6: compact grid, /api/trend/region for any box, /api/trend/world, /api/trend/cell by lat/lon. App: trend map for any country cut to its 1:50m border, whole Earth layer when zoomed out. Lane A: please review contracts/api.md

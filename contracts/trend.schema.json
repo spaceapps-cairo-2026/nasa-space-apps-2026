@@ -1,638 +1,173 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "trend.schema.json",
-  "title": "F1 trend explorer shapes",
-  "description": "v0.3 draft. Lane A owns it. See contracts/api.md for which endpoint returns which $defs entry.",
+  "title": "Trend answers (F1)",
+  "description": "Shapes returned by /api/trend/point, /api/trend/region and /api/trend/world. Lane A owns it. v0.3. The app must ignore fields it does not know.",
+  "oneOf": [
+    {"$ref": "#/$defs/trend_point"},
+    {"$ref": "#/$defs/trend_region"},
+    {"$ref": "#/$defs/trend_world"}
+  ],
   "$defs": {
-    "Variable": {
+    "number_or_null": {"type": ["number", "null"]},
+    "variable": {
       "type": "object",
-      "required": [
-        "code",
-        "name",
-        "unit",
-        "source",
-        "definition"
-      ],
+      "required": ["code", "name", "unit", "source"],
       "properties": {
-        "code": {
-          "type": "string"
-        },
-        "name": {
-          "type": "string"
-        },
-        "unit": {
-          "type": "string"
-        },
-        "source": {
-          "type": "string"
-        },
-        "definition": {
-          "type": "string",
-          "description": "One simple sentence a student understands"
-        },
-        "point": {
-          "type": "boolean",
-          "description": "Available for any point on Earth"
-        },
-        "regions": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          },
-          "description": "Region ids with a precomputed map"
-        },
-        "caution": {
-          "type": [
-            "string",
-            "null"
-          ]
-        }
+        "code": {"type": "string", "description": "NASA POWER code, e.g. T2M"},
+        "name": {"type": "string", "description": "Plain name, e.g. average air temperature"},
+        "unit": {"type": "string"},
+        "source": {"type": "string"}
       }
     },
-    "VariableList": {
-      "type": "object",
-      "required": [
-        "version",
-        "variables"
-      ],
-      "properties": {
-        "version": {
-          "type": "string"
-        },
-        "variables": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Variable"
-          }
-        }
-      }
-    },
-    "Region": {
-      "type": "object",
-      "required": [
-        "id",
-        "name",
-        "bbox"
-      ],
-      "properties": {
-        "id": {
-          "type": "string"
-        },
-        "name": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "bbox": {
-          "$ref": "#/$defs/Bounds"
-        },
-        "n_cells": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "grid": {
-          "type": "string"
-        }
-      }
-    },
-    "RegionList": {
-      "type": "object",
-      "required": [
-        "version",
-        "regions"
-      ],
-      "properties": {
-        "version": {
-          "type": "string"
-        },
-        "regions": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/Region"
-          }
-        }
-      }
-    },
-    "Bounds": {
-      "description": "[west, south, east, north] in degrees",
+    "series": {
       "type": "array",
+      "description": "One value per year",
       "items": {
-        "type": "number"
-      },
-      "minItems": 4,
-      "maxItems": 4
-    },
-    "Period": {
-      "type": "object",
-      "required": [
-        "start",
-        "end"
-      ],
-      "properties": {
-        "start": {
-          "type": "integer"
-        },
-        "end": {
-          "type": "integer"
-        }
+        "type": "object",
+        "required": ["t", "v"],
+        "properties": {"t": {"type": "integer"}, "v": {"$ref": "#/$defs/number_or_null"}}
       }
     },
-    "YearValue": {
+    "trend": {
       "type": "object",
-      "required": [
-        "year",
-        "value"
-      ],
+      "description": "Trend of one series. For a single place the level comes from p.",
+      "required": ["period", "slope_per_decade", "slope_low", "slope_high", "p", "level", "level_name",
+                   "significant", "direction", "change_point_year", "n_years", "method"],
       "properties": {
-        "year": {
-          "type": "integer"
-        },
-        "value": {
-          "type": [
-            "number",
-            "null"
-          ]
-        },
-        "n_months": {
-          "type": "integer",
-          "minimum": 0,
-          "maximum": 12
-        }
+        "period": {"type": "string"},
+        "slope_per_decade": {"$ref": "#/$defs/number_or_null", "description": "Sen slope x 10, in the variable's unit"},
+        "slope_low": {"$ref": "#/$defs/number_or_null", "description": "95% range of the slope, low end"},
+        "slope_high": {"$ref": "#/$defs/number_or_null"},
+        "p": {"$ref": "#/$defs/number_or_null", "description": "How often a trend at least this strong appears when nothing is changing. NOT the probability that the trend is true."},
+        "level": {"enum": [-1, 0, 1, 2], "description": "-1 no data, 0 not proven, 1 moderate evidence (below 0.05), 2 strong evidence (below 0.01)"},
+        "level_name": {"enum": ["no data", "not proven", "moderate evidence", "strong evidence"]},
+        "significant": {"type": "boolean"},
+        "direction": {"enum": ["increasing", "decreasing", "not proven", "no data"]},
+        "change_point_year": {"type": ["integer", "null"], "description": "Year the level shifted (Pettitt test), only for proven trends"},
+        "n_years": {"type": "integer"},
+        "mean": {"$ref": "#/$defs/number_or_null"},
+        "method": {"type": "string"}
       }
     },
-    "Confidence": {
-      "enum": [
-        "strong",
-        "moderate",
-        "not_proven"
-      ]
-    },
-    "Direction": {
-      "enum": [
-        "increasing",
-        "decreasing",
-        "no_clear_trend"
-      ]
-    },
-    "Trend": {
+    "levels": {
       "type": "object",
-      "required": [
-        "slope_per_decade",
-        "ci_low",
-        "ci_high",
-        "p",
-        "q",
-        "confidence",
-        "direction",
-        "method",
-        "change_start_year",
-        "line"
-      ],
+      "required": ["-1", "0", "1", "2"],
+      "additionalProperties": {"type": "string"}
+    },
+    "matrix": {
+      "type": "array",
+      "description": "Rows follow grid.lats (south to north), columns follow grid.lons (west to east); null = no data",
+      "items": {"type": "array", "items": {"$ref": "#/$defs/number_or_null"}}
+    },
+    "level_matrix": {
+      "type": "array",
+      "items": {"type": "array", "items": {"enum": [-1, 0, 1, 2]}}
+    },
+    "summary": {
+      "type": "object",
+      "required": ["cells", "with_data", "increasing", "decreasing", "not_proven", "strong", "moderate", "median_slope_per_decade"],
       "properties": {
-        "slope_per_decade": {
-          "type": "number"
-        },
-        "ci_low": {
-          "type": [
-            "number",
-            "null"
-          ]
-        },
-        "ci_high": {
-          "type": [
-            "number",
-            "null"
-          ]
-        },
-        "p": {
-          "type": "number",
-          "minimum": 0,
-          "maximum": 1
-        },
-        "q": {
-          "type": [
-            "number",
-            "null"
-          ],
-          "minimum": 0,
-          "maximum": 1
-        },
-        "confidence": {
-          "$ref": "#/$defs/Confidence"
-        },
-        "direction": {
-          "$ref": "#/$defs/Direction"
-        },
-        "method": {
-          "type": "string"
-        },
-        "change_start_year": {
-          "type": [
-            "integer",
-            "null"
-          ]
-        },
-        "line": {
-          "type": "array",
-          "minItems": 2,
-          "maxItems": 2,
-          "items": {
-            "$ref": "#/$defs/YearValue"
-          }
-        }
+        "cells": {"type": "integer"},
+        "with_data": {"type": "integer"},
+        "increasing": {"type": "integer", "description": "cells with level 1 or 2 and a positive slope"},
+        "decreasing": {"type": "integer"},
+        "not_proven": {"type": "integer"},
+        "strong": {"type": "integer"},
+        "moderate": {"type": "integer"},
+        "median_slope_per_decade": {"$ref": "#/$defs/number_or_null"}
       }
     },
-    "Location": {
+    "trend_point": {
       "type": "object",
-      "required": [
-        "lat",
-        "lon"
-      ],
+      "required": ["version", "kind", "variable", "location", "series", "trend_line", "trend", "sentence", "caution", "data_from", "seconds"],
       "properties": {
-        "lat": {
-          "type": "number",
-          "minimum": -90,
-          "maximum": 90
-        },
-        "lon": {
-          "type": "number",
-          "minimum": -180,
-          "maximum": 180
-        },
-        "name": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "cell": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "region": {
-          "type": [
-            "string",
-            "null"
-          ]
-        }
-      }
-    },
-    "TrendResult": {
-      "type": "object",
-      "required": [
-        "version",
-        "variable",
-        "location",
-        "period",
-        "series",
-        "trend",
-        "sentence",
-        "caution"
-      ],
-      "properties": {
-        "version": {
-          "type": "string"
-        },
-        "variable": {
-          "$ref": "#/$defs/Variable"
-        },
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+$"},
+        "kind": {"const": "trend_point"},
+        "variable": {"$ref": "#/$defs/variable"},
         "location": {
-          "$ref": "#/$defs/Location"
+          "type": "object",
+          "required": ["lat", "lon", "cell_lat", "cell_lon"],
+          "properties": {
+            "lat": {"type": "number"}, "lon": {"type": "number"},
+            "cell_lat": {"type": "number", "description": "center of the NASA grid cell the values come from"},
+            "cell_lon": {"type": "number"}
+          }
         },
-        "period": {
-          "$ref": "#/$defs/Period"
-        },
-        "series": {
-          "type": "array",
-          "items": {
-            "$ref": "#/$defs/YearValue"
-          },
-          "minItems": 2
-        },
-        "trend": {
-          "$ref": "#/$defs/Trend"
-        },
-        "sentence": {
-          "type": "string"
-        },
-        "caution": {
-          "type": [
-            "string",
-            "null"
-          ]
-        },
-        "cached": {
-          "type": "boolean"
-        }
+        "series": {"$ref": "#/$defs/series"},
+        "trend_line": {"$ref": "#/$defs/series", "description": "Two points (first and last year) of the trend line; empty when no data"},
+        "trend": {"$ref": "#/$defs/trend"},
+        "sentence": {"type": "string"},
+        "caution": {"type": ["string", "null"]},
+        "data_from": {"enum": ["repo", "cache", "nasa"]},
+        "seconds": {"type": "number"}
       }
     },
-    "Grid": {
+    "trend_region": {
       "type": "object",
-      "required": [
-        "lat0",
-        "lon0",
-        "dlat",
-        "dlon",
-        "nrows",
-        "ncols"
-      ],
+      "required": ["version", "kind", "variable", "period", "bbox", "grid", "levels", "summary", "mean_series",
+                   "mean_trend_line", "mean_trend", "sentence", "mean_sentence", "caution", "method", "data_from", "seconds"],
       "properties": {
-        "lat0": {
-          "type": "number",
-          "description": "center latitude of row 0 (southern row)"
-        },
-        "lon0": {
-          "type": "number",
-          "description": "center longitude of column 0 (western column)"
-        },
-        "dlat": {
-          "type": "number",
-          "exclusiveMinimum": 0
-        },
-        "dlon": {
-          "type": "number",
-          "exclusiveMinimum": 0
-        },
-        "nrows": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "ncols": {
-          "type": "integer",
-          "minimum": 1
-        }
-      }
-    },
-    "GridTrend": {
-      "type": "object",
-      "required": [
-        "version",
-        "region",
-        "variable",
-        "period",
-        "method",
-        "grid",
-        "slope_per_decade",
-        "q",
-        "confidence",
-        "summary"
-      ],
-      "properties": {
-        "version": {
-          "type": "string"
-        },
-        "region": {
-          "$ref": "#/$defs/Region"
-        },
-        "variable": {
-          "$ref": "#/$defs/Variable"
-        },
-        "period": {
-          "$ref": "#/$defs/Period"
-        },
-        "method": {
-          "type": "string"
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+$"},
+        "kind": {"const": "trend_region"},
+        "variable": {"$ref": "#/$defs/variable"},
+        "period": {"type": "string"},
+        "bbox": {
+          "type": "object",
+          "required": ["lat_min", "lat_max", "lon_min", "lon_max"],
+          "additionalProperties": {"type": "number"}
         },
         "grid": {
-          "$ref": "#/$defs/Grid"
-        },
-        "slope_per_decade": {
-          "type": "array",
-          "items": {
-            "type": [
-              "number",
-              "null"
-            ]
-          }
-        },
-        "q": {
-          "type": "array",
-          "items": {
-            "type": [
-              "number",
-              "null"
-            ],
-            "minimum": 0,
-            "maximum": 1
-          }
-        },
-        "confidence": {
-          "type": "string",
-          "pattern": "^[SMN-]*$",
-          "description": "one char per cell: S strong, M moderate, N not proven, - no data"
-        },
-        "summary": {
           "type": "object",
-          "required": [
-            "n_cells",
-            "n_increasing",
-            "n_decreasing",
-            "n_not_proven"
-          ],
+          "required": ["lats", "lons", "lat_step", "lon_step", "slope_per_decade", "p", "q", "level"],
           "properties": {
-            "n_cells": {
-              "type": "integer"
-            },
-            "n_increasing": {
-              "type": "integer"
-            },
-            "n_decreasing": {
-              "type": "integer"
-            },
-            "n_not_proven": {
-              "type": "integer"
-            },
-            "median_slope_per_decade": {
-              "type": [
-                "number",
-                "null"
-              ]
-            }
+            "lats": {"type": "array", "items": {"type": "number"}, "description": "cell centers, south to north"},
+            "lons": {"type": "array", "items": {"type": "number"}, "description": "cell centers, west to east"},
+            "lat_step": {"type": "number"},
+            "lon_step": {"type": "number"},
+            "slope_per_decade": {"$ref": "#/$defs/matrix"},
+            "p": {"$ref": "#/$defs/matrix"},
+            "q": {"$ref": "#/$defs/matrix", "description": "FDR q-value over all cells of this map; the level uses q"},
+            "level": {"$ref": "#/$defs/level_matrix"}
           }
-        }
+        },
+        "levels": {"$ref": "#/$defs/levels"},
+        "summary": {"$ref": "#/$defs/summary"},
+        "mean_series": {"$ref": "#/$defs/series", "description": "Area weighted average of the region per year, for the chart"},
+        "mean_trend_line": {"$ref": "#/$defs/series"},
+        "mean_trend": {"$ref": "#/$defs/trend"},
+        "sentence": {"type": "string"},
+        "mean_sentence": {"type": "string"},
+        "caution": {"type": ["string", "null"]},
+        "method": {"type": "string"},
+        "data_from": {"enum": ["repo", "cache", "nasa"]},
+        "seconds": {"type": "number"}
       }
     },
-    "FarmingOutlook": {
+    "trend_world": {
       "type": "object",
-      "required": [
-        "version",
-        "region",
-        "grid",
-        "method",
-        "horizons",
-        "inside",
-        "crops",
-        "suitability",
-        "evidence",
-        "suitable_threshold"
-      ],
+      "required": ["version", "kind", "variable", "period", "grid", "levels", "summary", "sentence", "method"],
       "properties": {
-        "version": {
-          "type": "string"
-        },
-        "region": {
-          "$ref": "#/$defs/Region"
-        },
+        "version": {"type": "string", "pattern": "^[0-9]+\\.[0-9]+$"},
+        "kind": {"const": "trend_world"},
+        "variable": {"$ref": "#/$defs/variable"},
+        "period": {"type": "string"},
         "grid": {
-          "$ref": "#/$defs/Grid"
-        },
-        "method": {
-          "type": "string"
-        },
-        "horizons": {
-          "type": "array",
-          "items": {
-            "type": "integer"
-          },
-          "minItems": 1
-        },
-        "inside": {
-          "type": "string",
-          "pattern": "^[01]*$"
-        },
-        "evidence": {
-          "type": "string",
-          "pattern": "^[SMN-]*$"
-        },
-        "suitable_threshold": {
-          "type": "number"
-        },
-        "crops": {
-          "type": "array",
-          "items": {
-            "type": "object",
-            "required": [
-              "id",
-              "name",
-              "season_months"
-            ],
-            "properties": {
-              "id": {
-                "type": "string"
-              },
-              "name": {
-                "type": "string"
-              },
-              "scientific_name": {
-                "type": "string"
-              },
-              "season_months": {
-                "type": "integer",
-                "minimum": 1,
-                "maximum": 12
-              },
-              "source_url": {
-                "type": "string"
-              }
-            }
-          }
-        },
-        "suitability": {
           "type": "object",
+          "required": ["lats", "lons", "lat_step", "lon_step", "slope_per_decade", "level"],
           "properties": {
-            "irrigated": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "array",
-                "items": {
-                  "type": "array",
-                  "items": {
-                    "type": [
-                      "integer",
-                      "null"
-                    ],
-                    "minimum": 0,
-                    "maximum": 100
-                  }
-                }
-              }
-            },
-            "rainfed": {
-              "type": "object",
-              "additionalProperties": {
-                "type": "array",
-                "items": {
-                  "type": "array",
-                  "items": {
-                    "type": [
-                      "integer",
-                      "null"
-                    ],
-                    "minimum": 0,
-                    "maximum": 100
-                  }
-                }
-              }
-            }
-          },
-          "required": [
-            "irrigated"
-          ]
-        },
-        "suitability_10_low": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "array",
-              "items": {
-                "type": [
-                  "integer",
-                  "number",
-                  "null"
-                ]
-              }
-            }
+            "lats": {"type": "array", "items": {"type": "number"}},
+            "lons": {"type": "array", "items": {"type": "number"}},
+            "lat_step": {"type": "number"},
+            "lon_step": {"type": "number"},
+            "slope_per_decade": {"$ref": "#/$defs/matrix"},
+            "level": {"$ref": "#/$defs/level_matrix"}
           }
         },
-        "suitability_10_high": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "array",
-              "items": {
-                "type": [
-                  "integer",
-                  "number",
-                  "null"
-                ]
-              }
-            }
-          }
-        },
-        "best_start_month": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "object",
-            "additionalProperties": {
-              "type": "array",
-              "items": {
-                "type": [
-                  "integer",
-                  "number",
-                  "null"
-                ]
-              }
-            }
-          }
-        },
-        "years_to_heat_limit": {
-          "type": "object",
-          "additionalProperties": {
-            "type": "array",
-            "items": {
-              "type": [
-                "integer",
-                "number",
-                "null"
-              ]
-            }
-          }
-        }
+        "levels": {"$ref": "#/$defs/levels"},
+        "summary": {"$ref": "#/$defs/summary"},
+        "sentence": {"type": "string"},
+        "method": {"type": "string"}
       }
     }
   }

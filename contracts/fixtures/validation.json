@@ -5,93 +5,67 @@
    "title": "Cross-check with NASA's independent global record",
    "ours": {
     "label": "Our data (NASA POWER / MERRA-2), whole Earth, area weighted",
-    "per_decade": 0.184,
-    "ci_low": 0.1,
-    "ci_high": 0.268,
-    "p": 0.00014
+    "per_decade": 0.166,
+    "ci_low": -0.286,
+    "ci_high": 0.626,
+    "p": 0.29
    },
    "ours_no_antarctica": {
     "label": "Our data without Antarctica",
-    "per_decade": 0.217,
-    "ci_low": 0.14,
-    "ci_high": 0.294,
-    "p": 5.8e-06
+    "per_decade": 0.201,
+    "ci_low": -0.102,
+    "ci_high": 0.511,
+    "p": 0.11
    },
    "arctic": {
     "label": "Our data, Arctic only (north of 60 N)",
-    "per_decade": 0.361,
-    "ci_low": 0.138,
-    "ci_high": 0.585,
-    "p": 0.0028
+    "per_decade": 0.347,
+    "ci_low": 0.154,
+    "ci_high": 0.608,
+    "p": 0.003
    },
    "antarctica": {
     "label": "Our data, Antarctica only (south of 60 S)",
-    "per_decade": -0.28,
-    "ci_low": -0.581,
-    "ci_high": 0.02,
-    "p": 0.066
+    "per_decade": -0.232,
+    "ci_low": -1.898,
+    "ci_high": 1.11,
+    "p": 0.62
    },
    "reference": {
     "label": "NASA GISTEMP v4 (stations and ships, a different method)",
-    "per_decade": 0.261,
-    "ci_low": 0.203,
-    "ci_high": 0.319,
-    "p": 3.1e-09
+    "per_decade": 0.251,
+    "ci_low": 0.106,
+    "ci_high": 0.4,
+    "p": 0.0078
    },
    "period": [
     2001,
     2025
    ],
    "agrees": true,
-   "plain": "From 2001 to 2025, NASA's GISTEMP record warms the planet +0.26 °C per decade. Our data gives +0.18 for the whole Earth, because it shows Antarctica cooling (-0.28); without Antarctica it gives +0.22, and the two 95% ranges overlap. Our data also shows the Arctic warming fastest (+0.36 °C per decade), the pattern known as Arctic amplification. The datasets measure slightly different things (air at 2 m vs surface and sea temperature), so we show both numbers instead of hiding the gap."
+   "plain": "From 2001 to 2025, NASA's GISTEMP record warms the planet +0.25 °C per decade. Our data gives +0.17 for the whole Earth, because it shows Antarctica cooling (-0.23); without Antarctica it gives +0.20, and the two 95% ranges overlap. Our data also shows the Arctic warming fastest (+0.35 °C per decade), the pattern known as Arctic amplification. The datasets measure slightly different things (air at 2 m vs surface and sea temperature), so we show both numbers instead of hiding the gap."
   },
   "false_alarms": {
    "title": "How often the test cries wolf",
-   "method": "straight-line trend with a t-test per place (placeholder until decision D1)",
+   "method": "Sen's slope + Mann-Kendall with effective sample size correction (decision D1)",
    "target": 0.05,
    "noise_sd_c": 0.435,
    "year_to_year_resemblance": -0.32,
    "false_alarm_rate": {
-    "Egypt-like noise": 0.009,
-    "strong year-to-year resemblance (0.5)": 0.244
+    "Egypt-like noise": 0.01,
+    "strong year-to-year resemblance (0.5)": 0.068
    },
-   "simulations": 4000,
-   "d1_candidates": {
-    "plain_mk": {
-     "false_alarm": 0.0085,
-     "false_alarm_strong": 0.208,
-     "finds_0_2_per_decade": 0.292
-    },
-    "hamed_rao_mk": {
-     "false_alarm": 0.094,
-     "false_alarm_strong": 0.204,
-     "finds_0_2_per_decade": 0.4445
-    },
-    "prewhitened_mk": {
-     "false_alarm": 0.0405,
-     "false_alarm_strong": 0.044,
-     "finds_0_2_per_decade": 0.3885
-    },
-    "tfpw_mk": {
-     "false_alarm": 0.017,
-     "false_alarm_strong": 0.2465,
-     "finds_0_2_per_decade": 0.301
-    },
-    "linear_t_test": {
-     "false_alarm": 0.0125,
-     "false_alarm_strong": 0.2265,
-     "finds_0_2_per_decade": 0.3135
-    }
-   },
-   "plain": "We made 4,000 fake 25-year series with Egypt's real noise and NO trend. The test called 0.9% of them a trend (the ideal is at most 5%). With strong year-to-year resemblance it rises to 24.4%, which is why the method choice (D1) is still being compared."
+   "simulations": 20000,
+   "d1_candidates": null,
+   "plain": "We made 20,000 fake 25-year series with Egypt's real noise and NO trend, and ran our real engine on them. It called 1.0% of them a trend (the target is about 5%). With strong year-to-year resemblance it called 6.8%. The team compared 7 methods on 20,000 series before choosing this one (decision D1)."
   },
   "many_places": {
    "title": "Testing many places at once",
    "cells": 357,
-   "p_below_0_05": 176,
-   "q_below_0_05": 106,
+   "p_below_0_05": 197,
+   "q_below_0_05": 131,
    "lucky_if_no_trend": 18,
-   "plain": "Egypt has 357 grid cells. Testing each at p < 0.05 would show about 18 'trends' by pure luck even if nothing changed. Without correction 176 cells pass; after the false discovery rate correction 106 remain, and those are the ones the map calls proven."
+   "plain": "Egypt has 357 grid cells. Testing each at p < 0.05 would show about 18 'trends' by pure luck even if nothing changed. Without correction 197 cells pass; after the false discovery rate correction 131 remain, and those are the ones the map calls proven."
   },
   "farming": {
    "title": "Common-sense checks of the farming outlook",

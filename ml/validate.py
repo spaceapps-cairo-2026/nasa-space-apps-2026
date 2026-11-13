@@ -16,26 +16,31 @@ from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from scipy import stats
-from statsmodels.stats.multitest import multipletests
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "ml"))
-from make_trend_fixtures import egypt_annual  # noqa: E402
+import trends  # noqa: E402  lane A's engine: the method chosen in decision D1
 
 START, END = 2001, 2025
 OUTS = [ROOT / "ml" / "outputs" / "validation.json", ROOT / "contracts" / "fixtures" / "validation.json"]
 RNG = np.random.default_rng(15112026)
-METHOD_NAME = "straight-line trend with a t-test per place (placeholder until decision D1)"
+METHOD_NAME = "Sen's slope + Mann-Kendall with effective sample size correction (decision D1)"
 
 
 def line_trend(y: np.ndarray) -> dict:
-    """Slope per decade with 95% interval and p-value of an ordinary straight-line fit."""
-    x = np.arange(len(y), dtype=float)
-    r = stats.linregress(x, y)
-    tcrit = stats.t.ppf(0.975, len(y) - 2)
-    return {"per_decade": round(r.slope * 10, 3), "ci_low": round((r.slope - tcrit * r.stderr) * 10, 3),
-            "ci_high": round((r.slope + tcrit * r.stderr) * 10, 3), "p": float(f"{r.pvalue:.2g}")}
+    """Our engine on one yearly series: rate per decade, its 95% range, p-value."""
+    r = trends.trend_one(np.asarray(y, dtype=float))
+    return {"per_decade": round(r["slope"], 3), "ci_low": round(r["slope_lo"], 3), "ci_high": round(r["slope_hi"], 3),
+            "p": float(f"{r['p']:.2g}")}
+
+
+def egypt_annual(var: str = "T2M") -> np.ndarray:
+    """Egypt grid from the repo -> yearly means [cells, years] with the engine's own rule."""
+    df = pd.read_parquet(ROOT / "data" / "processed" / "power_monthly.parquet")
+    df = df[df["variable"] == var]
+    wide = df.pivot_table(index="cell_id", columns="time", values="value")
+    months = [f"{y}-{m:02d}" for y in range(START, END + 1) for m in range(1, 13)]
+    return trends.annual_means(wide.reindex(columns=months).to_numpy(dtype=float))
 
 
 def gistemp_check() -> dict:
@@ -76,12 +81,12 @@ def gistemp_check() -> dict:
     }
 
 
-def false_alarm_check(n_sim: int = 4000) -> dict:
+def false_alarm_check(n_sim: int = 20000) -> dict:
     """Trendless series with Egypt-like noise and year-to-year resemblance; count 'trends' at p < 0.05."""
-    lats, lons, cube = egypt_annual("T2M")
-    t = np.arange(cube.shape[-1])
+    ann = egypt_annual("T2M")
+    t = np.arange(ann.shape[1])
     sds, rhos = [], []
-    for row in cube.reshape(-1, cube.shape[-1]):
+    for row in ann:
         if np.isfinite(row).all():
             res = row - np.polyval(np.polyfit(t, row, 1), t)
             sds.append(res.std(ddof=2))
@@ -89,38 +94,29 @@ def false_alarm_check(n_sim: int = 4000) -> dict:
     sd, rho = float(np.median(sds)), float(np.median(rhos))
     out = {}
     for label, r in (("Egypt-like noise", rho), ("strong year-to-year resemblance (0.5)", 0.5)):
-        hits = 0
-        for _ in range(n_sim):
-            e = RNG.normal(0, sd * np.sqrt(1 - r ** 2), len(t))
-            x = np.empty(len(t))
-            x[0] = RNG.normal(0, sd)
-            for i in range(1, len(t)):
-                x[i] = r * x[i - 1] + e[i]
-            hits += stats.linregress(t, x).pvalue < 0.05
-        out[label] = round(hits / n_sim, 3)
-    d1 = ROOT / "ml" / "outputs" / "d1_compare.json"
-    candidates = None
-    if d1.exists():
-        dd = json.loads(d1.read_text())["variables"]["T2M"]
-        candidates = {m: {"false_alarm": v, "false_alarm_strong": dd["check_A_false_alarm_strong_autocorr"][m],
-                          "finds_0_2_per_decade": dd["check_B_power_0.2_per_decade"][m]} for m, v in dd["check_A_false_alarm"].items()}
+        x = np.empty((n_sim, len(t)))
+        x[:, 0] = RNG.normal(0, sd, n_sim)
+        e = RNG.normal(0, sd * np.sqrt(1 - r ** 2), (n_sim, len(t)))
+        for i in range(1, len(t)):
+            x[:, i] = r * x[:, i - 1] + e[:, i]
+        p = trends.trend_grid(x)["p"]
+        out[label] = round(float(np.mean(p[np.isfinite(p)] < 0.05)), 3)
     return {
         "title": "How often the test cries wolf",
         "method": METHOD_NAME, "target": 0.05, "noise_sd_c": round(sd, 3), "year_to_year_resemblance": round(rho, 2),
-        "false_alarm_rate": out, "simulations": n_sim, "d1_candidates": candidates,
-        "plain": (f"We made {n_sim:,} fake 25-year series with Egypt's real noise and NO trend. The test called "
-                  f"{out['Egypt-like noise']:.1%} of them a trend (the ideal is at most 5%). With strong year-to-year "
-                  f"resemblance it rises to {out['strong year-to-year resemblance (0.5)']:.1%}, which is why the method "
-                  "choice (D1) is still being compared."),
+        "false_alarm_rate": out, "simulations": n_sim, "d1_candidates": None,
+        "plain": (f"We made {n_sim:,} fake 25-year series with Egypt's real noise and NO trend, and ran our real engine on them. "
+                  f"It called {out['Egypt-like noise']:.1%} of them a trend (the target is about 5%). With strong year-to-year "
+                  f"resemblance it called {out['strong year-to-year resemblance (0.5)']:.1%}. The team compared 7 methods on "
+                  "20,000 series before choosing this one (decision D1)."),
     }
 
 
 def fdr_check() -> dict:
-    lats, lons, cube = egypt_annual("T2M")
-    x = np.arange(cube.shape[-1])
-    ps = [stats.linregress(x, row).pvalue for row in cube.reshape(-1, cube.shape[-1]) if np.isfinite(row).all()]
-    ps = np.array(ps)
-    q = multipletests(ps, method="fdr_bh")[1]
+    ann = egypt_annual("T2M")
+    ps = trends.trend_grid(ann)["p"]
+    ps = ps[np.isfinite(ps)]
+    q = trends.fdr_bh(ps)
     expected_lucky = round(0.05 * len(ps))
     return {
         "title": "Testing many places at once",

@@ -60,8 +60,9 @@ export function methodsHTML(v) {
     <ol class="steps">
       <li><strong>Collect.</strong> NASA POWER monthly climate (built on NASA's MERRA-2) for every 55 km grid cell on Earth, 2001 to 2025.</li>
       <li><strong>Remove the seasons.</strong> Average each year's 12 months, so summer and winter cannot look like a trend.</li>
-      <li><strong>Measure.</strong> Fit a trend line: how much the value changes per 10 years, with a 95% range.</li>
-      <li><strong>Test.</strong> Ask how likely a trend this strong would be if nothing were changing (the p-value).</li>
+      <li><strong>Measure.</strong> Sen's slope: the median of the slopes between every pair of years, so one extreme year cannot drag it. Reported per 10 years, with a 95% range.</li>
+      <li><strong>Test.</strong> Mann-Kendall test: do later years beat earlier years more often than chance? Corrected for year-to-year resemblance (a wet year often follows a wet year). Gives the p-value: how likely a trend this strong would be if nothing were changing.</li>
+      <li><strong>When.</strong> Pettitt test finds the year a proven change seems to start.</li>
       <li><strong>Correct for many places.</strong> Testing thousands of cells at once creates lucky "trends", so we raise the bar (false discovery rate, q-value).</li>
       <li><strong>Label honestly.</strong> Strong evidence, moderate evidence, or not proven. Never "no change", never "87% true".</li>
     </ol>
@@ -71,8 +72,8 @@ export function methodsHTML(v) {
     <p class="note">${esc(x.plain)}</p>
 
     <h3>Check 2: ${esc(fa.title)}</h3>
-    ${splitBar([{ n: faRate, color: '#2fbf71', label: `Our test on Egypt-like noise: ${pct(faRate)}` }, { n: 0.05 - Math.min(faRate, 0.05), color: 'rgba(255,255,255,.18)', label: 'Allowed up to 5%' }], 0.25)}
-    ${splitBar([{ n: Math.min(faStrong, 0.25), color: '#e0b23a', label: `With strong year-to-year resemblance: ${pct(faStrong)}` }], 0.25)}
+    ${splitBar([{ n: faRate, color: '#2fbf71', label: `Our engine on Egypt-like noise: ${pct(faRate)}` }, { n: Math.max(0, 0.05 - faRate), color: 'rgba(255,255,255,.18)', label: 'Target: about 5%' }], 0.25)}
+    ${splitBar([{ n: Math.min(faStrong, 0.25), color: faStrong <= 0.075 ? '#2fbf71' : '#e0b23a', label: `With strong year-to-year resemblance: ${pct(faStrong)}` }], 0.25)}
     <p class="note">${esc(fa.plain)}</p>
     ${d1}
 

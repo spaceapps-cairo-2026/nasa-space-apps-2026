@@ -36,10 +36,10 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 
 ## Lane A: analysis + integration (`ml/`, `contracts/`)
 
-- [ ] **A1** Contracts for F1: point trend and region trend map (compact grid, not one JSON object per cell; see `PROJECT_PLAN.md` section 6), fixtures, endpoints in `contracts/api.md`, and the Python signature of the trend function the API calls | needs: none | owner: ___ | DRAFT ready on lane/b-app (contracts/api.md v0.3, by Eyad + Claude): lane A please review, change or adopt
+- [x] **A1** Contracts for F1: point trend and region trend map (compact grid, not one JSON object per cell; see `PROJECT_PLAN.md` section 6), fixtures, endpoints in `contracts/api.md`, and the Python signature of the trend function the API calls | needs: none | owner: Mohammed (Claude)
 - [ ] **A2** Contracts + fixtures for F2 viability, F3 crops (both modes, irrigated and rain-fed), F4 decisions, so lane B can build every tab on fake data | needs: A1 | owner: ___
-- [ ] **A3** D1 + D2: compare trend and confidence methods on the Egypt grid, pick one, set confidence levels and wording (with C), write it in `docs/DECISIONS.md` | needs: none | owner: ___
-- [ ] **A4** Trend engine: a function that takes the arrays from `region_monthly()` (any region, live fetched) and returns the trend map; works on whole arrays, not a slow loop over cells. Plus the point function for live requests, and the world temperature overview from `data/processed/world/T2M_annual.npz` | needs: A1, A3 | owner: ___
+- [x] **A3** D1 + D2: compare trend and confidence methods on the Egypt grid, pick one, set confidence levels and wording (with C), write it in `docs/DECISIONS.md` | needs: none | owner: Mohammed (Claude)
+- [x] **A4** Trend engine: a function that takes the arrays from `region_monthly()` (any region, live fetched) and returns the trend map; works on whole arrays, not a slow loop over cells. Plus the point function for live requests, and the world temperature overview from `data/processed/world/T2M_annual.npz` | needs: A1, A3 | owner: Mohammed (Claude)
 - [ ] **A5** D4: farming viability score per cell per year, its trend and confidence | needs: A4 | owner: ___
 - [ ] **A6** Crop suitability per cell per year, rain-fed and irrigated | needs: C3, A2 | owner: ___
 - [ ] **A7** D5: projections for +5 and +10 years with uncertainty, labeled "if current trends continue" | needs: A5, A6 | owner: ___
@@ -51,7 +51,7 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 - [x] **B1** D3: choose globe and map libraries, bundle them into `app/vendor/` (must work offline except map tiles) | needs: none | owner: Eyad + Claude
 - [x] **B2** F0: globe, country/city search, click a point, fly to the area, outline it, pass the selection to every tab | needs: B1 | owner: Eyad + Claude
 - [x] **B3** F1 Trends tab on fixtures: measurement picker, time series chart with trend line, rate per decade, confidence label, trend map for any selected country and the whole globe with "not proven" in grey, plain sentence | needs: A1 | owner: Eyad + Claude
-- [ ] **B4** API: `/trend/point` and `/trend/region` on fixtures (`MOCK=1`), then real data; `/trend/region` works for any country: calls `region_monthly()` (live fetch, cached) then the engine, with a loading state in the app; farming endpoints answer "farming analysis available for: Egypt" outside focus countries | needs: A1 (real: A4, C1) | owner: Eyad + Claude (fixtures part done; real data waits for A4)
+- [x] **B4** API: `/trend/point` and `/trend/region` on fixtures (`MOCK=1`), then real data; `/trend/region` works for any country: calls `region_monthly()` (live fetch, cached) then the engine, with a loading state in the app; farming endpoints answer "farming analysis available for: Egypt" outside focus countries | needs: A1 (real: A4, C1) | owner: Mohammed (Claude). Done: the 4 trend endpoints, mock and real. UI loading state and farming endpoint added by Eyad + Claude
 - [x] **B5** Methods page layout (F5); text and validation numbers come later from A and C | needs: none | owner: Eyad + Claude
 - [x] **B6** Farmland tab (F2): gaining / losing / stable map, horizon selector (now, +5, +10), "crossing" highlight, projection label | needs: A2 | owner: Eyad + Claude
 - [x] **B7** Crops tab (F3): mode A crop to places, mode B place to crops, irrigation toggle | needs: A2 | owner: Eyad + Claude
@@ -61,7 +61,7 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 
 ## Lane C: data + science + story (`data/`, story docs, `demo/`)
 
-- [ ] **C1** POWER point fetch for any lat/lon (`T2M_MIN` added) with a local cache in `data/cache/` | needs: none | owner: ___
+- [x] **C1** POWER point fetch for any lat/lon (`T2M_MIN` added) with a local cache in `data/cache/` | needs: none | owner: Mohammed (Claude)
 - [x] **C2** GISTEMP global means: download script and tidy table for validation (`data/processed/gistemp_global_annual.csv`) | needs: none | owner: Mohammed (Claude)
 - [ ] **C3** D6: pick the final 8 to 12 crops from the 20 already in `data/crops/crops.csv` (FAO ECOCROP, built Fri), decide how irrigation is modeled | needs: none | owner: ___
 - [ ] **C4** `docs/REFERENCES.md`: every dataset, library and AI tool, kept current all weekend | needs: none | owner: ___
@@ -92,3 +92,4 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 - REQUEST (from B, Fri 22:20): add to docs/REFERENCES.md: Natural Earth 1:50m admin 0 countries (app/data/borders_50m.geojson, cuts every country's trend map to its border).
 - REQUEST (from B, Fri 20:15): add to docs/REFERENCES.md: Natural Earth 1:110m countries and 1:50m populated places (public domain, naturalearthdata.com), used for borders and search in app/data/.
 - REQUEST (from B, Fri 21:05): also add: Natural Earth 1:10m admin 0 (detailed Egypt border, app/data/regions/EGY.geojson); polygon-clipping 0.15.7 (MIT, cuts map cells to the border); Sentinel-2 cloudless 2020 by EOX (close-up imagery, CC BY-NC-SA 4.0, contains modified Copernicus Sentinel data 2020); NASA GIBS VIIRS SNPP true color 2025-07-20 (fallback close-up imagery).
+- REQUEST: add to `docs/REFERENCES.md`: SciPy and NumPy (trend engine), pymannkendall and statsmodels (used only to cross-check our engine in tests), NASA POWER monthly point API (`data/power_point_fetch.py`), and the method papers: Sen 1968 (slope), Mann 1945 / Kendall 1975 (test), Benjamini and Hochberg 1995 (FDR), Pettitt 1979 (change point), Bayley and Hammersley 1946 / Yue and Wang 2004 (effective sample size). Claude (Anthropic) wrote the engine code.
