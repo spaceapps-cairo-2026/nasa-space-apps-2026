@@ -61,3 +61,26 @@ def test_errors(client):
     assert client.get("/api/trend/region", params=russia).status_code == 413
     assert client.get("/api/trend/world", params={"var": "RH2M"}).status_code == 404
     assert client.get("/api/trend/cell", params={"lat": 30, "lon": 31.25}).status_code == 404
+
+
+def test_farming_outlook(client):
+    r = client.get("/api/farming", params={"country": "EGY"})
+    assert r.status_code == 200
+    f = r.json()
+    validate(f, "FarmingOutlook")
+    n = f["grid"]["nrows"] * f["grid"]["ncols"]
+    assert len(f["inside"]) == len(f["evidence"]) == n
+    for crop in f["crops"]:
+        for grid in f["suitability"]["irrigated"][crop["id"]]:
+            assert len(grid) == n
+    assert client.get("/api/farming", params={"country": "KEN"}).status_code == 404
+
+
+def test_farming_matches_known_geography(client):
+    """Sanity: apples cannot survive Aswan's summer; rain-fed farming in Egypt is near impossible."""
+    f = client.get("/api/farming", params={"country": "EGY"}).json()
+    g = f["grid"]
+    k = round((24.0 - g["lat0"]) / g["dlat"]) * g["ncols"] + round((32.5 - g["lon0"]) / g["dlon"])
+    assert f["suitability"]["irrigated"]["apple"][0][k] == 0
+    assert f["suitability"]["irrigated"]["date_palm"][0][k] >= 60
+    assert max(v or 0 for v in f["suitability"]["rainfed"]["wheat"][0]) < 50

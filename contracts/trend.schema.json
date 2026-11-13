@@ -454,6 +454,186 @@
           }
         }
       }
+    },
+    "FarmingOutlook": {
+      "type": "object",
+      "required": [
+        "version",
+        "region",
+        "grid",
+        "method",
+        "horizons",
+        "inside",
+        "crops",
+        "suitability",
+        "evidence",
+        "suitable_threshold"
+      ],
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "region": {
+          "$ref": "#/$defs/Region"
+        },
+        "grid": {
+          "$ref": "#/$defs/Grid"
+        },
+        "method": {
+          "type": "string"
+        },
+        "horizons": {
+          "type": "array",
+          "items": {
+            "type": "integer"
+          },
+          "minItems": 1
+        },
+        "inside": {
+          "type": "string",
+          "pattern": "^[01]*$"
+        },
+        "evidence": {
+          "type": "string",
+          "pattern": "^[SMN-]*$"
+        },
+        "suitable_threshold": {
+          "type": "number"
+        },
+        "crops": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "name",
+              "season_months"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string"
+              },
+              "scientific_name": {
+                "type": "string"
+              },
+              "season_months": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 12
+              },
+              "source_url": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "suitability": {
+          "type": "object",
+          "properties": {
+            "irrigated": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                }
+              }
+            },
+            "rainfed": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "array",
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "minimum": 0,
+                    "maximum": 100
+                  }
+                }
+              }
+            }
+          },
+          "required": [
+            "irrigated"
+          ]
+        },
+        "suitability_10_low": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": [
+                  "integer",
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "suitability_10_high": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": [
+                  "integer",
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "best_start_month": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "array",
+              "items": {
+                "type": [
+                  "integer",
+                  "number",
+                  "null"
+                ]
+              }
+            }
+          }
+        },
+        "years_to_heat_limit": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": [
+                "integer",
+                "number",
+                "null"
+              ]
+            }
+          }
+        }
+      }
     }
   }
 }

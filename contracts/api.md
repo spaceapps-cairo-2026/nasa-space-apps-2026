@@ -45,6 +45,24 @@ Its value is at index `k = i * grid.ncols + j` in each of these flat arrays:
 NASA POWER grid: `dlat = 0.5`, `dlon = 0.625`, centers on multiples of those steps from
 (-90, -180), so every response lines up with every other one.
 
+## Farming outlook (F2 farmland, F3 crops, F4 decisions)
+
+| Method | Path | Returns |
+|---|---|---|
+| GET | `/api/farming?country=EGY` | `FarmingOutlook` for a focus country (precomputed by `python ml/farming.py`); other countries: 404 "Farming analysis is available for: Egypt." |
+
+`FarmingOutlook` uses the same grid layout as `GridTrend` (`grid`, flat arrays, index `k = i * ncols + j`):
+- `inside[k]`: `"1"` if the cell touches the country.
+- `horizons`: `[2025, 2030, 2035]` (now, +5, +10 years, "if current trends continue").
+- `crops`: id, name, scientific name, season length in months, FAO source link, optimal and absolute temperature.
+- `suitability[mode][crop]`: three flat grids (one per horizon) of 0 to 100, `mode` is `irrigated` or `rainfed`.
+- `suitability_10_low` / `suitability_10_high[mode][crop]`: +10 years using the low and high end of the trend's 95% range.
+- `best_start_month[mode][crop]`: first month (0 = January) of the best growing season now.
+- `years_to_heat_limit[crop]`: years until the hottest month of that season reaches the crop's absolute heat limit at the cell's current warming rate (irrigated, capped at 99, null when not warming or not suitable).
+- `temp_now_c`, `rain_now_mm`, `temp_trend_per_decade`, `rain_trend_mm_per_decade`: the climate behind the scores.
+- `evidence[k]`: confidence of the cell's temperature trend (`S`, `M`, `N`, `-`): future changes in `N` cells rest on a trend that is not proven.
+- `suitable_threshold`: a crop "fits" a place at this score or above (50).
+
 ## Field meanings for a single place (`TrendResult`)
 - `series`: one value per year (the average of that year's months). Yearly averages remove the
   summer/winter cycle so it cannot be mistaken for a trend.

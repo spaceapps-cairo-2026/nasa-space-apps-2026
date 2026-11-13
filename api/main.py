@@ -211,5 +211,21 @@ def trend_cell(
     raise HTTPException(status_code=404, detail=f"The cell's chart needs the live engine. {MOCK_NOTE}")
 
 
+FARMING_COUNTRIES = {"EGY": "Egypt"}
+
+
+@app.get("/api/farming")
+def farming(country: str = "EGY") -> dict:
+    """Farming outlook for a focus country (ml/farming.py output, else the fixture)."""
+    country = country.upper()
+    if country not in FARMING_COUNTRIES:
+        raise HTTPException(status_code=404, detail="Farming analysis is available for: "
+                                                    + ", ".join(FARMING_COUNTRIES.values()) + ".")
+    for path in (ROOT / "ml" / "outputs" / f"farming_{country}.json", FIXTURES / f"farming_{country}.json"):
+        if path.exists():
+            return _load(str(path), path.stat().st_mtime)
+    raise HTTPException(status_code=404, detail="The farming outlook has not been computed yet (python ml/farming.py).")
+
+
 # Static app last, so /api routes win.
 app.mount("/", StaticFiles(directory=ROOT / "app", html=True), name="app")
