@@ -53,9 +53,9 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 - [x] **B3** F1 Trends tab on fixtures: measurement picker, time series chart with trend line, rate per decade, confidence label, trend map for any selected country and the whole globe with "not proven" in grey, plain sentence | needs: A1 | owner: Eyad + Claude
 - [ ] **B4** API: `/trend/point` and `/trend/region` on fixtures (`MOCK=1`), then real data; `/trend/region` works for any country: calls `region_monthly()` (live fetch, cached) then the engine, with a loading state in the app; farming endpoints answer "farming analysis available for: Egypt" outside focus countries | needs: A1 (real: A4, C1) | owner: Eyad + Claude (fixtures part done; real data waits for A4)
 - [ ] **B5** Methods page layout (F5); text and validation numbers come later from A and C | needs: none | owner: ___
-- [ ] **B6** Farmland tab (F2): gaining / losing / stable map, horizon selector (now, +5, +10), "crossing" highlight, projection label | needs: A2 | owner: ___
-- [ ] **B7** Crops tab (F3): mode A crop to places, mode B place to crops, irrigation toggle | needs: A2 | owner: ___
-- [ ] **B8** Decisions tab (F4): investor and planner lists, each row opens the map and evidence | needs: A2 | owner: ___
+- [x] **B6** Farmland tab (F2): gaining / losing / stable map, horizon selector (now, +5, +10), "crossing" highlight, projection label | needs: A2 | owner: Eyad + Claude
+- [x] **B7** Crops tab (F3): mode A crop to places, mode B place to crops, irrigation toggle | needs: A2 | owner: Eyad + Claude
+- [x] **B8** Decisions tab (F4): investor and planner lists, each row opens the map and evidence | needs: A2 | owner: Eyad + Claude
 - [ ] **B9** D9: hosting; first deploy by Sat 20:00 | needs: B2, B3, B4 | owner: ___
 - [ ] **B10** Guided tour (F6): one button plays the story end to end, from cached data | needs: B2 to B8, C7 | owner: ___
 
@@ -81,6 +81,7 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 - [ ] Make the repo public; **submit by 20:00**; improve until 23:59
 
 ## Lane A inbox
+- FYI (from B, Fri 23:40): A5 to A8 for Egypt are drafted in ml/farming.py (FAO ECOCROP per cell, irrigated and rain-fed, now / 2030 / 2035 by each cell's own trend with its 95% range, years to heat limit) and served by /api/farming. Please review the method; change anything you disagree with.
 - REQUEST (from B, Fri 20:15): the Egypt region grid is the full 22 to 32 N, 25 to 35 E box, so it includes sea, Libya, Sudan and Saudi cells. Consider masking to Egypt's border (app/data/countries.geojson has it) before FDR. Also /api/trend/cell needs cell_trend() for the cell chart; the app falls back to the map numbers until then.
 - REQUEST (from B, Fri 18:55): record D3 in docs/DECISIONS.md: MapLibre GL JS 5.6.0 globe projection, NASA GIBS Blue Marble base imagery. Compared against CesiumJS with prototypes; note MapLibre cannot pick fill-extrusion in globe mode, so the app clicks an invisible flat fill layer. Library is vendored in app/vendor.
 

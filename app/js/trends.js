@@ -74,7 +74,7 @@ export function gridToGeoJSON(g, border = null) {
       height = 6000 + 50000 * Math.abs(t);
       counts[c.slope > 0 ? 'increasing' : 'decreasing'] += 1;
     }
-    return { type: 'Feature', properties: { lat: c.lat, lon: c.lon, slope: c.slope, q: c.q, confidence: c.confidence, color, height }, geometry: c.geometry };
+    return { type: 'Feature', properties: { lat: c.lat, lon: c.lon, slope: c.slope, q: c.q, confidence: c.confidence, color, height, flat: c.confidence === 'not_proven' }, geometry: c.geometry };
   });
   return { range, counts, fc: { type: 'FeatureCollection', features } };
 }

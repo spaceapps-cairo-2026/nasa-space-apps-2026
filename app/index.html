@@ -22,31 +22,76 @@
 
   <aside id="sidebar" class="glass">
     <nav class="tabs" role="tablist" aria-label="Modes">
-      <button role="tab" aria-selected="true" id="tab-trends">Trends</button>
-      <button role="tab" aria-selected="false" disabled title="Coming soon">Farmland</button>
-      <button role="tab" aria-selected="false" disabled title="Coming soon">Crops</button>
-      <button role="tab" aria-selected="false" disabled title="Coming soon">Decisions</button>
+      <button role="tab" aria-selected="true" data-tab="trends" id="tab-trends">Trends</button>
+      <button role="tab" aria-selected="false" data-tab="crops" id="tab-crops">Crops</button>
+      <button role="tab" aria-selected="false" data-tab="farmland" id="tab-farmland">Farmland</button>
+      <button role="tab" aria-selected="false" data-tab="decisions" id="tab-decisions">Decisions</button>
     </nav>
 
-    <section class="block">
+    <!-- Trends tab -->
+    <section class="block" data-for="trends">
       <label for="var-select" class="label">Measurement</label>
       <select id="var-select"></select>
       <p id="var-definition" class="definition"></p>
     </section>
 
-    <section class="block">
+    <section class="block" data-for="trends">
       <div class="label">Selected place</div>
       <p id="selection-text" class="selection">None yet. Click anywhere on Earth or search a place.</p>
     </section>
 
-    <section class="block">
+    <section class="block" data-for="trends">
       <div class="label">Trend maps</div>
       <label class="check"><input type="checkbox" id="world-toggle" checked /> Color the whole Earth (zoomed out)</label>
       <p id="world-note" class="note"></p>
       <button id="region-toggle" class="btn wide">Show trend map: Egypt</button>
       <p id="region-note" class="note"></p>
-      <div id="legend" hidden></div>
     </section>
+
+    <!-- Farming tabs (Crops, Farmland, Decisions) -->
+    <section class="block" data-for="crops farmland decisions" hidden>
+      <p class="note">Farming analysis for <strong>Egypt</strong>, from NASA climate and FAO crop needs.
+        Future views assume today's measured trends continue; they are not forecasts.</p>
+    </section>
+
+    <section class="block" data-for="crops" hidden>
+      <label for="crop-select" class="label">Crop</label>
+      <select id="crop-select"></select>
+      <p id="crop-info" class="definition"></p>
+      <div class="label">Show</div>
+      <div class="seg" role="group" aria-label="Crop map">
+        <button data-crop-view="score" class="on">Suitability</button>
+        <button data-crop-view="heat">Years to heat limit</button>
+      </div>
+    </section>
+
+    <section class="block" data-for="farmland" hidden>
+      <div class="label">Show</div>
+      <div class="seg" role="group" aria-label="Farmland map">
+        <button data-land-view="count" class="on">Crops that fit</button>
+        <button data-land-view="change">Change by 2035</button>
+      </div>
+    </section>
+
+    <section class="block" data-for="crops farmland" hidden>
+      <div class="label">Water</div>
+      <div class="seg" role="group" aria-label="Water">
+        <button data-mode="irrigated" class="on">Irrigated</button>
+        <button data-mode="rainfed">Rain only</button>
+      </div>
+      <div class="label" id="horizon-label">When</div>
+      <div class="seg" role="group" aria-label="Time horizon" id="horizon-seg">
+        <button data-h="0" class="on">Now</button>
+        <button data-h="1">2030</button>
+        <button data-h="2">2035</button>
+      </div>
+    </section>
+
+    <section class="block" data-for="crops farmland decisions" hidden>
+      <p id="farm-note" class="note"></p>
+    </section>
+
+    <div id="legend" hidden></div>
 
     <div class="toolbar">
       <button id="btn-home" class="btn">Whole Earth</button>

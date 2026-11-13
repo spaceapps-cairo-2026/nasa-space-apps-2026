@@ -23,6 +23,7 @@ export const api = {
     west: bbox[0].toFixed(3), south: bbox[1].toFixed(3), east: bbox[2].toFixed(3), north: bbox[3].toFixed(3), var: v, name,
   }),
   world: (v) => getJSON('/api/trend/world', { var: v }),
+  farming: (country) => getJSON('/api/farming', { country }),
   cell: (lat, lon, v) => getJSON('/api/trend/cell', { lat: lat.toFixed(3), lon: lon.toFixed(3), var: v }),
 };
 

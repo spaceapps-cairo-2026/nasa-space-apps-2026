@@ -27,18 +27,20 @@ export function inGeometry(lon, lat, geometry) {
 }
 
 /** "Helwan, Egypt", "Near Aswan (40 km), Egypt", or "Red Sea area, near Hurghada (60 km)". */
-export function describePlace(lat, lon, countries, places) {
+export function describePlace(lat, lon, countries, places, fallbackCountry = null) {
   const country = countries.features.find((f) => {
     const [w, s, e, n] = f.properties.bbox;
     return lon >= w && lon <= e && lat >= s && lat <= n && inGeometry(lon, lat, f.geometry);
   });
+  const cname0 = country ? country.properties.name : null;
   let best = null, bestKm = Infinity;
-  for (const [name, , plat, plon] of places.places) {
+  for (const [name, pcountry, plat, plon] of places.places) {
     if (Math.abs(plat - lat) > 3) continue;
+    if (cname0 && pcountry !== cname0) continue; // inside a country, name the nearest town of that country
     const km = distanceKm(lat, lon, plat, plon);
     if (km < bestKm) { bestKm = km; best = name; }
   }
-  const cname = country ? country.properties.name : null;
+  const cname = country ? country.properties.name : fallbackCountry;
   if (best && bestKm <= 15) return cname ? `${best}, ${cname}` : best;
   if (best && bestKm <= 250) {
     const near = `near ${best} (${Math.round(bestKm)} km)`;

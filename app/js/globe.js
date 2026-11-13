@@ -54,12 +54,12 @@ export class Globe {
           { id: 'selection-fill', type: 'fill', source: 'selection', paint: { 'fill-color': '#6fd3ff', 'fill-opacity': 0.15 } },
           { id: 'selection-line', type: 'line', source: 'selection', paint: { 'line-color': '#6fd3ff', 'line-width': 2 } },
           // Not proven cells: flat, see-through tiles so the land shows through.
-          { id: 'cells-flat', type: 'fill', source: 'cells', filter: ['==', ['get', 'confidence'], 'not_proven'],
-            paint: { 'fill-color': ['get', 'color'], 'fill-opacity': 0.38, 'fill-outline-color': 'rgba(255,255,255,0.25)' } },
+          { id: 'cells-flat', type: 'fill', source: 'cells', filter: ['==', ['get', 'flat'], true],
+            paint: { 'fill-color': ['get', 'color'], 'fill-opacity': ['coalesce', ['get', 'opacity'], 0.38], 'fill-outline-color': 'rgba(255,255,255,0.25)' } },
           // Invisible flat layer for clicks: MapLibre 5.6 cannot pick fill-extrusion in globe mode.
           { id: 'cells-hit', type: 'fill', source: 'cells', paint: { 'fill-color': '#000', 'fill-opacity': 0.01 } },
           // Proven changes: raised columns.
-          { id: 'cells', type: 'fill-extrusion', source: 'cells', filter: ['!=', ['get', 'confidence'], 'not_proven'],
+          { id: 'cells', type: 'fill-extrusion', source: 'cells', filter: ['!=', ['get', 'flat'], true],
             paint: { 'fill-extrusion-color': ['get', 'color'], 'fill-extrusion-height': ['get', 'height'], 'fill-extrusion-opacity': 0.88,
               'fill-extrusion-vertical-gradient': true } },
           // Detailed border of the region on top of everything.
@@ -115,35 +115,59 @@ export class Globe {
     this.marker.setLngLat([lon, lat]).addTo(this.map);
   }
 
-  clearSelection() {
-    this.map.getSource('selection')?.setData(EMPTY);
+  /**
+   * Run a map change now, or retry until the map has finished loading its style. Changes on the
+   * same channel replace each other (the newest wins), so a quick click sequence cannot leave an
+   * old layer on screen.
+   */
+  when(channel, fn) {
+    this.pending = this.pending || {};
+    const token = Symbol(channel);
+    this.pending[channel] = token;
+    const attempt = (tries) => {
+      if (this.pending[channel] !== token) return; // superseded by a newer change
+      try { fn(); } catch (e) {
+        if (tries > 0) setTimeout(() => attempt(tries - 1), 150);
+        else console.error(e);
+      }
+    };
+    attempt(100);
+  }
+
+  clearSelectionNow() {
+    this.map.getSource('selection').setData(EMPTY);
     this.map.setFilter('country-hl', ['==', ['get', 'iso'], '']);
     if (this.marker) this.marker.remove();
   }
 
+  clearSelection() { this.when('selection', () => this.clearSelectionNow()); }
+
   selectPoint(lon, lat, fly = false) {
-    this.clearSelection();
-    this.pin(lon, lat);
+    this.when('selection', () => { this.clearSelectionNow(); this.pin(lon, lat); });
     if (fly) this.map.flyTo({ center: [lon, lat], zoom: Math.max(this.map.getZoom(), 4), duration: 2200, essential: true });
   }
 
   selectCity(lon, lat, km = 30) {
-    this.clearSelection();
-    this.pin(lon, lat);
-    this.map.getSource('selection').setData(circle(lon, lat, km));
-    // Sentinel-2 imagery is sharp at this zoom, so the 30 km circle fills the view.
+    this.when('selection', () => {
+      this.clearSelectionNow();
+      this.pin(lon, lat);
+      this.map.getSource('selection').setData(circle(lon, lat, km));
+    });
+    // Close-up imagery is sharp at this zoom, so the 30 km circle fills the view.
     this.map.flyTo({ center: [lon, lat], zoom: 8.5, pitch: 0, duration: 2800, essential: true });
   }
 
   selectCountry(iso, bbox) {
-    this.clearSelection();
-    this.map.setFilter('country-hl', ['==', ['get', 'iso'], iso]);
+    this.when('selection', () => {
+      this.clearSelectionNow();
+      this.map.setFilter('country-hl', ['==', ['get', 'iso'], iso]);
+    });
     this.map.fitBounds([[bbox[0], bbox[1]], [bbox[2], bbox[3]]], { padding: 80, pitch: 35, duration: 2600, essential: true, maxZoom: 6 });
   }
 
   /** Whole-Earth trend layer (an image), visible when zoomed out, fading out as you zoom in. */
   showWorld({ url, coordinates }) {
-    const add = () => {
+    this.when('world', () => {
       if (this.map.getSource('world')) {
         this.map.getSource('world').updateImage({ url, coordinates });
         this.map.setLayoutProperty('world', 'visibility', 'visible');
@@ -152,22 +176,30 @@ export class Globe {
       this.map.addSource('world', { type: 'image', url, coordinates });
       this.map.addLayer({ id: 'world', type: 'raster', source: 'world',
         paint: { 'raster-opacity': ['interpolate', ['linear'], ['zoom'], 2.8, 0.85, 4.2, 0], 'raster-fade-duration': 0 } }, 'countries-line');
-    };
-    const tryAdd = () => { try { add(); } catch { setTimeout(tryAdd, 300); } }; // style may still be loading
-    tryAdd();
+    });
   }
 
   hideWorld() {
-    if (this.map.getLayer('world')) this.map.setLayoutProperty('world', 'visibility', 'none');
+    this.when('world', () => { if (this.map.getLayer('world')) this.map.setLayoutProperty('world', 'visibility', 'none'); });
   }
 
   showCells(fc, border = null) {
-    this.map.getSource('cells').setData(fc);
-    this.map.getSource('regionBorder').setData(border ? { type: 'Feature', properties: {}, geometry: border } : EMPTY);
+    this.when('cells', () => {
+      this.map.getSource('cells').setData(fc);
+      this.map.getSource('regionBorder').setData(border ? { type: 'Feature', properties: {}, geometry: border } : EMPTY);
+    });
   }
+
   hideCells() {
-    this.map.getSource('cells').setData(EMPTY);
-    this.map.getSource('regionBorder').setData(EMPTY);
+    this.when('cells', () => {
+      this.map.getSource('cells').setData(EMPTY);
+      this.map.getSource('regionBorder').setData(EMPTY);
+    });
+  }
+
+  flyToCell(lon, lat) {
+    this.map.flyTo({ center: [lon, lat], zoom: Math.max(this.map.getZoom(), 6.2), pitch: 45, duration: 1800, essential: true });
+    this.pin(lon, lat);
   }
 
   home() { this.map.flyTo({ ...HOME, duration: 2200, essential: true }); }
