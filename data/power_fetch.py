@@ -76,8 +76,22 @@ def to_rows(param: str, data: dict) -> list[dict]:
     return rows
 
 
+def summary(df, verb: str) -> None:
+    print(f"{verb} {OUT}: {len(df):,} rows, {df.cell_id.nunique()} cells, "
+          f"{df.time.min()} to {df.time.max()}, variables {sorted(df.variable.unique())}")
+    print(f"missing values: {df.value.isna().mean():.2%}")
+
+
 def main() -> None:
+    import sys
+
     import pandas as pd
+
+    # The parquet file is committed to git. Rebuilding it on another laptop can change its
+    # bytes (library versions), which would show up as a modified file, so only rebuild on request.
+    if OUT.exists() and "--force" not in sys.argv:
+        summary(pd.read_parquet(OUT), "already built (use --force to rebuild)")
+        return
 
     rows: list[dict] = []
     for p in VARIABLES:
@@ -86,9 +100,7 @@ def main() -> None:
     df = pd.DataFrame(rows)
     OUT.parent.mkdir(parents=True, exist_ok=True)
     df.to_parquet(OUT, index=False)
-    print(f"wrote {OUT}: {len(df):,} rows, {df.cell_id.nunique()} cells, "
-          f"{df.time.min()} to {df.time.max()}, variables {sorted(df.variable.unique())}")
-    print(f"missing values: {df.value.isna().mean():.2%}")
+    summary(df, "wrote")
 
 
 if __name__ == "__main__":

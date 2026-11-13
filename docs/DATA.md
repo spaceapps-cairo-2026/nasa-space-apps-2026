@@ -13,7 +13,8 @@ soil moisture or precipitation, prefer it over our choices below.
 - Grid: 357 cells over the Egypt box (lat 22 to 32, lon 25 to 35), about 0.5 x 0.625 degrees (roughly 55 x 60 km per cell).
 - Period: Jan 2001 to Dec 2025. Missing values: 0.75%.
 - Variables: T2M (air temp), T2M_MAX (daily max air temp), PRECTOTCORR (rain), GWETTOP (topsoil wetness), GWETROOT (root zone wetness), RH2M (humidity).
-- Get it: `python data/power_fetch.py` (9 seconds, cached in data/cache/power).
+- **Already in the repo:** raw downloads in `data/cache/power/`, the tidy table in `data/processed/power_monthly.parquet` (columns: cell_id, lat, lon, time, variable, value). No download needed after cloning.
+- Rebuild from NASA: `python run.py power --force` (about 10 seconds).
 - First look (Hamed-Rao / Yue-Wang Mann-Kendall on annual means):
   - T2M: 202 cells significantly warming, 0 cooling, median +0.24 C/decade.
   - T2M_MAX: falls in the west and south, rises in the east (Sinai, Red Sea). The number of significant cells changes a lot between test variants (65 with Hamed-Rao vs 266 with Yue-Wang). Yue-Wang turned out to be broken on short series (see METHODS.md), so trust the lower number until rechecked with FDR.

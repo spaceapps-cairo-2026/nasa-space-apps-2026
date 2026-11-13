@@ -30,7 +30,7 @@ Everyone may edit their own lane's section of `TASKS.md` (claim, tick) and appen
 3. **Mock first.** `contracts/fixtures/*.json` are valid example outputs. The app and API must work with `MOCK=1` before the real model exists. Never block on another lane.
 4. **Small commits, push often, integrate by pull request.** Commit every 30 to 60 minutes on your lane branch and push it. Keep one open pull request (PR) per lane into `main` (`/handoff` creates it). GitHub runs the tests on every push (the "check" workflow). Only lane A merges PRs, and only when "check" is green.
 5. **Green before push.** Run `python run.py check` before every push. A red `main` is an emergency.
-6. **No big files, no secrets.** `data/raw/` and `data/cache/` are gitignored. Tokens go in `.env` (gitignored).
+6. **Small data yes, big files and secrets no.** Small public datasets are committed so everyone has the same data: `data/cache/power/` and `data/processed/`. Never commit a file over 20 MB, `data/raw/`, other `data/cache/` folders (AppEEARS), or anything needing a login; share those via Google Drive. Tokens go in `.env` (gitignored).
 7. **Cite as you go.** Every dataset, library, image, and AI tool used goes into `docs/REFERENCES.md` the moment you use it. Space Apps requires all external resources to be listed.
 8. **Leave a trail.** When you finish a task, tick it in `TASKS.md` and add one line to `docs/LOG.md`: `HH:MM | lane | what changed`.
 9. **Boring and working beats clever and broken.** No new framework or library after Saturday 13:00 without lane A's OK.

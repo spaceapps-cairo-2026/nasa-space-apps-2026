@@ -4,8 +4,9 @@ __pycache__/
 .env
 .pytest_cache/
 data/raw/
-data/cache/
-data/processed/
+# Small datasets ARE committed (NASA POWER cache + processed tables). Big or login-only data is not.
+data/cache/*
+!data/cache/power/
 ml/artifacts/
 *.nc
 *.h5

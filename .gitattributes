@@ -4,3 +4,4 @@
 *.png binary
 *.js linguist-vendored=false
 app/vendor/** -diff
+*.parquet binary

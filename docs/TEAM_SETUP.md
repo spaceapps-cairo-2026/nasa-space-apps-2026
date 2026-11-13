@@ -63,7 +63,8 @@ Run `/handoff` in that window. Continue the same lane in claude.ai chat (paste t
 |---|---|
 | Project | `D:\nasa_space_apps` |
 | Python packages | the global Python install (no virtual environment) |
-| Downloaded NASA data | `D:\nasa_space_apps\data\cache` (gitignored; share big files via Google Drive) |
+| NASA data (in git) | `data\processed\power_monthly.parquet` and raw `data\cache\power\` |
+| Big or login-only data (not in git) | `data\cache\appeears\`, `data\raw\`; share via Google Drive |
 | Second Claude login | `D:\claude-accounts\account2` |
 
 Python itself, Git, GitHub CLI and Claude Code stay installed where they already are.
