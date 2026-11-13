@@ -57,7 +57,7 @@ def main() -> None:
         download()
     rows = annual_rows(RAW.read_text(encoding="utf-8"))
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text("year,anomaly_c\n" + "".join(f"{y},{v:.2f}\n" for y, v in rows), encoding="utf-8")
+    OUT.write_text("year,anomaly_c\n" + "".join(f"{y},{v:.2f}\n" for y, v in rows), encoding="utf-8", newline="\n")
     print(f"wrote {OUT}: {len(rows)} years, {rows[0][0]} to {rows[-1][0]}")
     print(f"check: Sen slope 2003 to 2025 = {sen_slope_per_decade(rows, 2003, 2025):+.3f} C per decade")
 
