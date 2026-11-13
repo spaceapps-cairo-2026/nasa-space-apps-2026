@@ -7,6 +7,8 @@ Usage:
     python run.py api        API + app on real model output
     python run.py check      run all tests (do this before every push)
     python run.py power      build the Egypt climate table (already in git; add --force to re-download)
+    python run.py gistemp    NASA global temperature table for validation (add --force to re-download)
+    python run.py crops      FAO ECOCROP crop requirements table (add --force to re-download)
     python run.py appeears   check the MODIS AppEEARS request (add: submit / status / download)
     python run.py trends     compute trends -> ml/outputs/predictions.json (lane A)
 """
@@ -34,6 +36,8 @@ COMMANDS = {
     "api": lambda: sh([PY, "-m", "uvicorn", "api.main:app", "--reload", "--port", "8000"], {"MOCK": "0"}),
     "check": lambda: sh([PY, "-m", "pytest", "-q"]),
     "power": lambda: sh([PY, "data/power_fetch.py", *sys.argv[2:]]),
+    "gistemp": lambda: sh([PY, "data/gistemp_fetch.py", *sys.argv[2:]]),
+    "crops": lambda: sh([PY, "data/crops_build.py", *sys.argv[2:]]),
     "appeears": lambda: sh([PY, "data/appeears_request.py", *(sys.argv[2:] or ["check"])]),
     "trends": lambda: sh([PY, "ml/trends.py"]),
 }

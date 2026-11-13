@@ -62,8 +62,8 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 ## Lane C: data + science + story (`data/`, story docs, `demo/`)
 
 - [ ] **C1** POWER point fetch for any lat/lon (`T2M_MIN` added) with a local cache in `data/cache/` | needs: none | owner: ___
-- [ ] **C2** GISTEMP global means: download script and tidy table for validation | needs: none | owner: ___
-- [ ] **C3** D6: final crop list (8 to 12) and how irrigation is modeled; `data/crops/crops.csv`, one row per crop with its source link | needs: none | owner: ___
+- [x] **C2** GISTEMP global means: download script and tidy table for validation (`data/processed/gistemp_global_annual.csv`) | needs: none | owner: Mohammed (Claude)
+- [ ] **C3** D6: pick the final 8 to 12 crops from the 20 already in `data/crops/crops.csv` (FAO ECOCROP, built Fri), decide how irrigation is modeled | needs: none | owner: ___
 - [ ] **C4** `docs/REFERENCES.md`: every dataset, library and AI tool, kept current all weekend | needs: none | owner: ___
 - [ ] **C5** Validation (F5): reproduce the GISTEMP rate with our engine, check one known real change, write the limitations | needs: A4, C2 | owner: ___
 - [ ] **C6** Pitch draft in `docs/PITCH.md` with real numbers | needs: A4 | owner: ___

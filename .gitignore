@@ -7,6 +7,8 @@ data/raw/
 # Small datasets ARE committed (NASA POWER cache + processed tables). Big or login-only data is not.
 data/cache/*
 !data/cache/power/
+!data/cache/gistemp/
+!data/cache/ecocrop/
 ml/artifacts/
 *.nc
 *.h5

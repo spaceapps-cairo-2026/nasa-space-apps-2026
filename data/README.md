@@ -9,8 +9,8 @@ More detail on sources and how they were verified: `docs/DATA.md`.
 |---|---|---|---|---|
 | 1 | NASA POWER monthly grid, Egypt, 2001 to 2025 | **Yes** | F1 region map, F2 farmland, F3 crops, F4 decisions | done |
 | 2 | NASA POWER point data, any place on Earth | No: fetched live by the app; demo points get cached | F1 city and point trends, F6 tour | C1 |
-| 3 | FAO ECOCROP crop requirements | **Not yet** | F3 crops (and F2 viability, F4 decisions) | C3 (after decision D6) |
-| 4 | NASA GISTEMP global temperature | **Not yet** | F5 Methods page: proof our numbers are right | C2 |
+| 3 | FAO ECOCROP crop requirements, 20 candidate crops | **Yes** | F3 crops (and F2 viability, F4 decisions) | done; final 8 to 12 picked in D6 (C3) |
+| 4 | NASA GISTEMP global temperature, 1880 to 2025 | **Yes** | F5 Methods page: proof our numbers are right | done (C2) |
 | 5 | Official challenge Resources list | **Not yet** | may add or replace datasets | Phase 0 (lane C) |
 | 6 | MODIS greenness and land temperature (AppEEARS, needs Earthdata login) | No, optional | P2 evidence layer only | C10, only if time |
 | 7 | NASA POWER grids for 1 or 2 more countries | No, optional | D7, regional maps outside Egypt | C9, only if time |
@@ -74,17 +74,49 @@ wide = df.pivot_table(index=["cell_id", "time"], columns="variable", values="val
 - **For:** F1 when a user searches a city or clicks a point outside our precomputed region, and the F6 tour.
 - **How:** the app requests it live (about 1.3 s per point). Every point used in the demo is cached in `data/cache/` so the demo works without internet. The request address is in `docs/DATA.md` section 1b.
 
-## 3. FAO ECOCROP crop requirements (task C3)
+## 3. FAO ECOCROP crop requirements (in the repo)
 
-- **What:** for each crop, the temperature and yearly rainfall it needs: the **optimal** range (grows best) and the **absolute** range (survives at all). Published by the UN Food and Agriculture Organization.
-- **For:** F3 (which crops fit a place now and in 5 or 10 years). It also feeds F2 viability and the F4 rankings.
-- **Will live in:** `data/crops/crops.csv`, one row per crop (8 to 12 crops chosen in decision D6), with the FAO source link on every row.
+**Source:** FAO ECOCROP, the UN Food and Agriculture Organization's database of what each plant needs to grow. The full export (2,568 plants) is from the OpenCLIM project (github.com/OpenCLIM/ecocrop). It was spot checked against FAO's own data sheets (date palm, wheat) and matched exactly. Public, no login.
 
-## 4. NASA GISTEMP global temperature (task C2)
+**Files**
+- `data/crops/crops.csv`: **use this one.** One row per crop, 20 crops.
+- `data/cache/ecocrop/EcoCrop_DB.csv`: the full database, used only by `data/crops_build.py`.
 
-- **What:** NASA's official global average temperature per year.
-- **For:** F5 validation. Our trend engine must reproduce NASA's published warming rate (about +0.27 to +0.28 C per decade, 2003 to 2025). This proves to judges that our numbers are trustworthy.
-- **Source:** a public CSV, no login (address in `docs/DATA.md` section 3).
+**The crops:** `group` = `plan` for the 13 candidates in `PROJECT_PLAN.md` F3 (wheat, maize, rice, cotton, potato, tomato, orange, mango, date palm, olive, grape, avocado, apple). `group` = `egypt` for 7 extra major Egyptian crops (sugarcane, sugar beet, onion, faba bean, berseem clover, barley, sorghum). Decision D6 picks the final 8 to 12.
+
+**What the columns mean**
+
+| Column | Meaning | Unit |
+|---|---|---|
+| `temp_opt_min_c`, `temp_opt_max_c` | **Optimal** temperature range: the crop grows best here | C, average during the growing season |
+| `temp_abs_min_c`, `temp_abs_max_c` | **Absolute** temperature range: outside it the crop fails | C |
+| `rain_opt_min_mm`, `rain_opt_max_mm` | Optimal yearly rainfall | mm per year |
+| `rain_abs_min_mm`, `rain_abs_max_mm` | Absolute yearly rainfall limits | mm per year |
+| `killing_temp_c` | Temperature that kills the plant in early growth (empty = not recorded) | C |
+| `cycle_min_days`, `cycle_max_days` | Days from planting to harvest (365 = perennial tree) | days |
+| `life_span` | annual, biennial, perennial | text |
+| `salinity_opt`, `salinity_abs` | Soil salt it tolerates, optimal and absolute | text, dS/m |
+| `source_url` | The crop's official FAO data sheet | link |
+
+**How it connects to the climate grid:** compare a cell's temperature (`T2M`, `T2M_MAX`) with the temperature ranges, and its rain (`PRECTOTCORR` x days, summed over the year, in mm) with the rainfall ranges. Inside the optimal range = very suitable, between optimal and absolute = marginal, outside absolute = not suitable. The exact scoring is decision D6 / task A6.
+
+**Important for Egypt:** almost no Egyptian cell gets the rain any crop needs, because farming there is irrigated from the Nile. In **irrigated** mode the rainfall columns are ignored and only temperature (heat) limits count. This is the irrigation toggle in F3.
+
+**Rebuild:** `python run.py crops` (from the committed file), or `python run.py crops --force` to re-download. To add a crop, add one line to `CROPS` in `data/crops_build.py`.
+
+## 4. NASA GISTEMP global temperature (in the repo)
+
+**Source:** NASA GISS Surface Temperature Analysis v4 (data.giss.nasa.gov/gistemp), NASA's official record of global average surface temperature over land and ocean. Public, no login.
+
+**Files**
+- `data/processed/gistemp_global_annual.csv`: **use this one.** Columns `year` (1880 to 2025) and `anomaly_c`.
+- `data/cache/gistemp/GLB.Ts+dSST.csv`: the exact NASA file, with monthly and seasonal columns too.
+
+**What `anomaly_c` means:** how much warmer (+) or colder (-) the whole planet was that year than its 1951 to 1980 average, in C. Example: 2024 = +1.28.
+
+**What it is for:** F5 validation. When our trend engine runs on this table, it must give NASA's published warming rate. The build script already checks this with a quick Sen's slope: **+0.280 C per decade for 2003 to 2025**, matching the published value (about 0.27 to 0.28). Task C5 repeats the check with the team's real engine and puts the comparison on the Methods page.
+
+**Rebuild:** `python run.py gistemp`, or `python run.py gistemp --force` to re-download.
 
 ## 5. Official challenge Resources list (Phase 0)
 
