@@ -1,4 +1,4 @@
-# API contract (v0.1)
+# API contract (v0.2)
 
 Owned by lane A. Lane B implements it in `api/main.py`. Lane B's app only talks to these endpoints.
 

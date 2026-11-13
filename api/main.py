@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "contracts" / "fixtures" / "sample_predictions.json"
 REAL = ROOT / "ml" / "outputs" / "predictions.json"
-API_VERSION = "0.1"
+API_VERSION = "0.2"
 
 
 def is_mock() -> bool:

@@ -1,3 +1,7 @@
+# DECIDED (Fri 13 Nov): Be An Earth System Trend Detective!
+
+See docs/CHALLENGE.md. The matrix below is kept for the record.
+
 # Challenge decision matrix (fill Sat 09:00 to 10:30, decide by 10:30)
 
 Score 1 to 5. Multiply by weight. Highest total wins. Kill ties with "which one has the better 30 second story".

@@ -11,3 +11,4 @@ ml/artifacts/
 *.h5
 *.tif
 .DS_Store
+.pip-cache/

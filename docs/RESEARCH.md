@@ -82,3 +82,21 @@ Patterns:
 - Which challenges count for the Cairo AI/ML track?
 - Exact demo video length limit in the 2026 Project Submission Guide.
 - Any 2026 rule on generative AI disclosure.
+
+## 6. Our challenge: competition analysis (searched 13 Nov)
+
+Many teams worldwide published repos for this challenge weeks before the event (statements came out 28 Oct). What they built:
+- 3D globes of the whole world with many variables (the most common entry by far).
+- Mann-Kendall + Sen's slope, often with FDR correction. Some with autocorrelation correction and validation against GISTEMP and NSIDC sea ice.
+- "AI detective" reports written by a language model.
+- Country focus entries (mostly Bangladesh), plus niche angles (ship routes, methane).
+
+So "a globe with Mann-Kendall" will NOT stand out. What should:
+1. **Depth over breadth:** one country, 1 km satellite pixels, places a judge can see on a satellite image.
+2. **The statement's own twist, made visible:** opposite trends from one process (adding Nile water vs building over farmland), found automatically by the fingerprint model.
+3. **"When did it start"** via change points, which almost nobody shows.
+4. **Honest statistics as a feature:** show how many "trends" disappear with autocorrelation + FDR, and where our method fails.
+5. **Local impact:** Egypt's water and food security story.
+
+## 7. Rules check
+- The 2024 FAQ: "At 9:00 a.m. (local time) teams may begin working on their hackathon projects." Before that: form team, pick challenge, plan, gather data, choose tools. We keep product code for Saturday.

@@ -19,11 +19,15 @@ python run.py check        # tests green
 python run.py mock         # open http://localhost:8000
 ```
 
+## Team setup (first time)
+See `docs/TEAM_SETUP.md`. Short version: lead runs `scripts/setup_team.ps1` once; each teammate runs
+`gh repo clone ORG/nasa-space-apps-2026 D:\nasa_space_apps; powershell -ExecutionPolicy Bypass -File D:\nasa_space_apps\scripts\join_team.ps1`
+
 ## Running two accounts on one laptop
 In PowerShell:
 ```powershell
-# terminal 1: account 1, main checkout, lane A
-git checkout lane/a-ml; claude
+# terminal 1: account 1, D:\nasa_space_apps, lane A
+cd D:\nasa_space_apps; git checkout lane/a-ml; claude
 
 # terminal 2: account 2, separate worktree + separate login, lane B
 .\scripts\second_account.ps1 lane/b-app   # first time: /login with account 2

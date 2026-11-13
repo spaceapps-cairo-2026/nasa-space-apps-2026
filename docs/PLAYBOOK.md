@@ -25,16 +25,13 @@ Nothing guarantees first place. This plan removes the usual ways strong teams lo
 3. Test `.\scripts\second_account.ps1 lane/b-app` once.
 4. Charge laptops, power banks, phone hotspot data. Sleep.
 
-### Sat 09:00 to 10:30: choose (no code)
-1. Confirm at kickoff: Cairo pitch time and format, local deadline, which challenges count for the AI/ML track, whether judges see a live demo or a video.
-2. Each Claude account reads 1 or 2 of the shortlisted challenge statements in parallel. Prompt: "Summarize the objectives, the official datasets and their size, and what an outstanding entry would look like for NASA judges."
-3. Fill `docs/DECISION_MATRIX.md`. Choose the challenge with: downloadable data, a clear ML task with a real metric, an output that is a decision, and an Egypt story.
-4. 10:30: decided. Never reopen this.
+### Challenge already chosen: Be An Earth System Trend Detective
+Friday is for data gathering (AppEEARS request, POWER download) and reading CHALLENGE.md / METHODS.md.
+The hour-by-hour task list for this challenge is in TASKS.md; the timeline below still applies.
 
-### Sat 10:30 to 11:00: lock the target
-- Lane C fills `docs/CHALLENGE.md`, mapping each challenge objective to a feature.
-- Everyone agrees the one sentence pitch at the top of `docs/PITCH.md`.
-- Lane A adapts the contract and fixtures, bumps the version, and merges to main. Everyone runs `/sync`.
+### Sat 09:00 to 11:00: kickoff + engine first
+- Confirm at kickoff: Cairo pitch time and format, local deadline, live demo or video.
+- Lane A starts the trend engine on POWER data (already downloaded). Lane B starts the map on fixtures v0.2. Lane C checks AppEEARS.
 
 ### Sat 11:00 to 20:00: walking skeleton (real data, end to end, ugly is fine)
 - Lane C: smallest real data slice into `data/processed/features.parquet` by 14:00.

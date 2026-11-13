@@ -6,15 +6,18 @@ Usage:
     python run.py mock       API + app on fake data   -> http://localhost:8000
     python run.py api        API + app on real model output
     python run.py check      run all tests (do this before every push)
-    python run.py train      train the model (lane A)
-    python run.py predict    write ml/outputs/predictions.json (lane A)
+    python run.py power      download NASA POWER climate grids for Egypt (lane C, no login)
+    python run.py appeears   check the MODIS AppEEARS request (add: submit / status / download)
+    python run.py trends     compute trends -> ml/outputs/predictions.json (lane A)
 """
 from __future__ import annotations
 
 import os
 import subprocess
 import sys
+from pathlib import Path
 
+# Uses whichever Python ran this file (the global install). No virtual environment.
 PY = sys.executable
 
 
@@ -30,12 +33,13 @@ COMMANDS = {
     "mock": lambda: sh([PY, "-m", "uvicorn", "api.main:app", "--reload", "--port", "8000"], {"MOCK": "1"}),
     "api": lambda: sh([PY, "-m", "uvicorn", "api.main:app", "--reload", "--port", "8000"], {"MOCK": "0"}),
     "check": lambda: sh([PY, "-m", "pytest", "-q"]),
-    "train": lambda: sh([PY, "ml/train.py"]),
-    "predict": lambda: sh([PY, "ml/predict.py"]),
+    "power": lambda: sh([PY, "data/power_fetch.py"]),
+    "appeears": lambda: sh([PY, "data/appeears_request.py", *(sys.argv[2:] or ["check"])]),
+    "trends": lambda: sh([PY, "ml/trends.py"]),
 }
 
 if __name__ == "__main__":
-    if len(sys.argv) != 2 or sys.argv[1] not in COMMANDS:
+    if len(sys.argv) < 2 or sys.argv[1] not in COMMANDS:
         print(__doc__)
         sys.exit(1)
     os.chdir(os.path.dirname(os.path.abspath(__file__)))

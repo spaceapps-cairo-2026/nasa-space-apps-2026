@@ -1,45 +1,56 @@
-# Task board
+# Task board: Egypt Trend Detective
 
-Format: `- [ ] (owner lane) task  ~estimate`. Tick with `[x]`. Requests to another lane start with `REQUEST:`.
-Times are Cairo time. Submission window: Sat 14 Nov 09:00 to Sun 15 Nov 23:59 (confirm the Cairo local deadline at kickoff, it may be earlier).
+Format: `- [ ] (lane) task`. Tick with `[x]`. Requests to another lane start with `REQUEST:`.
+Cairo time. Submission window: Sat 14 Nov 09:00 to Sun 15 Nov 23:59.
+Rule: before Sat 09:00 only research, data gathering and setup. Product code starts at 09:00.
 
-## Phase 0: Friday night (tonight, max 2 hours, then SLEEP)
-- [ ] (all) Clone repo, `python run.py setup`, `python run.py mock`, open http://localhost:8000 and see the demo map
-- [ ] (all) Log in to Claude Code with your account, run `/sync` once to test
-- [ ] (A) Push skeleton to a private GitHub repo, add teammates, create the 3 lane branches
-- [ ] (C) Read the full statements of the 4 shortlisted challenges in `docs/DECISION_MATRIX.md`, note the official datasets and download size of each
-- [ ] (B) Pick the app look: dark space theme, one hero view, confirm map + chart work offline from fixtures
+## Friday (today): gather data, prepare, then sleep
+- [ ] (C) Paste the official Resources tab into `docs/DATA.md` section 0
+- [ ] (all) Earthdata account (urs.earthdata.nasa.gov); open appeears.earthdatacloud.nasa.gov once and accept terms
+- [ ] (C) `python run.py appeears submit` (MODIS NDVI + land temperature, 5 areas). Processing takes hours: do it NOW
+- [ ] (C) `python run.py power` on every laptop (9 seconds, caches all Egypt climate data)
+- [ ] (all) Read `docs/CHALLENGE.md` and `docs/METHODS.md`; ask questions tonight, not tomorrow
+- [ ] (C) Look at the 5 areas in NASA Worldview (worldview.earthdata.nasa.gov), compare 2003 vs 2025 images, adjust boxes in `data/appeears_request.py` if a box misses the farms
+- [ ] (all) `python run.py check` green on every laptop
 
-## Phase 1: Sat 09:00 to 11:00 (decide, do not code)
-- [ ] (all) Kickoff: confirm Cairo schedule, local judging time, pitch format
-- [ ] (all) Score challenges in `docs/DECISION_MATRIX.md`, pick ONE by 10:30
-- [ ] (C) Fill `docs/CHALLENGE.md`
-- [ ] (A) Adapt `contracts/prediction.schema.json` to the challenge, regenerate fixtures, bump to v1
-- [ ] (all) Write the one sentence pitch at top of `docs/PITCH.md`
+## Sat 09:00 to 11:00: engine first
+- [ ] (A) `ml/trends.py`: annual_means, trend_one (Yue-Wang MK + Sen), add_fdr on POWER data
+- [ ] (A) Validation 1: reproduce GISTEMP 2003 to 2025 global slope; table in `ml/model_card.md`
+- [ ] (B) App: variable picker + map colored by slope (diverging blue/red), non-significant cells greyed, built on fixtures v0.2
+- [ ] (C) `python run.py appeears status`; when done, download and write `data/modis_prepare.py` (netCDF -> monthly long parquet per area, quality masked, LST 8-day -> monthly)
 
-## Phase 2: Sat 11:00 to 20:00 (walking skeleton: real data end to end, ugly is fine)
-- [ ] (C) `data/fetch.py` downloads a SMALL real slice and caches it
-- [ ] (A) Baseline model in `ml/train.py` with an honest validation metric
-- [ ] (A) `ml/predict.py` writes `ml/outputs/predictions.json` that passes the contract
-- [ ] (B) App shows real predictions when `MOCK=0`
-- [ ] (A) 20:00 integration: merge all lanes to main, `python run.py check` green
+## Sat 11:00 to 14:00: first real map
+- [ ] (A) `python run.py trends` writes real POWER trends for T2M, T2M_MAX, GWETTOP, PRECTOTCORR (precip flagged "caution over desert")
+- [ ] (B) Click a cell: time series + Sen trend line + change point marker + the plain sentence
+- [ ] (A) 13:00 merge to main, everyone `/sync`
+- [ ] **14:00 CHECKPOINT:** real POWER map live in the app. If MODIS is not here yet, keep going on POWER.
 
-## Phase 3: Sat 20:00 to Sun 02:00 (make it good)
-- [ ] (A) Better model, error analysis, feature importance or explanation per item
-- [ ] (B) Polish hero view, explanation panel, loading states
-- [ ] (C) Science validation: compare against a known event or published result
+## Sat 14:00 to 20:00: the opposite trends
+- [ ] (A) Same engine on MODIS pixels (NDVI, LST) for the 5 areas
+- [ ] (A) Change points (ruptures PELT)
+- [ ] (A) `ml/fingerprints.py`: Gaussian mixture on pixel trend vectors, named clusters
+- [ ] (B) Area view: zoom to an area, toggle NDVI trend / LST trend / fingerprint map, before vs after slider
+- [ ] (C) Validation 3: for each area, Worldview screenshots 2003 vs 2025 next to our fingerprint map; write where we are right and wrong
+- [ ] (A) 20:00 integration: merge, check green, real data everywhere, deploy once
 
-## Night: Sun 02:00 to 08:00 (sleep in shifts, long jobs run unattended)
+## Sat 20:00 to Sun 02:00: prove it
+- [ ] (A) Validation 2: synthetic autocorrelated no-trend series, false alarm rate (target near 5%)
+- [ ] (A) Methods page data: how many cells are "significant" with plain MK vs corrected MK vs corrected + FDR
+- [ ] (B) Methods page in the app (what is Sen slope, p, q, autocorrelation, in plain words)
+- [ ] (C) Pitch story draft in `docs/PITCH.md` using real numbers
 
-## Phase 4: Sun 08:00 to 14:00 (last features, FEATURE FREEZE 14:00)
-- [ ] (A) Final model + metrics frozen into `ml/model_card.md`
-- [ ] (B) Deploy (Render / HF Spaces / GitHub Pages with static JSON)
+## Night: Sun 02:00 to 08:00, sleep in shifts
 
-## Phase 5: Sun 14:00 to 23:59 (story + submission)
-- [ ] (C) Demo video (max length per submission guide, English subtitles)
-- [ ] (C) Slides from `docs/PITCH.md`
-- [ ] (all) Fill submission page, references, public repo link
-- [ ] (all) SUBMIT a first version by 20:00, then improve until deadline
+## Sun 08:00 to 14:00: polish the demo path, FEATURE FREEZE 14:00
+- [ ] (B) Guided tour: 3 steps (Egypt warms everywhere -> but here it greens and cools -> here it browns and heats)
+- [ ] (A) Final numbers frozen in `ml/model_card.md`
+- [ ] (B) Final deploy
+
+## Sun 14:00 to 23:59: story and submission
+- [ ] (C) Demo video with English subtitles
+- [ ] (C) Slides
+- [ ] (all) Submission page + References (all datasets, libraries, Claude disclosure)
+- [ ] (all) SUBMIT by 20:00, make repo public, then improve until 23:59
 
 ## Lane A inbox
 
