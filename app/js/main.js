@@ -2,14 +2,20 @@
 import { api, loadStatic } from './api.js';
 import { Globe } from './globe.js';
 import { setupSearch } from './search.js';
+import { describePlace } from './geo.js';
 import { cellsToGeoJSON, legendHTML, showCellSummary, showLoading, showMessage, showTrend } from './trends.js';
 
 const $ = (id) => document.getElementById(id);
+// Region id -> country code, and the detailed border file used to clip its map.
 const REGION_FOR_ISO = { EGY: 'egypt' };
+const REGION_BORDER = { egypt: 'data/regions/EGY.geojson' };
 
 const state = {
   variables: [],
   regions: [],
+  countries: null,
+  places: null,
+  borders: {},
   varCode: 'T2M',
   selection: null, // {kind: 'point'|'city'|'country', lat, lon, label, iso}
   regionShown: null, // region id or null
@@ -27,8 +33,16 @@ function toast(msg) {
 
 const currentVar = () => state.variables.find((v) => v.code === state.varCode);
 
+function coordText(lat, lon) {
+  return `${Math.abs(lat).toFixed(2)}° ${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(2)}° ${lon >= 0 ? 'E' : 'W'}`;
+}
+function placeName(lat, lon) {
+  if (!state.countries || !state.places) return coordText(lat, lon);
+  return describePlace(lat, lon, state.countries, state.places);
+}
+
 const globe = new Globe('globe', {
-  onPoint: (ll) => select({ kind: 'point', lat: ll.lat, lon: ll.lng, label: `${ll.lat.toFixed(2)}°, ${ll.lng.toFixed(2)}°` }),
+  onPoint: (ll) => select({ kind: 'point', lat: ll.lat, lon: ll.lng, label: placeName(ll.lat, ll.lng), coords: coordText(ll.lat, ll.lng) }),
   onCell: (props) => openCell(props),
 });
 
@@ -39,7 +53,8 @@ async function loadPointTrend() {
   showLoading(panel, `${v.name} at ${s.label}`);
   try {
     const res = await api.point(s.lat, s.lon, v.code, s.label);
-    showTrend(panel, res, res.mock ? `${s.label} (sample shows Cairo)` : s.label);
+    const where = `${s.label} · ${s.coords}`;
+    showTrend(panel, res, res.mock ? `${where} (sample shows Cairo)` : where);
   } catch (e) {
     showMessage(panel, `${v.name} at ${s.label}`, e.message, 'warn');
   }
@@ -48,7 +63,7 @@ async function loadPointTrend() {
 function select(sel) {
   state.selection = sel;
   const kindText = { point: 'Point', city: 'City (30 km around the center)', country: 'Country' }[sel.kind];
-  $('selection-text').textContent = `${sel.label} · ${kindText}`;
+  $('selection-text').textContent = `${sel.label}${sel.coords ? ` (${sel.coords})` : ''} · ${kindText}`;
   if (sel.kind === 'point') globe.selectPoint(sel.lon, sel.lat);
   if (sel.kind === 'city') globe.selectCity(sel.lon, sel.lat);
   if (sel.kind === 'country') {
@@ -70,14 +85,14 @@ async function showRegion(regionId) {
   const v = currentVar();
   const btn = $('region-toggle');
   try {
-    const region = await api.region(regionId, v.code);
-    const { fc, range } = cellsToGeoJSON(region);
-    globe.showCells(fc);
+    const [region, border] = await Promise.all([api.region(regionId, v.code), loadBorder(regionId)]);
+    const { fc, range, counts } = cellsToGeoJSON(region, border);
+    globe.showCells(fc, border);
     state.regionShown = regionId;
     btn.textContent = 'Hide Egypt trend map';
     btn.classList.add('on');
-    const s = region.summary;
-    $('region-note').textContent = `${s.n_increasing} cells rising, ${s.n_decreasing} falling, ${s.n_not_proven} not proven (of ${s.n_cells}).`;
+    $('region-note').textContent = `Inside the border: ${counts.increasing} cells rising, ${counts.decreasing} falling, `
+      + `${counts.not_proven} not proven (of ${counts.total}). Cells are about 55 by 60 km.`;
     $('legend').innerHTML = legendHTML(v, range);
     $('legend').hidden = false;
   } catch (e) {
@@ -86,22 +101,33 @@ async function showRegion(regionId) {
   }
 }
 
+async function loadBorder(regionId) {
+  if (!(regionId in state.borders)) {
+    const path = REGION_BORDER[regionId];
+    state.borders[regionId] = path ? (await loadStatic(path)).geometry : null;
+  }
+  return state.borders[regionId];
+}
+
 function hideRegion() {
   globe.hideCells();
   state.regionShown = null;
   $('region-toggle').textContent = 'Show Egypt trend map';
   $('region-toggle').classList.remove('on');
   $('legend').hidden = true;
+  $('region-note').textContent = '';
 }
 
 async function openCell(props) {
   const v = currentVar();
+  const lat = Number(props.lat), lon = Number(props.lon);
+  const label = `Grid cell, ${placeName(lat, lon)} · ${coordText(lat, lon)}`;
   showLoading(panel, `${v.name}, grid cell`);
   try {
     const res = await api.cell(state.regionShown, props.id, v.code);
-    showTrend(panel, res, `Grid cell ${Number(props.lat).toFixed(2)}° N, ${Number(props.lon).toFixed(2)}° E`);
+    showTrend(panel, res, label);
   } catch (e) {
-    showCellSummary(panel, props, v, `${e.message} The numbers above come from the regional map.`);
+    showCellSummary(panel, props, v, label, `${e.message} The numbers above come from the regional map.`);
   }
 }
 
@@ -131,12 +157,14 @@ async function init() {
     ]);
     state.variables = vars.variables;
     state.regions = regs.regions;
+    state.countries = countries;
+    state.places = places;
     fillVariables();
     setupSearch({
       input: $('search-input'), list: $('search-list'), countries, places,
       onPick: (r) => (r.kind === 'country'
         ? select({ kind: 'country', iso: r.iso, bbox: r.bbox, label: r.name })
-        : select({ kind: 'city', lat: r.lat, lon: r.lon, label: `${r.name}, ${r.country}` })),
+        : select({ kind: 'city', lat: r.lat, lon: r.lon, label: `${r.name}, ${r.country}`, coords: coordText(r.lat, r.lon) })),
     });
   } catch (e) {
     toast(`Could not reach the server: ${e.message}`);

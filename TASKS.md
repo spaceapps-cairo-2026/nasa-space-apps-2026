@@ -88,3 +88,4 @@ A1, A3, B1, B5, C1, C2, C3, C4. Lane A merges A1 and A2 into `main` as soon as e
 
 ## Lane C inbox
 - REQUEST (from B, Fri 20:15): add to docs/REFERENCES.md: Natural Earth 1:110m countries and 1:50m populated places (public domain, naturalearthdata.com), used for borders and search in app/data/.
+- REQUEST (from B, Fri 21:05): also add: Natural Earth 1:10m admin 0 (detailed Egypt border, app/data/regions/EGY.geojson); polygon-clipping 0.15.7 (MIT, cuts map cells to the border); Sentinel-2 cloudless 2020 by EOX (close-up imagery, CC BY-NC-SA 4.0, contains modified Copernicus Sentinel data 2020); NASA GIBS VIIRS SNPP true color 2025-07-20 (fallback close-up imagery).

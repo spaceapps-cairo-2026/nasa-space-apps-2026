@@ -10,3 +10,4 @@ Fri 19:51 | C | data/power_world_fetch.py: world NASA POWER grid (648 tiles x 6 
 Fri 20:41 | C | World temperature grid complete: data/processed/world/T2M_annual.npz (207,936 cells, 2001 to 2025); other 5 measurements still downloading
 Fri 21:54 | C | region_monthly(): live fetch of any region with disk cache (Egypt 0.02 s cached, Japan 42 s first time); plan and tasks switched to live fetch
 Fri 20:15 | B | App rebuilt on MapLibre globe: search (177 countries, 1,251 cities), click any point, fly and outline, Trends panel with chart, rate, 95% range, confidence badge, Egypt 3D trend map with legend; v0.3 mock endpoints in api/main.py
+Fri 21:05 | B | Map cells clipped to Egypt's detailed border, not proven cells flat; place names on click; sharp close-up imagery (Sentinel-2, auto fallback to NASA VIIRS when blocked)

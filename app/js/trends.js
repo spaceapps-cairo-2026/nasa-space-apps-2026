@@ -1,5 +1,6 @@
 // Trends tab (F1): result panel, chart, colors for the regional map.
 /* global Plotly */
+import { clipCellToGeometry } from './geo.js';
 
 const LEVEL_TEXT = { strong: 'Strong evidence', moderate: 'Moderate evidence', not_proven: 'Not proven' };
 const PALETTES = {
@@ -25,32 +26,47 @@ function fmt(x, digits = 2) {
   return (x > 0 ? '+' : '') + x.toFixed(d);
 }
 
-/** Region trend -> GeoJSON with color and column height per cell. */
-export function cellsToGeoJSON(region) {
+/**
+ * Region trend -> GeoJSON with color and column height per cell.
+ * With a border geometry, every cell is cut to the border: cells in the sea or in
+ * neighbouring countries disappear, cells on the coast keep only their land part.
+ * Not proven cells get height 0 (drawn as flat tiles); proven ones become columns.
+ */
+export function cellsToGeoJSON(region, border = null) {
   const pal = paletteFor(region.variable.code);
-  const sig = region.cells.filter((c) => c.confidence !== 'not_proven').map((c) => Math.abs(c.slope_per_decade));
+  const features = [];
+  const counts = { increasing: 0, decreasing: 0, not_proven: 0, total: 0 };
+  const kept = [];
+  for (const c of region.cells) {
+    const [w, s, e, n] = c.bounds;
+    const g = Math.min(0.025, (e - w) * 0.04); // thin gap so neighbouring cells read as separate
+    const inner = [w + g, s + g, e - g, n - g];
+    let geometry = { type: 'Polygon', coordinates: [[[inner[0], inner[1]], [inner[2], inner[1]], [inner[2], inner[3]], [inner[0], inner[3]], [inner[0], inner[1]]]] };
+    if (border) {
+      const clipped = clipCellToGeometry(inner, border);
+      if (!clipped.geometry || clipped.share < 0.08) continue; // slivers of a few km look like noise
+      geometry = clipped.geometry;
+    }
+    kept.push([c, geometry]);
+  }
+  const sig = kept.filter(([c]) => c.confidence !== 'not_proven').map(([c]) => Math.abs(c.slope_per_decade));
   const range = Math.max(...sig, 1e-9);
-  return {
-    range,
-    fc: {
-      type: 'FeatureCollection',
-      features: region.cells.map((c) => {
-        const [w, s, e, n] = c.bounds;
-        const g = Math.min(0.04, (e - w) * 0.06);
-        let color = NOT_PROVEN_COLOR, height = 3000;
-        if (c.confidence !== 'not_proven') {
-          const t = Math.max(-1, Math.min(1, c.slope_per_decade / range));
-          color = t < 0 ? mix(pal[1], pal[0], -t) : mix(pal[1], pal[2], t);
-          height = 8000 + 70000 * Math.abs(t);
-        }
-        return {
-          type: 'Feature',
-          properties: { id: c.id, lat: c.lat, lon: c.lon, slope: c.slope_per_decade, p: c.p, q: c.q, confidence: c.confidence, color, height },
-          geometry: { type: 'Polygon', coordinates: [[[w + g, s + g], [e - g, s + g], [e - g, n - g], [w + g, n - g], [w + g, s + g]]] },
-        };
-      }),
-    },
-  };
+  for (const [c, geometry] of kept) {
+    let color = NOT_PROVEN_COLOR, height = 0;
+    if (c.confidence !== 'not_proven') {
+      const t = Math.max(-1, Math.min(1, c.slope_per_decade / range));
+      color = t < 0 ? mix(pal[1], pal[0], -t) : mix(pal[1], pal[2], t);
+      height = 6000 + 50000 * Math.abs(t);
+    }
+    counts.total += 1;
+    counts[c.confidence === 'not_proven' ? 'not_proven' : c.direction] += 1;
+    features.push({
+      type: 'Feature',
+      properties: { id: c.id, lat: c.lat, lon: c.lon, slope: c.slope_per_decade, p: c.p, q: c.q, confidence: c.confidence, color, height },
+      geometry,
+    });
+  }
+  return { range, counts, fc: { type: 'FeatureCollection', features } };
 }
 
 export function legendHTML(variable, range) {
@@ -59,8 +75,8 @@ export function legendHTML(variable, range) {
   return `<div class="note">${esc(variable.name)}: change per decade (${esc(variable.unit)})</div>
     <div class="bar" style="background:linear-gradient(90deg,${pal[0]},${pal[1]},${pal[2]})"></div>
     <div class="scale"><span>-${r}</span><span>0</span><span>+${r}</span></div>
-    <div class="np"><i></i>Not proven: could be normal year to year variation</div>
-    <div class="note">Column height shows the size of the change.</div>`;
+    <div class="np"><i></i>Flat grey tile: not proven, could be normal year to year variation</div>
+    <div class="note">Raised columns are proven changes; taller means a bigger change.</div>`;
 }
 
 function shell(panel, inner) {
@@ -107,10 +123,10 @@ export function showTrend(panel, res, placeLabel) {
   drawChart(document.getElementById('trend-chart'), res);
 }
 
-export function showCellSummary(panel, props, variable, reason) {
+export function showCellSummary(panel, props, variable, label, reason) {
   shell(panel, `
     <h2>${esc(variable.name)}</h2>
-    <div class="where">Grid cell at ${Number(props.lat).toFixed(2)}° N, ${Number(props.lon).toFixed(2)}° E</div>
+    <div class="where">${esc(label)}</div>
     <span class="badge ${props.confidence}">${LEVEL_TEXT[props.confidence]}</span>
     <div class="rate">${fmt(Number(props.slope))} ${esc(variable.unit)} per decade</div>
     <p class="range">q-value ${Number(props.q).toFixed(3)} (corrected for testing many cells at once)</p>
