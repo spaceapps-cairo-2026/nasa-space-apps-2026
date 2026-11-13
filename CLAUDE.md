@@ -44,7 +44,9 @@ Everyone is on Windows. Run every command as `python run.py <cmd>` in PowerShell
 - `python run.py setup` install Python deps
 - `python run.py mock` run API + app on fixtures at http://localhost:8000
 - `python run.py api` run API on real model outputs
-- `python run.py power` download Egypt climate grids (no login)
+- `python run.py power` Egypt climate table (already in git)
+- `python run.py world` download the world climate grid (hours, resumable; `--status` shows progress)
+- `python run.py gistemp`, `python run.py crops` rebuild the validation and crop tables
 - `python run.py appeears submit|status|download` MODIS request (needs EARTHDATA_USERNAME / EARTHDATA_PASSWORD)
 - `python run.py trends` compute trends into ml/outputs/predictions.json
 - `python run.py check` run contract tests and API tests

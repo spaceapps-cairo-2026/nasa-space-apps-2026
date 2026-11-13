@@ -60,10 +60,10 @@ Priority: **P0** = must exist for submission. **P1** = should exist (this is our
 ### F1. Trend explorer: the official objective (P0)
 - Measurement picker: at least air temperature, max temperature, precipitation, soil moisture, humidity.
 - For a **point or city**: time series 2001 to 2025, trend line, rate per decade in real units, confidence label, start year of change if detected (P1).
-- For a **country / region**: map of every grid cell colored by trend direction and size; cells without convincing evidence shown as "not proven" (grey).
-- Works for **any point on Earth** (live NASA POWER request); regional maps precomputed for our focus country.
+- For a **country / region, anywhere in the world**: map of every grid cell colored by trend direction and size; cells without convincing evidence shown as "not proven" (grey). Zoomed out, the whole globe is colored the same way.
+- Works for **the whole world**: trend maps are precomputed on the NASA POWER world grid (207,936 cells); a single point or city is fetched live from NASA POWER.
 - Plain language sentence generated only from computed numbers, e.g. "Since 2001, average temperature here rose by 0.3 C per decade. Strong evidence this is a real change."
-- **Done when:** R1 to R6 are all visibly answered for Cairo and for one random point outside Egypt.
+- **Done when:** R1 to R6 are all visibly answered for Cairo, for one random point outside Egypt, and the trend map works for Egypt and for at least two countries on other continents.
 
 ### F2. Farmland viability change (P1, our core edge)
 - A **farming viability score** per place per year, built from the measurements (definition decided in section 9).
@@ -101,9 +101,17 @@ Priority: **P0** = must exist for submission. **P1** = should exist (this is our
 
 ## 6. Geographic scope
 
-- **Point and city trends (F1):** anywhere on Earth, fetched live from NASA POWER (verified: about 1.3 s per point, no login).
-- **Regional maps (F1 map, F2, F3, F4):** precomputed for **Egypt** first (data already downloaded: 357 grid cells, 2001 to 2025). If time remains, add 1 or 2 more countries with contrasting climates (choose in section 9).
-- Outside precomputed countries, the app says "regional analysis available for: Egypt" instead of failing.
+**Trends are worldwide. Farming features are for chosen countries.** (Team decision, Fri 13 Nov.)
+
+| Feature | Where it works | How |
+|---|---|---|
+| F1 trend for a point or city | anywhere on Earth | fetched live from NASA POWER (about 1.3 s per point, no login) |
+| F1 trend map | **the whole world**, any country or region | precomputed on the NASA POWER world grid: 361 x 576 = 207,936 cells, 2001 to 2025 (`python run.py world`) |
+| F2 farmland, F3 crops, F4 decisions | **focus countries only**: Egypt first, more chosen in D7 | precomputed per country; needs country specific care (irrigation, crop list) |
+
+- Outside the focus countries, the Farmland, Crops and Decisions tabs say "farming analysis available for: Egypt" instead of failing. The Trends tab always works.
+- **World map delivery:** 207,936 cells per measurement is too many to send as one JSON object per cell. Lane A ships each world trend layer as a compact grid (rate + confidence per cell), and the app draws it as one image layer on the globe; a selected country is cut out of that grid. The exact shape is part of task A1.
+- Over the ocean, soil wetness does not exist and is shown as "no data"; temperature, rain and humidity trends are valid there.
 
 ## 7. System skeleton
 
@@ -149,7 +157,8 @@ Folder mapping in this repo:
 
 | Data | Use | Status |
 |---|---|---|
-| NASA POWER monthly grid, Egypt, 0.5 deg, 2001 to 2025: T2M, T2M_MAX, PRECTOTCORR, GWETTOP, GWETROOT, RH2M | F1 map, F2, F3, F4 | Downloaded and working (`python run.py power`) |
+| NASA POWER monthly grid, **whole world**, 0.5 x 0.625 deg, 2001 to 2025, same 6 measurements | F1 trend maps everywhere | Download started Fri evening (`python run.py world`, `--status` shows progress). Raw tiles stay on the lead's laptop (about 1 GB); yearly means per cell go in git (`data/processed/world/`) |
+| NASA POWER monthly grid, Egypt, 0.5 deg, 2001 to 2025: T2M, T2M_MAX, PRECTOTCORR, GWETTOP, GWETROOT, RH2M | F2, F3, F4 for Egypt; method tests (D1) | Downloaded and working (`python run.py power`) |
 | NASA POWER monthly point API, any location (add T2M_MIN) | F1 point and city | Verified live |
 | FAO ECOCROP crop requirements (optimal and absolute temperature and rainfall ranges) | F3 | Source verified (FAO data sheets; also packaged for 1,710 plants). Lane C builds `data/crops/crops.csv` for the chosen crops |
 | NASA GISTEMP global means | F5 validation | Verified public CSV |
@@ -168,7 +177,7 @@ Each decision has an owner and a deadline. Record the outcome in `docs/DECISIONS
 | D4 | Farming viability score definition (which measurements, how combined) | A + C | Sat 15:00 |
 | D5 | Projection method for +5 / +10 years and how uncertainty is shown | A | Sat 18:00 |
 | D6 | Final crop list (8 to 12) and how irrigation is modeled | C | Sat 14:00 |
-| D7 | Extra countries beyond Egypt (if any) | all | Sun 08:00 |
+| D7 | Extra countries beyond Egypt for the **farming** features F2 to F4 (trends already cover the world) | all | Sun 08:00 |
 | D8 | Final product name | all | Sat 20:00 |
 | D9 | Where the app is hosted for judges (needs a Python backend for live point trends; fallback: recorded demo running from cache) | B | Sat 18:00 |
 
@@ -194,7 +203,7 @@ The full task list, with which tasks run **in parallel** and which **wait for an
 | When (Cairo) | Phase | Merge point: must work on `main` |
 |---|---|---|
 | Fri (now) | 0: prepare, no product code | repo, lanes, data on every laptop (done) |
-| Sat 09:00 to 13:00 | 1: F0 + F1 skeleton | **13:00:** F1 on real Egypt data and one live point |
+| Sat 09:00 to 13:00 | 1: F0 + F1 skeleton | **13:00:** F1 on real data: world trend map for at least temperature, and one live point |
 | Sat 13:00 to 20:00 | 2: F2 + F3 core | **20:00:** F0 to F3 on real data, first deploy (D9) |
 | Sat 20:00 to Sun 02:00 | 3: F4 + F5 | **02:00:** decisions tab and Methods page with real numbers |
 | Sun 02:00 to 08:00 | night | sleep in shifts; only long running jobs |
@@ -217,4 +226,6 @@ The full task list, with which tasks run **in parallel** and which **wait for an
 | 0.5 deg grid (about 55 km) too coarse for buying land | Say so in limitations; position as regional screening, the first step before field studies |
 | Globe library eats too much time | Fallback: 2D map with the same tabs (decide by Sat 12:00 if the globe is not working) |
 | Live point API slow or down during demo | Cache points used in the tour; demo runs from cache |
+| World trends are 207,936 cells x 6 measurements: a slow per cell loop would take hours | Trend engine works on whole arrays at once (task A4); temperature first, other measurements after; if a method is too slow for the world, run it overnight Sat |
+| World download not finished or NASA slows us down | Script resumes where it stopped; temperature is downloaded first; Egypt grid is already complete as fallback |
 | Too many features | P0 first; P1 in order F2, F3, F4, F6; cut P2 freely |

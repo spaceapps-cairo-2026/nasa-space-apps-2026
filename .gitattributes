@@ -6,3 +6,5 @@
 app/vendor/** -diff
 *.parquet binary
 data/cache/ecocrop/* binary
+*.npz binary
+*.npy binary

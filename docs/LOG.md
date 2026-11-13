@@ -6,3 +6,4 @@ Fri 02:00 | setup | Skeleton created: contracts v0.1, mock API + app, tests gree
 Fri 15:43 | A | PROJECT_PLAN.md added; TASKS.md rebuilt as claimable tasks with dependencies; CLAUDE.md, README, /sync updated
 Fri 18:26 | A | data/README.md: every dataset, what it represents, which feature uses it, status
 Fri 18:38 | C | GISTEMP (gistemp_global_annual.csv, check +0.280 C/decade 2003 to 2025) and FAO ECOCROP crop table (20 crops) added with build scripts
+Fri 19:51 | C | data/power_world_fetch.py: world NASA POWER grid (648 tiles x 6 measurements), download started; plan section 6 now: trends worldwide, farming for focus countries

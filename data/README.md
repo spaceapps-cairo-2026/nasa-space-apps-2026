@@ -7,15 +7,51 @@ More detail on sources and how they were verified: `docs/DATA.md`.
 
 | # | Dataset | In the repo? | Used by | Task that brings it |
 |---|---|---|---|---|
-| 1 | NASA POWER monthly grid, Egypt, 2001 to 2025 | **Yes** | F1 region map, F2 farmland, F3 crops, F4 decisions | done |
+| 0 | NASA POWER grid, **whole world**, 2001 to 2025 | Yearly means: **being downloaded** (started Fri evening). Monthly tiles: lead's laptop only | F1 trend maps for any country and the whole globe | C11 |
+| 1 | NASA POWER monthly grid, Egypt, 2001 to 2025 | **Yes** | F2 farmland, F3 crops, F4 decisions for Egypt; testing trend methods (D1) | done |
 | 2 | NASA POWER point data, any place on Earth | No: fetched live by the app; demo points get cached | F1 city and point trends, F6 tour | C1 |
 | 3 | FAO ECOCROP crop requirements, 20 candidate crops | **Yes** | F3 crops (and F2 viability, F4 decisions) | done; final 8 to 12 picked in D6 (C3) |
 | 4 | NASA GISTEMP global temperature, 1880 to 2025 | **Yes** | F5 Methods page: proof our numbers are right | done (C2) |
 | 5 | Official challenge Resources list | **Not yet** | may add or replace datasets | Phase 0 (lane C) |
 | 6 | MODIS greenness and land temperature (AppEEARS, needs Earthdata login) | No, optional | P2 evidence layer only | C10, only if time |
-| 7 | NASA POWER grids for 1 or 2 more countries | No, optional | D7, regional maps outside Egypt | C9, only if time |
+| 7 | More focus countries for the farming features | Climate data is covered by the world grid (row 0) | D7: F2 to F4 outside Egypt | C9, only if time |
 
 ---
+
+## 0. NASA POWER grid for the whole world (task C11)
+
+**Why:** trends (F1) must work as a map anywhere on Earth. Farming features (F2 to F4) stay limited to focus countries.
+
+**Source:** the same NASA POWER service and the same 6 measurements as the Egypt grid in section 1 (see the measurement table there). Checked: over Egypt the world download equals the Egypt download exactly (107,100 values compared).
+
+**Grid:** 361 latitudes (-90 to 90, step 0.5) x 576 longitudes (-180 to 179.375, step 0.625) = 207,936 cells. Jan 2001 to Dec 2025.
+
+**Files**
+
+| File | What | In git? |
+|---|---|---|
+| `data/processed/world/<VARIABLE>_annual.npz` | **Use this one.** Yearly mean per cell, 2001 to 2025 (a year needs at least 9 valid months) | Yes, once the download finishes |
+| `data/cache/power_world/<VARIABLE>_monthly.npy` | All 300 months per cell, 250 MB per measurement | No, lead's laptop only (ask for a copy if you need monthly values) |
+| `data/cache/power_world/<VARIABLE>/*.npz` | The 648 downloaded tiles per measurement | No |
+
+**Load it in Python**
+```python
+import numpy as np
+z = np.load("data/processed/world/T2M_annual.npz")
+values = z["values"]      # shape (361, 576, 25) = [latitude, longitude, year], NaN where there is no data
+lats, lons, years = z["lats"], z["lons"], z["years"]
+i = int(round((30.0 + 90) / 0.5))        # row of latitude 30.0
+j = int(round((31.25 + 180) / 0.625))    # column of longitude 31.25
+cairo = values[i, j, :]                  # 25 yearly mean temperatures for the Cairo cell
+```
+
+**Things to know**
+- **Work on whole arrays, not cell by cell.** A Python loop over 207,936 cells x 6 measurements is slow. Compute slopes and tests with array operations.
+- **Soil wetness exists only on land.** Over the ocean `GWETTOP` and `GWETROOT` are empty; use that as a land mask.
+- **Rain over deserts and ice is near zero:** treat "significant" rain trends there with the same caution as in Egypt.
+- Cells shrink toward the poles (the grid is in degrees), so do not count cells to measure area.
+
+**Download / progress:** `python run.py world` (about 4 seconds per tile, 648 tiles per measurement, safe to stop and rerun). `python run.py world --status` shows how far it is.
 
 ## 1. NASA POWER monthly grid for Egypt (in the repo)
 
