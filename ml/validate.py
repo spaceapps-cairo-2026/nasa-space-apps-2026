@@ -5,6 +5,7 @@
 2. False alarms: how often the trend test calls pure noise a trend (Egypt-like noise).
 3. Many places at once: how many Egypt cells pass p < 0.05 vs after the FDR correction (q < 0.05).
 4. Reality checks for the farming outlook.
+5. Our trends against two other NASA records: GISTEMP stations (temperature) and GPCP (rain), from ml/nasa_check.py.
 
 Run:  python ml/validate.py   -> ml/outputs/validation.json and contracts/fixtures/validation.json
 """
@@ -24,14 +25,17 @@ import trends  # noqa: E402  lane A's engine: the method chosen in decision D1
 START, END = 2001, 2025
 OUTS = [ROOT / "ml" / "outputs" / "validation.json", ROOT / "contracts" / "fixtures" / "validation.json"]
 RNG = np.random.default_rng(15112026)
+EGYPT_BOX = (22.0, 31.586, 24.7, 36.866)        # lat_min, lat_max, lon_min, lon_max: the box the app sends for Egypt
 METHOD_NAME = "Sen's slope + Mann-Kendall with effective sample size correction (decision D1)"
 
 
 def line_trend(y: np.ndarray) -> dict:
-    """Our engine on one yearly series: rate per decade, its 95% range, p-value."""
-    r = trends.trend_one(np.asarray(y, dtype=float))
+    """Our engine on one yearly series: rate per decade, its 95% range, p-value.
+    p_plain: the same test without the allowance for one year resembling the next (shown only to explain)."""
+    y = np.asarray(y, dtype=float)
+    r = trends.trend_one(y)
     return {"per_decade": round(r["slope"], 3), "ci_low": round(r["slope_lo"], 3), "ci_high": round(r["slope_hi"], 3),
-            "p": float(f"{r['p']:.2g}")}
+            "p": float(f"{r['p']:.2g}"), "p_plain": float(f"{trends.trend_one(y, 'mk')['p']:.2g}")}
 
 
 def egypt_annual(var: str = "T2M") -> np.ndarray:
@@ -61,6 +65,8 @@ def gistemp_check() -> dict:
     arctic = area_mean_trend(full & (lat2d > 60))
     antarctica = area_mean_trend(full & (lat2d < -60))
     nasa = line_trend(g["anomaly_c"].to_numpy())
+    pct = lambda p: "less than 0.1%" if p < 0.001 else f"{100 * p:.1f}%"   # noqa: E731
+    level = lambda p: "strong evidence" if p < 0.01 else "moderate evidence" if p < 0.05 else "not proven"  # noqa: E731
     overlap = lambda a, b: a["ci_low"] <= b["ci_high"] and b["ci_low"] <= a["ci_high"]
     agrees = overlap(no_antarctica, nasa)
     return {
@@ -71,13 +77,14 @@ def gistemp_check() -> dict:
         "antarctica": {"label": "Our data, Antarctica only (south of 60 S)", **antarctica},
         "reference": {"label": "NASA GISTEMP v4 (stations and ships, a different method)", **nasa},
         "period": [START, END], "agrees": bool(agrees),
-        "plain": (f"From {START} to {END}, NASA's GISTEMP record warms the planet {nasa['per_decade']:+.2f} °C per decade. "
-                  f"Our data gives {whole['per_decade']:+.2f} for the whole Earth, because it shows Antarctica cooling "
-                  f"({antarctica['per_decade']:+.2f}); without Antarctica it gives {no_antarctica['per_decade']:+.2f}"
-                  + (", and the two 95% ranges overlap. " if agrees else ", still lower than GISTEMP. ")
-                  + f"Our data also shows the Arctic warming fastest ({arctic['per_decade']:+.2f} °C per decade), the pattern known as Arctic amplification. "
-                  "The datasets measure slightly different things (air at 2 m vs surface and sea temperature), "
-                  "so we show both numbers instead of hiding the gap."),
+        "plain": (f"Our engine run on NASA's GISTEMP record finds {nasa['per_decade']:+.2f} °C per decade from {START} to {END} "
+                  f"({level(nasa['p'])}, luck {pct(nasa['p'])}). On our own data (NASA POWER, air 2 m above the ground) the whole "
+                  f"Earth warms {whole['per_decade']:+.2f} °C per decade ({level(whole['p'])}, luck {pct(whole['p'])}), and "
+                  f"{no_antarctica['per_decade']:+.2f} without Antarctica, where our data swings strongly ({level(no_antarctica['p'])}, "
+                  f"luck {pct(no_antarctica['p'])}). The Arctic warms fastest, {arctic['per_decade']:+.2f} °C per decade "
+                  f"({level(arctic['p'])}): the known pattern of Arctic amplification. Our global rate is a little lower than "
+                  f"GISTEMP's: the two records measure slightly different things (air 2 m above the ground vs surface and sea "
+                  f"temperature), and ours stays flat until about 2014 before rising."),
     }
 
 
@@ -106,18 +113,21 @@ def false_alarm_check(n_sim: int = 20000) -> dict:
         "method": METHOD_NAME, "target": 0.05, "noise_sd_c": round(sd, 3), "year_to_year_resemblance": round(rho, 2),
         "false_alarm_rate": out, "simulations": n_sim, "d1_candidates": None,
         "plain": (f"We made {n_sim:,} fake 25-year series with Egypt's real noise and NO trend, and ran our real engine on them. "
-                  f"It called {out['Egypt-like noise']:.1%} of them a trend (the target is about 5%). With strong year-to-year "
-                  f"resemblance it called {out['strong year-to-year resemblance (0.5)']:.1%}. The team compared 7 methods on "
+                  f"It called {out['Egypt-like noise']:.1%} of them a trend (the target is about 5%; it is lower because in Egypt a warm "
+                  "year tends to be followed by a cooler one, which makes lucky trends rarer). With strong year-to-year "
+                  f"resemblance it called {out['strong year-to-year resemblance (0.5)']:.1%}. The team compared 8 methods on "
                   "20,000 series before choosing this one (decision D1)."),
     }
 
 
 def fdr_check() -> dict:
-    ann = egypt_annual("T2M")
-    ps = trends.trend_grid(ann)["p"]
-    ps = ps[np.isfinite(ps)]
+    """Same request as the app's Egypt map (Egypt's box, cells outside the border removed before testing)."""
+    import live  # noqa: E402
+    r = live.region_trend("T2M", *EGYPT_BOX, country="EGY")
+    ps = np.array([v for row in r["grid"]["p"] for v in row if v is not None])
     q = trends.fdr_bh(ps)
     expected_lucky = round(0.05 * len(ps))
+    assert int((q < 0.05).sum()) == r["summary"]["increasing"] + r["summary"]["decreasing"]
     return {
         "title": "Testing many places at once",
         "cells": int(len(ps)), "p_below_0_05": int((ps < 0.05).sum()), "q_below_0_05": int((q < 0.05).sum()),
@@ -137,25 +147,87 @@ def farming_checks() -> dict:
 
     aswan, delta = at(24.0, 32.5), at(30.5, 31.25)
     s = f["suitability"]
-    checks = [
-        ("Apples cannot survive Aswan's summer", s["irrigated"]["apple"][0][aswan] == 0, f"score {s['irrigated']['apple'][0][aswan]}"),
-        ("Date palms do better in Aswan than in the Delta", s["irrigated"]["date_palm"][0][aswan] > s["irrigated"]["date_palm"][0][delta],
-         f"{s['irrigated']['date_palm'][0][aswan]} vs {s['irrigated']['date_palm'][0][delta]}"),
-        ("Wheat grows in the Delta's winter", s["irrigated"]["wheat"][0][delta] >= 80, f"score {s['irrigated']['wheat'][0][delta]}"),
-        ("Rain alone cannot grow wheat anywhere in Egypt", max(v or 0 for v in s["rainfed"]["wheat"][0]) < 50,
-         f"best rain-only score {max(v or 0 for v in s['rainfed']['wheat'][0])}"),
-    ]
-    return {"title": "Common-sense checks of the farming outlook",
+    if "apple" in s["irrigated"]:               # the FAO ECOCROP stand-in (python ml/farming.py --force)
+        checks = [
+            ("Apples cannot survive Aswan's summer", s["irrigated"]["apple"][0][aswan] == 0, f"score {s['irrigated']['apple'][0][aswan]}"),
+            ("Date palms do better in Aswan than in the Delta", s["irrigated"]["date_palm"][0][aswan] > s["irrigated"]["date_palm"][0][delta],
+             f"{s['irrigated']['date_palm'][0][aswan]} vs {s['irrigated']['date_palm'][0][delta]}"),
+            ("Wheat grows in the Delta's winter", s["irrigated"]["wheat"][0][delta] >= 80, f"score {s['irrigated']['wheat'][0][delta]}"),
+            ("Rain alone cannot grow wheat anywhere in Egypt", max(v or 0 for v in s["rainfed"]["wheat"][0]) < 50,
+             f"best rain-only score {max(v or 0 for v in s['rainfed']['wheat'][0])}"),
+        ]
+    else:                                       # the trained crop model (python run.py crop-model)
+        checks = crop_model_checks(f, aswan, delta)
+    return {"title": "Checks of the crop model",
             "checks": [{"check": c, "passed": bool(ok), "detail": d} for c, ok, d in checks]}
+
+
+def crop_model_checks(f: dict, aswan: int, delta: int) -> list[tuple[str, bool, str]]:
+    """Held-out skill from the training run (ml/crop_model/metrics.json) and what the model says about Egypt."""
+    s = f["suitability"]
+    ids = [c["id"] for c in f["crops"]]
+    limit = f.get("suitable_threshold", 50)
+    cells = [k for k, c in enumerate(f["inside"]) if c == "1"]
+    dry = [k for k in cells if (f["rain_now_mm"][k] or 0) < 50]
+
+    def fits(mode: str, k: int) -> int:
+        return sum((s[mode][c][0][k] or 0) >= limit for c in ids)
+
+    rain_fits = sum(fits("rainfed", k) for k in dry) / len(dry)
+    irr_fits = sum(fits("irrigated", k) for k in dry) / len(dry)
+    tropics = max(s["irrigated"][c][0][aswan] for c in ("cocoa", "oil_palm", "rubber"))
+    wet = [k for k in cells if (f["rain_now_mm"][k] or 0) >= 50]
+    cereals = {"wheat", "barley"}
+    north_other = (sum(sum((s["rainfed"][c][0][k] or 0) >= limit for c in ids if c not in cereals) for k in wet) / len(wet)
+                   if wet else 0.0)
+    auc, fao_auc, fao_detail, dry_band = held_out_skill(f)
+    out = [
+        ("On world regions kept out of training, the model tells where a crop is grown from where it is not",
+         auc >= 0.85, f"AUC {auc:.2f} averaged over {len(ids)} crops; 0.5 is guessing, 1 is perfect"),
+        ("Trained without any Egyptian cell, it still ranks the crops Egypt grows (FAOSTAT) above those it does not",
+         fao_auc >= 0.85, f"AUC {fao_auc:.2f}{fao_detail}"),
+        ("Wheat fits the irrigated Delta", s["irrigated"]["wheat"][0][delta] >= 80, f"score {s['irrigated']['wheat'][0][delta]}"),
+        ("Sugarcane fits irrigated Aswan, where Egypt grows it", s["irrigated"]["sugarcane"][0][aswan] >= limit,
+         f"score {s['irrigated']['sugarcane'][0][aswan]}"),
+        ("Cocoa, oil palm and rubber (humid tropics) do not fit Aswan even with irrigation", tropics < 10, f"best score {tropics}"),
+        (f"In Egypt's {len(dry)} dry cells (under 50 mm of rain a year), rain alone fits almost no crop", rain_fits < 0.5,
+         f"{rain_fits:.2f} crops on rain only, {irr_fits:.1f} with irrigation, of {len(ids)}"),
+        (f"In Egypt's {len(wet)} wetter cells (50 mm of rain or more), rain alone fits almost nothing but wheat and barley",
+         north_other < 0.5, f"{north_other:.2f} other crops per cell on rain only"),
+    ]
+    if dry_band is not None:
+        out.append(("On dry land kept out of training (100 to 250 mm of rain, not farmed), rain alone fits almost no crop",
+                    dry_band < 1.0, f"{dry_band:.2f} of {len(ids)} crops per place score 50 or more on rain only"))
+    return out
+
+
+def held_out_skill(f: dict) -> tuple[float, float, str, float | None]:
+    """AUC on held-out regions, Egypt FAOSTAT AUC (model trained without Egypt) and, for v3, the dry band check."""
+    d = ROOT / "ml" / "crop_model"
+    model_id = (f.get("model") or {}).get("id", "")
+    if model_id.startswith("crop-suitability-v3"):
+        m = json.loads((d / "metrics_v3.json").read_text(encoding="utf-8"))
+        h = m["comparison_held_out"][m["chosen_variant"]]
+        return h["AUC"], h["EG FAO AUC"], "", h["crops/cell unf100-250"]
+    m = json.loads((d / "metrics.json").read_text(encoding="utf-8"))
+    cv = m["final_comparison_spatial_cv"][m["selected_algorithm"]]
+    fao = m["egypt_leave_out"]
+    return (cv["AUC"], fao["FAOSTAT AUC (grown vs not)"],
+            f"; it rates {fao['FAOSTAT grown rated suitable']:.0%} of the grown crops as fitting and "
+            f"{fao['FAOSTAT not-grown rated suitable']:.0%} of the others, so it is cautious, not generous", None)
 
 
 LIMITATIONS = [
     "Each grid cell is about 55 by 60 km: it describes a region, not one farm.",
     "NASA POWER is a model built from satellites and weather stations (MERRA-2): very good on large scales, less exact for one valley or oasis.",
     "25 years is enough to detect strong trends; small ones may stay 'not proven' until more years are measured.",
-    "Future views assume today's measured trend continues in a straight line. They are not forecasts and ignore irrigation changes, new crop varieties and soil.",
-    "Crop needs come from FAO ECOCROP averages; real varieties differ, and soil, salinity and water supply are not included.",
+    "Future views assume every measured trend continues in a straight line (for rain, humidity and soil wetness the trend is measured without the 2015 step of the NASA POWER record). They are not forecasts and ignore irrigation changes, new crop varieties and soil.",
+    "Over Egypt, NASA POWER (a weather model) warms more slowly than NASA's weather station record (GISTEMP): about 0.24 against 0.42 °C per decade. Many cells our maps call 'not proven' are proven warming in the station record, so 'not proven' means 'this record alone cannot prove it', never 'no warming'.",
+    "Crop scores come from a model that learned where 40 crops are grown today (IFPRI MapSPAM 2020). Where a crop is grown also reflects markets, policy and water, not only climate. A score is how well the climate matches, not a yield and not the chance of a good harvest.",
+    "Irrigated scores assume water can be supplied; they do not show that water exists. Soil chemistry, salinity and water supply are not included, and NASA's soil wetness describes the natural land, not a watered field.",
+    "Rain only scores fade to 0 below 100 mm of rain a year (a documented rule, since farming on rain alone needs about 200 to 250 mm), so in Egypt only wheat and barley on the wettest north coast can reach 50 on rain alone. Near that limit the model is cautious: it may miss some real rain-fed crops. Olive and date palm are not separate crops in the crop maps and are not covered.",
     "We never claim why something changes; we say a pattern is consistent with a cause.",
+    "Rain in this NASA POWER record jumps around 2015 in many places at once (across Egypt about 2.6 times higher after 2015). NASA's GPCP rain record (satellites and gauges) does not show the jump over Egypt, so it is in the record, not in real rain: every rain trend carries a warning, and the crop projections take the step out before measuring the rain, humidity and soil wetness trends.",
 ]
 
 
@@ -163,10 +235,16 @@ if __name__ == "__main__":
     out = {"version": "0.3", "checks": {"cross_check": gistemp_check(), "false_alarms": false_alarm_check(),
                                         "many_places": fdr_check(), "farming": farming_checks()},
            "limitations": LIMITATIONS}
+    nasa = ROOT / "ml" / "outputs" / "nasa_check.json"          # python run.py nasa-check (no login)
+    if nasa.exists():
+        out["checks"]["nasa_records"] = json.loads(nasa.read_text(encoding="utf-8"))
+    giovanni = ROOT / "ml" / "outputs" / "crosscheck.json"     # python run.py crosscheck (needs Giovanni files)
+    if giovanni.exists():
+        out["checks"]["giovanni"] = json.loads(giovanni.read_text(encoding="utf-8"))
     for path in OUTS:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(out, indent=1, ensure_ascii=False), encoding="utf-8")
     for k, v in out["checks"].items():
-        print(f"\n[{k}] {v.get('plain', '')}")
+        print(f"\n[{k}] {v.get('plain', v.get('plain_temperature', ''))}")
         for c in v.get("checks", []):
             print("  ", "PASS" if c["passed"] else "FAIL", c["check"], "|", c["detail"])

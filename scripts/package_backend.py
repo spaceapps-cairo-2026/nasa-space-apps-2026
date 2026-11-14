@@ -17,8 +17,15 @@ FOLDERS = ["api", "ml", "contracts", "tests", "app", "data/processed", "data/cro
 DATA_SCRIPTS = ["data/power_point_fetch.py", "data/power_world_fetch.py", "data/power_fetch.py", "data/README.md"]
 DOCS = ["docs/METHODS.md", "docs/DECISIONS.md"]
 SKIP_PARTS = {"__pycache__", "outputs", "artifacts", ".pytest_cache"}
+# ml/outputs holds local caches (skipped) and the files the app reads (always shipped: the crop model's Egypt
+# outlook for the farming tabs, the checks for "How we know", and NASA GISTEMP station yearly means for the
+# weather station line of air temperature answers; without them the API falls back to the fixtures / no station line).
+OUTPUTS = [*(f"ml/outputs/farming_{iso}.json" for iso in ("EGY", "SAU", "MAR", "DZA", "TUN", "LBY", "SDN", "MRT", "DJI", "PSE",
+                                                         "JOR", "LBN", "SYR", "IRQ", "IRN", "KWT", "QAT", "ARE", "OMN", "YEM")),
+           "ml/outputs/validation.json",
+           "ml/outputs/gistemp250_annual.npz"]
 
-README = """# CropShift Earth backend (trend engine + API), contract v0.4
+README = """# CropShift Earth backend (trend engine + API), contract v0.7
 
 This folder runs on its own. It answers: how much is a NASA measurement changing at a place,
 and how confident are we that the change is real and not normal year to year variation.
@@ -70,12 +77,18 @@ Interactive API docs: http://localhost:8000/docs
 """
 
 
+# The crop model's training material and the v2 rollback stay in git; the backend runs v3 only.
+SKIP_CROP_MODEL = {"retrain", "training", "crop_suitability_v2.npz", "crop_engine_v2.py", "metrics.json"}
+
+
 def wanted(path: Path) -> bool:
+    if "crop_model" in path.parts and set(path.parts) & SKIP_CROP_MODEL:
+        return False
     return path.is_file() and not (set(path.parts) & SKIP_PARTS) and path.suffix != ".pyc"
 
 
 def main() -> None:
-    paths = [ROOT / f for f in FILES + DATA_SCRIPTS + DOCS]
+    paths = [ROOT / f for f in FILES + DATA_SCRIPTS + DOCS + OUTPUTS]
     for folder in FOLDERS:
         paths += sorted(p for p in (ROOT / folder).rglob("*") if wanted(p))
     OUT.parent.mkdir(exist_ok=True)

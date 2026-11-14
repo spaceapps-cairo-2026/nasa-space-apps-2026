@@ -34,13 +34,21 @@ def test_farming_outlook(client):
 
 
 def test_farming_matches_known_geography(client):
-    """Sanity: apples cannot survive Aswan's summer; rain-fed farming in Egypt is near impossible."""
+    """Sanity of the trained crop model's outlook (ml/crop_outlook.py) against what is known about Egypt."""
     f = client.get("/api/farming", params={"country": "EGY"}).json()
     g = f["grid"]
-    k = round((24.0 - g["lat0"]) / g["dlat"]) * g["ncols"] + round((32.5 - g["lon0"]) / g["dlon"])
-    assert f["suitability"]["irrigated"]["apple"][0][k] == 0
-    assert f["suitability"]["irrigated"]["date_palm"][0][k] >= 60
-    assert max(v or 0 for v in f["suitability"]["rainfed"]["wheat"][0]) < 50
+    irr, rain = f["suitability"]["irrigated"], f["suitability"]["rainfed"]
+
+    def at(lat: float, lon: float) -> int:
+        return round((lat - g["lat0"]) / g["dlat"]) * g["ncols"] + round((lon - g["lon0"]) / g["dlon"])
+
+    aswan, delta = at(24.0, 32.5), at(30.5, 31.25)
+    assert irr["wheat"][0][delta] >= 80                                   # wheat is the Delta's winter crop
+    assert max(irr[c][0][aswan] for c in ("cocoa", "oil_palm", "rubber")) < 10   # humid tropics crops, not Aswan
+    assert irr["sugarcane"][0][aswan] >= 50                               # Upper Egypt is where sugarcane is grown
+    assert all((rain[c["id"]][0][aswan] or 0) < 50 for c in f["crops"])   # nothing grows on rain alone in Aswan
+    # The file comes from the model in ml/crop_model/, not from the FAO stand-in.
+    assert f.get("model", {}).get("id") == "crop-suitability-v3.1" and len(f["crops"]) == 40
 
 
 def test_validation(client):

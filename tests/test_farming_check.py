@@ -30,10 +30,20 @@ def minimal(o: dict) -> dict:
 
 
 def test_the_outlook_in_the_repo_passes(outlook):
+    """The trained crop model's file: no errors. It has no heat limit, and says so."""
     errors, notes = check_farming.problems(outlook)
-    assert errors == [] and notes == []
+    assert errors == []
+    assert all("years_to_heat_limit" in n or "apple" in n for n in notes), notes
     fixture = json.loads((ROOT / "contracts" / "fixtures" / "farming_EGY.json").read_text(encoding="utf-8"))
     assert check_farming.problems(fixture)[0] == []
+
+
+def test_new_cell_flags_are_checked(outlook):
+    """v0.5: farmland and outside_training are one character per cell, like inside."""
+    for name in ("farmland", "outside_training"):
+        broken = copy.deepcopy(outlook)
+        broken[name] = "1" * 5
+        assert any(name in e for e in check_farming.problems(broken)[0])
 
 
 def test_a_small_model_file_passes_with_notes(outlook):
@@ -77,7 +87,7 @@ def _nothing_inside(o):
 
 
 def _short_heat_grid(o):
-    o["years_to_heat_limit"]["wheat"] = o["years_to_heat_limit"]["wheat"][:10]
+    o.setdefault("years_to_heat_limit", {})["wheat"] = [99] * 10
 
 
 def _no_method(o):

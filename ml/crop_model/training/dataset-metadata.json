@@ -1,0 +1,13 @@
+{
+  "title": "CropShift v2 training cells (MapSPAM + NASA POWER)",
+  "subtitle": "Where 46 crops grow (MapSPAM 2020) matched to six NASA POWER climate measurements",
+  "id": "mohossameldeen/cropshift-v2-training-cells",
+  "licenses": [{"name": "CC-BY-4.0"}],
+  "keywords": ["agriculture", "climate", "earth and nature", "geospatial analysis", "classification"],
+  "resources": [
+    {
+      "path": "cropshift_v2_training_cells.parquet",
+      "description": "One row per NASA POWER cell (0.5 x 0.625 deg) with farmland: 10 climate features (2001-2025 mean of six NASA POWER measurements) and MapSPAM 2020 harvested area of 46 crops (all / irrigated / rain-fed, ha)."
+    }
+  ]
+}

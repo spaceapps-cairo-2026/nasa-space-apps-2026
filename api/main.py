@@ -1,4 +1,4 @@
-"""Lane B: API. Serves live trends (contracts/api.md v0.4), the old PredictionBundle and the static app.
+"""Lane B: API. Serves live trends (contracts/api.md v0.5), the old PredictionBundle and the static app.
 
 Run:  python run.py mock   (fixtures, no internet needed)
       python run.py api    (real data: Egypt from the repo, the rest of the world live from NASA)
@@ -11,21 +11,23 @@ from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "contracts" / "fixtures" / "sample_predictions.json"
 REAL = ROOT / "ml" / "outputs" / "predictions.json"
 FIXTURES = ROOT / "contracts" / "fixtures"
-API_VERSION = "0.4"
+API_VERSION = "0.7"
 
 
 def is_mock() -> bool:
     return os.getenv("MOCK", "1") == "1" or not REAL.exists()
 
 
-@lru_cache(maxsize=16)
+@lru_cache(maxsize=32)
 def _load(path: str, mtime: float) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
@@ -37,6 +39,26 @@ def bundle() -> dict:
 
 app = FastAPI(title="Space Apps 2026", version=API_VERSION)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], allow_headers=["*"])
+
+
+@app.exception_handler(RequestValidationError)
+async def plain_validation_error(request, exc):
+    """Bad query values answer with one plain sentence, like every other error (contract: the app shows `detail` as is)."""
+    parts = []
+    for e in exc.errors():
+        name = str(e.get("loc", ["", "value"])[-1])
+        parts.append(f"{name}: {e.get('msg', 'not a valid value').rstrip('.').lower()}")
+    return JSONResponse(status_code=422, content={"detail": "Please check the request (" + "; ".join(parts) + ")."})
+
+
+@app.middleware("http")
+async def revalidate_app_files(request, call_next):
+    """Browsers kept old copies of the app's JavaScript modules after an update (a new panel did not show up).
+    'no-cache' makes them ask every time; unchanged files still come back as a quick 304."""
+    response = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 @app.get("/health")
@@ -110,31 +132,38 @@ def variables() -> dict:
 
 @app.get("/api/trend/point")
 def trend_point(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180),
-                variable: str = "T2M") -> dict:
+                variable: str = "T2M", start_year: int | None = None, end_year: int | None = None) -> dict:
+    """start_year, end_year (optional): measure the trend over these years only (at least 10 years)."""
     if trend_mock():
         return _fixture("trend_point.json")
-    return _call(lambda live: live.point_trend, variable, lat, lon)
+    return _call(lambda live: live.point_trend, variable, lat, lon, start_year, end_year)
 
 
 @app.get("/api/trend/region")
 def trend_region(lat_min: float, lat_max: float, lon_min: float, lon_max: float,
-                 variable: str = "T2M", country: str | None = None) -> dict:
-    """country (ISO 3 letter code, optional): count and test only the cells of that country."""
+                 variable: str = "T2M", country: str | None = None,
+                 start_year: int | None = None, end_year: int | None = None) -> dict:
+    """country (ISO 3 letter code, optional): count and test only the cells of that country.
+    start_year, end_year (optional): measure the trends over these years only (at least 10 years)."""
     if trend_mock():
         return _fixture("trend_region.json")
-    return _call(lambda live: live.region_trend, variable, lat_min, lat_max, lon_min, lon_max, country)
+    return _call(lambda live: live.region_trend, variable, lat_min, lat_max, lon_min, lon_max, country, start_year, end_year)
 
 
 @app.get("/api/trend/world")
-def trend_world(variable: str = "T2M", stride: int = 2) -> dict:
+def trend_world(variable: str = "T2M", stride: int = 2,
+                start_year: int | None = None, end_year: int | None = None) -> dict:
     if trend_mock():
         return _fixture("trend_world.json")
-    return _call(lambda live: live.world_trend, variable, stride)
+    return _call(lambda live: live.world_trend, variable, stride, start_year, end_year)
 
 
 # ---------- farming outlook (F2 to F4) and validation (F5): lane B additions, lane A to review ----------
 
-FARMING_COUNTRIES = {"EGY": "Egypt"}
+import sys  # noqa: E402
+if str(ROOT / "ml") not in sys.path:
+    sys.path.insert(0, str(ROOT / "ml"))
+from focus_countries import COUNTRIES as FARMING_COUNTRIES  # noqa: E402  (ml/, one list with the crop outlook)
 
 
 def _first_existing(*paths: Path) -> dict | None:
@@ -142,6 +171,27 @@ def _first_existing(*paths: Path) -> dict | None:
         if path.exists():
             return _load(str(path), path.stat().st_mtime)
     return None
+
+
+@app.get("/api/farming/countries")
+def farming_countries() -> dict:
+    """Focus countries that have a farming outlook, with the box to fly to (contract v0.7)."""
+    out = []
+    for iso, name in FARMING_COUNTRIES.items():
+        if (ROOT / "ml" / "outputs" / f"farming_{iso}.json").exists() or (FIXTURES / f"farming_{iso}.json").exists():
+            out.append({"iso": iso, "name": name, "bbox": _country_box(iso)})
+    return {"countries": sorted(out, key=lambda c: c["name"])}
+
+
+@lru_cache(maxsize=64)
+def _country_box(iso: str) -> list[float]:
+    """[west, south, east, north] of a country's border (no need to open its large outlook file)."""
+    import borders
+    geometry = borders.country(iso)[1]
+    polys = [geometry["coordinates"]] if geometry["type"] == "Polygon" else geometry["coordinates"]
+    xs = [p[0] for poly in polys for ring in poly for p in ring]
+    ys = [p[1] for poly in polys for ring in poly for p in ring]
+    return [round(min(xs), 3), round(min(ys), 3), round(max(xs), 3), round(max(ys), 3)]
 
 
 @app.get("/api/farming")
@@ -152,7 +202,7 @@ def farming(country: str = "EGY") -> dict:
         raise HTTPException(status_code=404, detail="Farming analysis is available for: " + ", ".join(FARMING_COUNTRIES.values()) + ".")
     out = _first_existing(ROOT / "ml" / "outputs" / f"farming_{country}.json", FIXTURES / f"farming_{country}.json")
     if out is None:
-        raise HTTPException(status_code=404, detail="The farming outlook has not been computed yet (python ml/farming.py).")
+        raise HTTPException(status_code=404, detail=f"The farming outlook has not been computed yet (python run.py crop-model {country}).")
     return out
 
 

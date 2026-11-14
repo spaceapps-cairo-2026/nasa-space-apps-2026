@@ -16,4 +16,12 @@ ml/artifacts/
 .DS_Store
 .pip-cache/
 ml/outputs/world_*.json
+# Except the Whole Earth layer the app loads (air temperature, default years): Render free wipes its disk on every wake-up
+!ml/outputs/world_T2M_s2.json
 dist/
+# Raw hand-over from Manus (41 MB zip, over the 20 MB rule). What the app needs is copied to ml/crop_model/.
+manus-model/
+
+# Scratch from an unfinished audit session (keep only handoff/HANDOFF.md)
+handoff/audit_scratch/
+handoff/*.js

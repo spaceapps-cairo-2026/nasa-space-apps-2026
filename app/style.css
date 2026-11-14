@@ -23,7 +23,7 @@ html, body { margin: 0; height: 100%; background: var(--space); color: var(--fg)
 .glass { position: fixed; z-index: 10; background: var(--glass); border: 1px solid var(--line); border-radius: 12px;
   backdrop-filter: blur(10px); box-shadow: 0 18px 50px -20px rgba(0, 0, 0, .85); }
 
-#topbar { top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); width: 340px;
+#topbar { top: max(12px, env(safe-area-inset-top)); left: max(12px, env(safe-area-inset-left)); width: 340px; box-sizing: border-box;
   padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
 .brand { font-weight: 700; font-size: 16px; letter-spacing: .02em; display: flex; align-items: center; gap: 8px; }
 .mark { width: 12px; height: 12px; border-radius: 50%; background: conic-gradient(var(--strong), var(--accent), var(--warn), var(--strong)); }
@@ -91,10 +91,23 @@ details dd { margin: 0; font-family: var(--mono); font-size: 12px; overflow-wrap
 
 .pin { width: 16px; height: 16px; border-radius: 50%; background: var(--accent); border: 3px solid #fff; box-shadow: 0 0 0 4px rgba(111, 211, 255, .35); }
 
-@media (max-width: 760px) {
+/* Wide screens: the place panel stops above the map's bottom right corner, so zoom, compass and the map
+   credits (i) always stay visible and clickable; a long answer scrolls inside the panel. */
+@media (min-width: 801px) {
+  #panel { max-height: calc(100% - 24px - 170px); }
+  /* Opened map credits wrap to the right of the sidebar column instead of running under it. */
+  .maplibregl-ctrl-bottom-right { max-width: calc(100% - 372px); }
+}
+/* Narrow screens (phones, a narrow window): one column. Below 800 px the sidebar (340) and the panel (400)
+   no longer fit side by side. */
+@media (max-width: 800px) {
   #topbar, #sidebar { width: auto; right: max(12px, env(safe-area-inset-right)); }
   #sidebar { max-height: 38%; }
-  #panel { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); left: max(12px, env(safe-area-inset-left)); width: auto; max-height: 55%; }
+  #panel { top: auto; bottom: max(12px, env(safe-area-inset-bottom)); left: max(12px, env(safe-area-inset-left)); width: auto; max-height: 52%; }
+  /* With a place open, the sidebar gives up the lower half so the two never cover each other. */
+  body:has(#panel:not([hidden])) #sidebar { max-height: calc(48% - 128px); }
+  /* The panel covers the bottom right corner: phones zoom with two fingers, so the buttons step aside. */
+  body:has(#panel:not([hidden])) .maplibregl-ctrl-bottom-right .maplibregl-ctrl-group { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
 .check { display: flex; gap: 8px; align-items: center; font-size: 13px; cursor: pointer; }
@@ -147,7 +160,7 @@ details dd { margin: 0; font-family: var(--mono); font-size: 12px; overflow-wrap
 .tour-dots { display: flex; gap: 5px; }
 .tour-dots i { flex: 1; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .15); }
 .tour-dots i.on { background: var(--accent); }
-@media (max-width: 760px) { .tour-text { font-size: 15px; } #tour { bottom: auto; top: 50%; transform: translate(-50%, -50%); } }
+@media (max-width: 800px) { .tour-text { font-size: 15px; } #tour { bottom: auto; top: 50%; transform: translate(-50%, -50%); } }
 
 #welcome { position: fixed; inset: 0; z-index: 40; display: grid; place-items: center; background: rgba(2, 5, 12, .55);
   padding: max(16px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left)); }
@@ -159,6 +172,7 @@ details dd { margin: 0; font-family: var(--mono); font-size: 12px; overflow-wrap
 .welcome-list { margin: 0 0 18px; padding-left: 18px; font-size: 14px; line-height: 1.55; color: #c9d4e4; }
 .welcome-list li { margin-bottom: 4px; }
 .welcome-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+@media (max-width: 480px) { .welcome-actions { flex-direction: column; } .welcome-actions .btn { width: 100%; } }
 .btn.big { padding: 11px 18px; font-size: 15px; }
 
 /* "Could this be luck?" box in the trend panel */
@@ -171,3 +185,17 @@ details dd { margin: 0; font-family: var(--mono); font-size: 12px; overflow-wrap
 .luck-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }
 .luck p { margin: 4px 0 0; font-size: 12.5px; line-height: 1.45; color: var(--muted); }
 .btn:disabled, .seg button:disabled, .check input:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Year range picker (Trends tab) and the total change headline */
+.years { display: flex; align-items: center; gap: 6px; }
+.years select { flex: 1; min-width: 0; }
+.years span { color: var(--muted); font-size: 12.5px; }
+.years .btn { padding: 6px 8px; font-size: 12px; white-space: nowrap; }
+.rate-sub { font-size: 13px; font-weight: 500; color: var(--muted); margin-left: 4px; }
+.headline { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 10px 0 6px; }
+.stat { border: 1px solid var(--line); background: var(--glass-2); border-radius: 8px; padding: 8px 10px; min-width: 0; }
+.stat-val { font-size: 22px; font-weight: 700; line-height: 1.15; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.stat-unit { font-size: 13px; font-weight: 600; color: var(--muted); }
+.stat-lab { font-size: 11px; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); font-weight: 600; margin-top: 3px; }
+.luck-top .badge { margin: 0; }
+.luck p strong { color: var(--fg); }

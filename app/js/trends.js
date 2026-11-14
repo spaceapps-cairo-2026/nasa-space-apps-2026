@@ -80,18 +80,44 @@ function oneIn(p) {
   return `about 1 in ${Math.round(1 / p).toLocaleString('en-US')}`;
 }
 
-/** The "Could this be luck?" box of the result panel. */
+/**
+ * The "Is the change real?" box. One answer, shown two ways: the luck percentage is the number,
+ * the badge is the same number in words (under 1% strong, under 5% moderate, otherwise not proven).
+ */
 function luckHTML(p, conf) {
   const pct = luckPercent(p);
   if (pct === null) return '';
   const odds = oneIn(p);
-  const verdict = conf === 'strong' ? 'Under 1%, so we call this strong evidence of a real change.'
-    : conf === 'moderate' ? 'Under 5%, so we call this moderate evidence of a real change.'
-      : '5% or more, so luck is a reasonable explanation: not proven.';
+  const verdict = conf === 'strong' ? 'That is under 1%, so we call it <strong>strong evidence</strong> of a real change.'
+    : conf === 'moderate' ? 'That is under 5%, so we call it <strong>moderate evidence</strong> of a real change.'
+      : 'That is 5% or more, so luck is a reasonable explanation: the change is <strong>not proven</strong>.';
   return `<div class="luck ${conf}">
-      <div class="luck-top"><span class="luck-label">Could this be luck?</span><span class="luck-value">${pct}</span></div>
-      <p>If nothing were really changing here, normal year to year ups and downs would still give a trend
-      this strong ${pct} of the time${odds ? ` (${odds})` : ''}. ${verdict}</p>
+      <div class="luck-top"><span class="luck-label">Is the change real?</span><span class="badge ${conf}">${LEVEL_TEXT[conf]}</span></div>
+      <p>Chance that luck alone gives a trend this strong: <strong>${pct}</strong>${odds ? ` (${odds})` : ''}.
+      Even if nothing were really changing here, normal year to year ups and downs would do it that often. ${verdict}</p>
+    </div>`;
+}
+
+/** The years a trend object covers: {s, e, span, whole, text}. Works with older answers that only have series. */
+export function periodOf(obj, series = null) {
+  const s = obj.start_year ?? (series ? series[0].t : 2001);
+  const e = obj.end_year ?? (series ? series[series.length - 1].t : 2025);
+  const whole = !series || (s === series[0].t && e === series[series.length - 1].t);
+  return { s, e, span: e - s, whole, text: `${s} to ${e}` };
+}
+
+/** Total change over the chosen years from a rate per decade. */
+export function totalChange(slopePerDecade, period) {
+  return slopePerDecade === null || slopePerDecade === undefined ? null : (slopePerDecade * period.span) / 10;
+}
+
+/** The two headline numbers of a result panel: total change over the chosen years and the trend per decade. */
+function headlineHTML(total, slopePerDecade, unit, per) {
+  return `<div class="headline">
+      <div class="stat"><div class="stat-val">${fmt(total)} <span class="stat-unit">${esc(unit)}</span></div>
+        <div class="stat-lab">Total change, ${per.s} to ${per.e}</div></div>
+      <div class="stat"><div class="stat-val">${fmt(slopePerDecade)} <span class="stat-unit">${esc(unit)}</span></div>
+        <div class="stat-lab">Trend, per decade</div></div>
     </div>`;
 }
 
@@ -196,10 +222,11 @@ export function worldImage(res) {
   };
 }
 
-export function legendHTML(variable, range, kind = 'region') {
+export function legendHTML(variable, range, kind = 'region', period = null) {
   const v = varInfo(variable);
   const pal = paletteFor(v.code);
-  const r = fmt(range).replace('+', '');
+  // The map is colored by rate; the scale is labeled with the total change over the chosen years.
+  const r = fmt(period ? totalChange(range, period) : range).replace('+', '');
   const notes = kind === 'world'
     ? '<div class="note">Whole Earth: only proven changes are colored; clear means not proven.</div>'
     : `<div class="np"><i></i>Flat grey tile: not proven, could be normal year to year variation</div>
@@ -209,7 +236,7 @@ export function legendHTML(variable, range, kind = 'region') {
     return `<div class="note">${esc(v.name)}: no proven change on this map, so nothing is colored.</div>
       ${kind === 'world' ? '' : '<div class="np"><i></i>Flat grey tile: not proven, could be normal year to year variation</div>'}`;
   }
-  return `<div class="note">${esc(v.name)}: change per decade (${esc(v.unit)})</div>
+  return `<div class="note">${esc(v.name)}: ${period ? `total change, ${period.text}` : 'change per decade'} (${esc(v.unit)})</div>
     <div class="bar" style="background:linear-gradient(90deg,${pal[0]},${pal[1]},${pal[2]})"></div>
     <div class="scale"><span>-${r}</span><span>0</span><span>+${r}</span></div>
     ${notes}`;
@@ -229,23 +256,42 @@ export function showMessage(panel, title, message, kind = 'info') {
   shell(panel, `<h2>${esc(title)}</h2><div class="callout ${kind}">${esc(message)}</div>`);
 }
 
+/** Contract v0.7: the same air temperature trend in NASA's weather station record (GISTEMP), as a second opinion. */
+function stationHTML(sc, t, unit) {
+  if (!sc || sc.slope_per_decade === null || sc.slope_per_decade === undefined) return '';
+  const rate = `${sc.slope_per_decade > 0 ? '+' : ''}${sc.slope_per_decade.toFixed(2)} ${esc(unit)} per decade`;
+  const badge = { 2: 'strong', 1: 'moderate', 0: 'not_proven' }[sc.level] || 'not_proven';
+  const ours = t.level ?? 0;
+  const why = sc.level > 0 && ours === 0
+    ? ' The stations prove what NASA POWER alone cannot: "not proven" here means this record is too noisy, not that nothing changes.'
+    : sc.level > 0 && ours > 0 ? ' Both NASA records agree that the change is real.'
+      : sc.level === 0 && ours > 0 ? ' The station record is noisier here and does not prove it on its own.' : '';
+  return `<div class="callout info"><strong>Weather stations nearby:</strong> ${rate}
+    <span class="badge ${badge}" style="margin-left:4px">${LEVEL_TEXT[badge]}</span>
+    <span class="note" style="display:block;margin-top:4px">NASA GISTEMP (thermometers within about 250 km), same years and same test.${why}</span></div>`;
+}
+
 /** trend_point (lane A) -> the result panel. */
 export function showTrend(panel, res, placeLabel, mockNote = null) {
   const v = varInfo(res.variable), t = res.trend;
   const conf = LEVELS[t.level] || 'not_proven';
   const where = placeLabel || `${res.location.lat.toFixed(2)}, ${res.location.lon.toFixed(2)}`;
-  const years = res.series.map((s) => s.t);
-  const used = res.series.filter((s) => s.v !== null).length;
+  const per = periodOf(t, res.series);
+  const inRange = res.series.filter((s) => s.t >= per.s && s.t <= per.e);
+  const used = inRange.filter((s) => s.v !== null).length;
+  const total = t.change_total ?? totalChange(t.slope_per_decade, per);
+  const lo = t.change_low ?? totalChange(t.slope_low, per), hi = t.change_high ?? totalChange(t.slope_high, per);
   const pTxt = t.p === null || t.p === undefined ? 'n/a' : t.p < 0.001 ? '< 0.001' : t.p.toFixed(3);
   shell(panel, `
     <h2>${esc(v.name)}</h2>
-    <div class="where">${esc(where)} · ${years[0]} to ${years[years.length - 1]}</div>
+    <div class="where">${esc(where)} · trend over ${per.text}</div>
     ${mockNote ? `<div class="callout warn">${esc(mockNote)}</div>` : ''}
-    ${t.level === -1 ? '<div class="callout warn">No data here: too few valid years for a trend.</div>' : `<span class="badge ${conf}">${LEVEL_TEXT[conf]}</span>
-    <div class="rate">${fmt(t.slope_per_decade)} ${esc(v.unit)} per decade</div>
-    ${t.slope_low !== null && t.slope_high !== null ? `<p class="range">Best estimate. With 95% confidence the true rate is between
-      <strong>${fmtRange(t.slope_low, t.slope_high)[0]}</strong> and <strong>${fmtRange(t.slope_low, t.slope_high)[1]}</strong> ${esc(v.unit)} per decade.</p>` : ''}
-    ${luckHTML(t.p, conf)}`}
+    ${t.level === -1 ? '<div class="callout warn">No data here: too few valid years for a trend.</div>' : `${headlineHTML(total, t.slope_per_decade, v.unit, per)}
+    <p class="range"><strong>How big is the change?</strong> ${fmt(total)} is our best estimate${lo !== null && hi !== null ? `; the true change is most likely between
+      <strong>${fmtRange(lo, hi)[0]}</strong> and <strong>${fmtRange(lo, hi)[1]}</strong> ${esc(v.unit)}` : ''}.</p>
+    ${luckHTML(t.p, conf)}
+    ${stationHTML(res.station_check, t, v.unit)}
+    ${per.span + 1 < 20 ? `<p class="note">You chose ${per.span + 1} years. Short ranges rarely prove a change: there are too few years to tell it from normal ups and downs. Try a longer range.</p>` : ''}`}
     <div class="chart" id="trend-chart"></div>
     <p class="sentence">${esc(res.sentence)}</p>
     ${res.caution ? `<div class="callout warn">${esc(res.caution)}</div>` : ''}
@@ -254,27 +300,44 @@ export function showTrend(panel, res, placeLabel, mockNote = null) {
       <summary>How we know</summary>
       <dl>
         <dt>p-value</dt><dd>${pTxt}${luckPercent(t.p) ? ` (${luckPercent(t.p)})` : ''}</dd>
-        <dt>Years used</dt><dd>${used} of ${res.series.length}</dd>
+        <dt>Years used</dt><dd>${used} of ${inRange.length} (${per.text})</dd>
         <dt>Change starts</dt><dd>${t.change_point_year ?? 'no clear start'}</dd>
         <dt>Method</dt><dd>${esc(t.method)}</dd>
         <dt>Data</dt><dd>${esc(v.source)}${res.data_from ? ` (${esc(res.data_from)})` : ''}</dd>
       </dl>
-      <p><strong>The luck percentage</strong> (the p-value) is how often a trend this strong would appear if nothing were
-      really changing. It is not the chance that the trend is true, so we never say "97% real".</p>
-      <p><strong>The 95%</strong> is not a result and it is the same for every place: it is the confidence level we chose.
-      Ranges built this way contain the true rate about 95 times out of 100. A wide range means the data is noisy;
-      a range that includes 0 means the change is not proven.</p>
+      <p>The panel answers two different questions.</p>
+      <p><strong>1. Is the change real?</strong> The luck percentage (the p-value) is how often a trend this strong would appear if nothing were
+      really changing. The label is that same number in words: under 1% is strong evidence, under 5% is moderate evidence,
+      5% or more is not proven. It is not the chance that the trend is true, so we never say "97% real".</p>
+      <p><strong>2. How big is the change?</strong> The "most likely between" range (a 95% range). It is about the size of the change, not
+      about whether it exists. A wide range means the data is noisy; a range that includes 0 goes with "not proven".</p>
     </details>`);
   drawChart(document.getElementById('trend-chart'), res, conf);
 }
 
-export function showCellSummary(panel, props, variable, label, reason) {
+/** A country's trend map is shown: its average trend as the two headline numbers, then the sentence. */
+export function showRegionSummary(panel, grid, title, prefix = '') {
+  const v = varInfo(grid.variable), t = grid.mean_trend;
+  const per = periodOf(t || grid, grid.mean_series);
+  const head = t && t.level !== -1 && t.slope_per_decade !== null && t.slope_per_decade !== undefined
+    ? `<div class="where">Average over the whole area · ${per.text}</div>
+      ${headlineHTML(t.change_total ?? totalChange(t.slope_per_decade, per), t.slope_per_decade, v.unit, per)}
+      <span class="badge ${LEVELS[t.level] || 'not_proven'}">${LEVEL_TEXT[LEVELS[t.level] || 'not_proven']}</span>`
+    : '';
+  shell(panel, `<h2>${esc(title)}</h2>${head}
+    <p class="sentence">${esc(prefix)}${esc(grid.mean_sentence || '')}</p>
+    ${grid.caution ? `<div class="callout warn">${esc(grid.caution)}</div>` : ''}
+    <div class="callout info">Click a column, or any point, to see its trend.</div>`);
+}
+
+export function showCellSummary(panel, props, variable, label, reason, period = null) {
   const v = varInfo(variable);
+  const per = period || periodOf({});
   shell(panel, `
     <h2>${esc(v.name)}</h2>
     <div class="where">${esc(label)}</div>
     <span class="badge ${props.confidence}">${LEVEL_TEXT[props.confidence]}</span>
-    <div class="rate">${fmt(Number(props.slope))} ${esc(v.unit)} per decade</div>
+    ${headlineHTML(totalChange(Number(props.slope), per), Number(props.slope), v.unit, per)}
     <p class="range">${props.q === null || props.q === undefined ? 'No test result for this cell.'
       : `Chance of a trend this strong by luck alone, after correcting for testing many cells at once: <strong>${luckPercent(Number(props.q))}</strong>`}</p>
     <div class="callout info">${esc(reason)}</div>`);
@@ -285,19 +348,34 @@ function drawChart(el, res, conf) {
   const line = res.trend_line || [];
   const lineColor = conf === 'not_proven' ? '#9aa3ae' : '#ffcc66';
   const cp = res.trend.change_point_year;
+  const per = periodOf(res.trend, res.series);
+  const shapes = cp ? [{ type: 'line', x0: cp, x1: cp, yref: 'paper', y0: 0, y1: 1, line: { color: 'rgba(255,204,102,.6)', width: 1.5, dash: 'dot' } }] : [];
+  // Chosen years highlighted when they are not the whole record.
+  if (!per.whole) shapes.push({ type: 'rect', x0: per.s - 0.5, x1: per.e + 0.5, yref: 'paper', y0: 0, y1: 1, fillcolor: 'rgba(111,211,255,.10)', line: { width: 0 }, layer: 'below' });
+  const height = cp ? 236 : 222;
+  el.style.height = `${height}px`;   // the box takes the chart's real height, so nothing below is covered
   Plotly.newPlot(el, [
     { x: s.map((p) => p.t), y: s.map((p) => p.v), mode: 'lines+markers', name: 'Yearly average',
       line: { color: '#6fd3ff', width: 2 }, marker: { size: 5 }, hovertemplate: '%{x}: %{y:.2f}<extra></extra>' },
     { x: line.map((p) => p.t), y: line.map((p) => p.v), mode: 'lines', name: 'Trend',
       line: { color: lineColor, width: 2.5, dash: 'dash' }, hoverinfo: 'skip' },
   ], {
-    margin: { l: 44, r: 8, t: 6, b: 28 }, height: 220,
+    // Room above the plot for the "change starts" label (it sits just above the top edge).
+    margin: { l: 44, r: 10, t: cp ? 24 : 10, b: 28 }, height,
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
     font: { color: '#9aabc2', size: 11 },
     xaxis: { gridcolor: 'rgba(255,255,255,0.06)', zeroline: false },
     yaxis: { gridcolor: 'rgba(255,255,255,0.08)', zeroline: false, title: { text: varInfo(res.variable).unit, standoff: 6 } },
-    shapes: cp ? [{ type: 'line', x0: cp, x1: cp, yref: 'paper', y0: 0, y1: 1, line: { color: 'rgba(255,204,102,.6)', width: 1.5, dash: 'dot' } }] : [],
+    shapes,
     annotations: cp ? [{ x: cp, yref: 'paper', y: 1, text: `change starts ${cp}`, showarrow: false, font: { size: 10, color: '#ffcc66' }, yanchor: 'bottom' }] : [],
     showlegend: false,
   }, { displayModeBar: false, responsive: true });
+  // Redraw at the new width whenever the panel changes size (window resized, phone turned, layout switched);
+  // Plotly's own option only listens to the window and missed the panel's switch between layouts.
+  if (window.ResizeObserver) {
+    let last = el.clientWidth;
+    new ResizeObserver(() => {
+      if (el.isConnected && el.clientWidth && el.clientWidth !== last) { last = el.clientWidth; Plotly.Plots.resize(el); }
+    }).observe(el);
+  }
 }

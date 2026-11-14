@@ -98,7 +98,7 @@ export function cropMap(o, cells, crop, mode, h, view) {
   const legend = `<div class="note">Suitability, 0 to 100 (${modeText(mode)}, ${o.horizons[h]})</div>
     <div class="bar" style="background:${gradient(GREEN)}"></div>
     <div class="scale"><span>1</span><span>50</span><span>100</span></div>
-    <div class="np"><i style="background:${CANNOT}"></i>Brown: the crop cannot grow here</div>`;
+    <div class="np"><i style="background:${CANNOT}"></i>Brown: score 0, a climate unlike the places that grow it${mode === 'rainfed' ? ' (or under 100 mm of rain a year)' : ''}</div>`;
   return { map, legend };
 }
 
@@ -117,7 +117,7 @@ export function landMap(o, cells, mode, h, view) {
     const legend = `<div class="note">Average change of all ${n} crop scores from ${o.horizons[0]} to ${o.horizons[o.horizons.length - 1]}, points (${modeText(mode)})</div>
       <div class="bar" style="background:${gradient(CHANGE)}"></div>
       <div class="scale"><span>losing ${range.toFixed(1)}</span><span>0</span><span>gaining ${range.toFixed(1)}</span></div>
-      <div class="np"><i></i>Flat grey: stable (change under 0.25 points)</div>`;
+      <div class="np"><i></i>Flat grey: change under 0.25 points (too small to show)</div>`;
     return { map, legend };
   }
   const map = fc(cells, (c) => {
@@ -137,6 +137,13 @@ export function cellPanelHTML(o, k, mode, placeLabel, selectedCrop) {
   const last = o.horizons.length - 1;
   const ev = o.evidence?.[k];
   const evBadge = ev && EV_TEXT[ev] ? ` <span class="ev ${ev}">${EV_TEXT[ev]}</span>` : '';
+  const st = o.station_evidence?.[k], stRate = o.station_trend_per_decade?.[k];
+  const hasStation = isNum(stRate) && st && st !== '-' && EV_TEXT[st];
+  const stBadge = hasStation ? ` <span class="ev ${st}">${EV_TEXT[st]}</span>` : '';
+  const stProven = hasStation && (st === 'S' || st === 'M');
+  const warmNote = ev !== 'N' ? ''
+    : stProven ? `<div class="callout info">NASA POWER alone does not prove the warming here, but NASA's weather station record does (${sign(stRate, 2)} °C per decade). Over ${esc((o.region && o.region.name) || 'this country')} POWER warms more slowly than the stations, so the changes to 2035 may be on the low side.</div>`
+    : '<div class="callout warn">The warming trend here is not proven, so the changes to 2035 are only a possibility.</div>';
   const showHeat = hasHeat(o);
   const rows = o.crops.map((c) => {
     const now = score(o, mode, c.id, 0, k), later = score(o, mode, c.id, last, k);
@@ -161,11 +168,15 @@ export function cellPanelHTML(o, k, mode, placeLabel, selectedCrop) {
     <dl class="climate">
       ${isNum(o.temp_now_c?.[k]) ? `<dt>Average temperature</dt><dd>${o.temp_now_c[k]} °C${o.climate_period ? ` (${esc(o.climate_period)})` : ''}</dd>` : ''}
       ${isNum(o.rain_now_mm?.[k]) ? `<dt>Rain per year</dt><dd>${o.rain_now_mm[k]} mm</dd>` : ''}
-      ${isNum(o.temp_trend_per_decade?.[k]) ? `<dt>Warming trend</dt><dd>${sign(o.temp_trend_per_decade[k], 2)} °C per decade${evBadge}</dd>` : ''}
+      ${isNum(o.temp_trend_per_decade?.[k]) ? `<dt>Warming trend</dt><dd>${sign(o.temp_trend_per_decade[k], 2)} °C per decade${evBadge}${hasStation ? '<span class="sub" style="display:block;color:var(--muted);font-size:11px">NASA POWER</span>' : ''}</dd>` : ''}
+      ${hasStation ? `<dt>Weather stations</dt><dd>${sign(stRate, 2)} °C per decade${stBadge}<span class="sub" style="display:block;color:var(--muted);font-size:11px">NASA GISTEMP, 250 km</span></dd>` : ''}
       <dt>Crops that fit</dt><dd>${fitsNow} now${last > 0 ? `, ${fitsLater} in ${o.horizons[last]}` : ''} (${modeText(mode)})</dd>
+      ${o.farmland ? `<dt>Farmed today</dt><dd>${o.farmland[k] === '1' ? 'yes' : 'no farmland mapped'}</dd>` : ''}
     </dl>
-    ${ev === 'N' ? '<div class="callout warn">The warming trend here is not proven, so the changes to 2035 are only a possibility.</div>' : ''}
-    ${mode === 'rainfed' && fitsNow === 0 && hasMode(o, 'irrigated') ? '<div class="callout info">Rain only: no crop fits here on rain alone. Switch to Irrigated to see what the Nile and wells make possible.</div>' : ''}
+    ${mode === 'irrigated' && o.farmland && o.farmland[k] !== '1' ? '<div class="callout info">No farmland is mapped here today. Irrigated scores show what this climate could grow if water were brought here; they do not show that water is available.</div>' : ''}
+    ${o.outside_training?.[k] === '1' ? '<div class="callout warn">This climate is partly outside the climates the crop model learned from, so read these scores with care.</div>' : ''}
+    ${warmNote}
+    ${mode === 'rainfed' && fitsNow === 0 && hasMode(o, 'irrigated') ? '<div class="callout info">Rain only: no crop fits here on rain alone. Switch to Irrigated to see what this climate could grow with water.</div>' : ''}
     <table class="crop-table">
       <thead><tr><th>Crop</th><th></th><th>Now</th>${last > 0 ? `<th>${o.horizons[last]}</th><th>Change</th>` : ''}${showHeat ? '<th>Heat limit</th>' : ''}</tr></thead>
       <tbody>${body}</tbody>
@@ -194,8 +205,14 @@ export function decisionLists(o, cells, nameOf) {
   const rising = changes.filter((r) => r.d > 0.25).sort((a, b) => b.d - a.d).slice(0, 8);
   const losing = changes.filter((r) => r.d < -0.25).sort((a, b) => a.d - b.d).slice(0, 8);
   const best = cells.map((c) => ({ c, n: fits(o, mode, 0, c.k) })).filter((r) => r.n > 0).sort((a, b) => b.n - a.n).slice(0, 8);
+  const evOf = (k) => (o.station_evidence && EV_TEXT[o.station_evidence[k]] && o.station_evidence[k] !== '-' ? o.station_evidence[k] : o.evidence?.[k]);
+  const whereOf = (c) => {
+    const name = nameOf(c.lat, c.lon);
+    const coords = `${Math.abs(c.lat).toFixed(1)}° ${c.lat >= 0 ? 'N' : 'S'}, ${Math.abs(c.lon).toFixed(1)}° ${c.lon >= 0 ? 'E' : 'W'}`;
+    return name.includes(',') ? name : `${name}, ${coords}`;
+  };
   const li = (r, label, value) => `<li tabindex="0" data-k="${r.c.k}" data-lat="${r.c.lat}" data-lon="${r.c.lon}"${r.crop ? ` data-crop="${r.crop.id}"` : ''}>
-      <span>${label}<span class="sub">${esc(nameOf(r.c.lat, r.c.lon))}${EV_TEXT[o.evidence?.[r.c.k]] ? ` <span class="ev ${o.evidence[r.c.k]}">${EV_TEXT[o.evidence[r.c.k]]}</span>` : ''}</span></span>
+      <span>${label}${o.farmland && o.farmland[r.c.k] !== '1' ? ' <span class="note">(no farmland today)</span>' : ''}<span class="sub">${esc(whereOf(r.c))}${EV_TEXT[evOf(r.c.k)] ? ` <span class="ev ${evOf(r.c.k)}">${EV_TEXT[evOf(r.c.k)]}</span>` : ''}</span></span>
       <span class="val">${value}</span></li>`;
   const empty = '<p class="note">None found with the current data.</p>';
   return `
@@ -211,5 +228,5 @@ export function decisionLists(o, cells, nameOf) {
     : `<h3>Where the most crops fit today</h3>
     ${best.length ? `<ol class="rank">${best.map((r) => li(r, 'Crops that fit', `${r.n} of ${o.crops.length}`)).join('')}</ol>` : empty}
     <p class="note">This outlook covers one year, so there is no change over time to rank.</p>`}
-    <p class="note">Click a row to fly there and see every crop.${o.evidence ? ' Badges show how strong the evidence for the warming trend is.' : ''}</p>`;
+    <p class="note">Click a row to fly there and see every crop.${o.station_evidence ? " Badges show how strong the evidence for warming is in NASA's weather station record (GISTEMP)." : o.evidence ? ' Badges show how strong the evidence for the warming trend is.' : ''}</p>`;
 }

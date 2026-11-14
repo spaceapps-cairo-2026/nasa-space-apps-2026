@@ -3,7 +3,7 @@ import { api, loadStatic } from './api.js';
 import { Globe } from './globe.js';
 import { setupSearch } from './search.js';
 import { describePlace } from './geo.js';
-import { gridToGeoJSON, legendHTML, showCellSummary, showLoading, showMessage, showTrend, varInfo, worldImage } from './trends.js';
+import { gridToGeoJSON, legendHTML, periodOf, showCellSummary, showLoading, showRegionSummary, showMessage, showTrend, varInfo, worldImage } from './trends.js';
 import { buildFarmCells, cellPanelHTML, cropInfoText, cropMap, decisionLists, hasHeat, hasMode, landMap } from './farming.js';
 import { methodsHTML } from './methods.js';
 import { createTour } from './tour.js';
@@ -22,12 +22,15 @@ const state = {
   borders50: null,
   borders: {},
   varCode: 'T2M',
+  years: { min: 2001, max: 2025, minRange: 10, from: 2001, to: 2025 }, // the years the trend is measured over
+  regionPeriod: null, // years of the trend map on screen
   selection: null, // {kind: 'point'|'city'|'country', lat, lon, label, coords, iso, bbox}
   mapCountry: EGYPT, // the country the "Show trend map" button uses
   regionShown: null, // iso of the trend map on screen
   regionWanted: false, // the user asked for a trend map: draw it again when the measurement changes
   regionToken: 0, // ignore answers to outdated requests
-  farm: { outlook: null, cells: null, crop: 'wheat', mode: 'irrigated', h: 0, cropView: 'score', landView: 'count', k: null, fromList: false },
+  farm: { iso: 'EGY', countries: [{ iso: 'EGY', name: 'Egypt', bbox: EGYPT.bbox }], loaded: {},
+    outlook: null, cells: null, crop: 'wheat', mode: 'irrigated', h: 0, cropView: 'score', landView: 'count', k: null, fromList: false },
 };
 
 const panel = $('panel');
@@ -52,6 +55,9 @@ function cellSizeText(lat) {
 }
 const midLat = (bbox) => (bbox[1] + bbox[3]) / 2;
 const isFarmTab = () => state.tab !== 'trends';
+const wholeRecord = () => state.years.from === state.years.min && state.years.to === state.years.max;
+/** Extra request parameters for the chosen years; none when the whole record is chosen. */
+const yearParams = () => (wholeRecord() ? {} : { start_year: state.years.from, end_year: state.years.to });
 
 function coordText(lat, lon) {
   return `${Math.abs(lat).toFixed(2)}° ${lat >= 0 ? 'N' : 'S'}, ${Math.abs(lon).toFixed(2)}° ${lon >= 0 ? 'E' : 'W'}`;
@@ -60,8 +66,15 @@ function placeName(lat, lon, fallbackCountry = null) {
   if (!state.countries || !state.places) return coordText(lat, lon);
   return describePlace(lat, lon, state.countries, state.places, fallbackCountry);
 }
-// Farming cells all belong to Egypt, even when a coastal cell's center sits over the sea.
-const farmPlace = (lat, lon) => placeName(lat, lon, 'Egypt').replace(/^Over water, /, 'Egypt (coast), ');
+// The focus country the farming tabs show (Egypt, Saudi Arabia: /api/farming/countries).
+const farmCountry = () => state.farm.countries.find((c) => c.iso === state.farm.iso) || state.farm.countries[0];
+// Farming cells all belong to the focus country, even when a coastal cell's center sits over the sea.
+// A border cell whose center falls in a neighbour (Taba, Sudan) is still that country's cell: never name it after the neighbour.
+const farmPlace = (lat, lon) => {
+  const country = farmCountry().name;
+  const name = placeName(lat, lon, country).replace(/^Over water, /, `${country} (coast), `);
+  return name.includes(country) ? name : `${country} (border)`;   // panels and lists add the coordinates
+};
 
 const globe = new Globe('globe', {
   onPoint: (ll) => (isFarmTab()
@@ -72,17 +85,20 @@ const globe = new Globe('globe', {
 
 /* ====================== Trends tab ====================== */
 
+let pointToken = 0; // ignore answers to outdated requests (the years or the measurement changed meanwhile)
 async function loadPointTrend() {
   const s = state.selection;
   if (!s || s.kind === 'country' || isFarmTab()) return;
   const v = currentVar();
+  const token = ++pointToken;
   showLoading(panel, `${v.name} at ${s.label}`);
   try {
-    const res = await api.point(s.lat, s.lon, v.code);
+    const res = await api.point(s.lat, s.lon, v.code, yearParams());
+    if (token !== pointToken) return;
     const where = `${s.label} · ${s.coords}`;
     showTrend(panel, res, where, state.mock ? 'Sample mode: the server is running on fixed sample data (Cairo). Start it with python run.py api for real data.' : null);
   } catch (e) {
-    showMessage(panel, `${v.name} at ${s.label}`, e.message, 'warn');
+    if (token === pointToken) showMessage(panel, `${v.name} at ${s.label}`, e.message, 'warn');
   }
 }
 
@@ -92,10 +108,10 @@ async function openCell(props) {
   const label = `Grid cell, ${placeName(lat, lon)} · ${coordText(lat, lon)}`;
   showLoading(panel, `${v.name}, grid cell`);
   try {
-    const res = await api.cell(lat, lon, v.code);
+    const res = await api.cell(lat, lon, v.code, yearParams());
     showTrend(panel, res, label, state.mock ? 'Sample mode: fixed sample data (Cairo).' : null);
   } catch (e) {
-    showCellSummary(panel, props, v, label, `${e.message} The numbers above come from the map.`);
+    showCellSummary(panel, props, v, label, `${e.message} The numbers above come from the map.`, state.regionPeriod);
   }
 }
 
@@ -107,6 +123,7 @@ function select(sel) {
   if (sel.kind === 'point') globe.selectPoint(sel.lon, sel.lat);
   if (sel.kind === 'city') globe.selectCity(sel.lon, sel.lat);
   if (sel.kind === 'country') {
+    if (state.farm.countries.some((c) => c.iso === sel.iso)) setFarmCountry(sel.iso); // the farming tabs follow
     state.mapCountry = { iso: sel.iso, label: sel.label, bbox: sel.bbox };
     globe.selectCountry(sel.iso, sel.bbox);
     return showRegion(state.mapCountry);
@@ -159,19 +176,19 @@ async function showRegion(country) {
   showMessage(panel, `${v.name} in ${country.label}`, 'Fetching NASA data for this country and testing every grid cell. '
     + 'The first time can take up to a minute; after that it is instant.');
   try {
-    const [grid, border] = await Promise.all([api.region(country.bbox, v.code, country.iso), borderOf(country.iso)]);
+    const [grid, border] = await Promise.all([api.region(country.bbox, v.code, country.iso, yearParams()), borderOf(country.iso)]);
     if (token !== state.regionToken || isFarmTab()) return;
     const { fc, range, counts } = gridToGeoJSON(grid, border);
     state.lastCounts = counts;
+    state.regionPeriod = periodOf(grid);
     globe.showCells(fc, border);
     state.regionShown = country.iso;
     setRegionButton();
-    $('region-note').textContent = `Inside ${country.label}: ${counts.increasing} cells rising, ${counts.decreasing} falling, `
+    $('region-note').textContent = `Inside ${country.label}, ${state.regionPeriod.text}: ${counts.increasing} cells rising, ${counts.decreasing} falling, `
       + `${counts.not_proven} not proven (of ${counts.total}). Each cell is ${cellSizeText(midLat(country.bbox))}.`;
-    $('legend').innerHTML = legendHTML(v, range, 'region');
+    $('legend').innerHTML = legendHTML(v, range, 'region', state.regionPeriod);
     $('legend').hidden = false;
-    showMessage(panel, `${v.name} in ${country.label}`, (state.mock ? 'Sample mode: the map shows the fixed Egypt sample. ' : '')
-      + (grid.mean_sentence ? `${grid.mean_sentence} ` : '') + 'Click a column, or any point, to see its trend.');
+    showRegionSummary(panel, grid, `${v.name} in ${country.label}`, state.mock ? 'Sample mode: the map shows the fixed Egypt sample. ' : '');
     return counts;
   } catch (e) {
     if (token !== state.regionToken) return;
@@ -192,8 +209,10 @@ function hideRegion(keepWanted = false) {
 }
 
 let worldLegend = null;
+let worldToken = 0;
 async function loadWorld() {
   const v = currentVar();
+  const token = ++worldToken;
   $('world-toggle').disabled = !canDo('world');
   if (!canDo('world')) {
     // No whole Earth grid for this measurement yet: explain instead of asking the server for an error.
@@ -208,16 +227,17 @@ async function loadWorld() {
   if (!$('world-toggle').checked || isFarmTab()) { globe.hideWorld(); if (!$('world-toggle').checked) $('world-note').textContent = ''; return; }
   $('world-note').textContent = 'Loading the world map…';
   try {
-    const g = await api.world(v.code);
-    if (isFarmTab()) return;
+    const g = await api.world(v.code, 2, yearParams());
+    if (isFarmTab() || token !== worldToken) return;
     const img = worldImage(g);
     globe.showWorld(img);
     const s = g.summary;
-    $('world-note').textContent = `Whole Earth: ${s.increasing.toLocaleString()} cells proven rising, `
+    $('world-note').textContent = `Whole Earth, ${periodOf(g).text}: ${s.increasing.toLocaleString()} cells proven rising, `
       + `${s.decreasing.toLocaleString()} proven falling, ${s.not_proven.toLocaleString()} not proven (of ${s.cells.toLocaleString()}).`;
-    worldLegend = legendHTML(v, img.range, 'world');
+    worldLegend = legendHTML(v, img.range, 'world', periodOf(g));
     if (!state.regionShown) { $('legend').innerHTML = worldLegend; $('legend').hidden = false; }
   } catch (e) {
+    if (token !== worldToken) return;
     globe.hideWorld();
     $('world-note').textContent = e.message;
   }
@@ -225,22 +245,56 @@ async function loadWorld() {
 
 /* ====================== Farming tabs ====================== */
 
+function setFarmCountry(iso) {
+  const f = state.farm;
+  if (f.iso === iso) return;
+  f.iso = iso;
+  f.outlook = null;   // ensureFarm loads (or takes from memory) the new country's outlook
+  f.k = null;
+  $('farm-country').value = iso;
+}
+
 async function ensureFarm() {
   const f = state.farm;
-  if (f.outlook) return true;
-  $('farm-note').textContent = 'Loading the farming outlook for Egypt…';
+  const c = farmCountry();
+  if (f.outlook && f.outlook.region && f.outlook.region.id === c.iso) return true;
+  $('farm-note').textContent = `Loading the farming outlook for ${c.name}…`;
   try {
-    const [o, border] = await Promise.all([api.farming('EGY'), borderOf('EGY')]);
-    f.outlook = o;
-    f.cells = buildFarmCells(o, border);
-    f.border = border;
-    setupFarmControls(o);
-    $('farm-note').textContent = `${f.cells.length} grid cells of ${cellSizeText(midLat(EGYPT.bbox))} cover Egypt. Click one to see every crop.`;
+    if (!f.loaded[c.iso]) {
+      const [o, border] = await Promise.all([api.farming(c.iso), borderOf(c.iso)]);
+      f.loaded[c.iso] = { o, border, cells: buildFarmCells(o, border) };
+    }
+    if (f.iso !== c.iso) return false;   // the user picked another country meanwhile
+    const got = f.loaded[c.iso];
+    f.outlook = got.o;
+    f.cells = got.cells;
+    f.border = got.border;
+    setupFarmControls(got.o);
+    $('farm-note').textContent = `${f.cells.length} grid cells of ${cellSizeText(midLat(c.bbox))} cover ${c.name}. Click one to see every crop.`;
     return true;
   } catch (e) {
     $('farm-note').textContent = e.message;
     return false;
   }
+}
+
+/** Switch the farming tabs to another focus country: load it, fly there, redraw. */
+async function showFarmCountry(iso) {
+  setFarmCountry(iso);
+  panel.hidden = true;
+  if (!isFarmTab() || !(await ensureFarm())) return false;
+  globe.selectCountry(iso, farmCountry().bbox);
+  renderFarm();
+  return true;
+}
+
+async function loadFarmCountries() {
+  try {
+    const { countries } = await api.farmingCountries();
+    if (countries && countries.length) state.farm.countries = countries;
+  } catch { /* older server: Egypt only */ }
+  $('farm-country').innerHTML = state.farm.countries.map((c) => `<option value="${c.iso}">${c.name}</option>`).join('');
+  $('farm-country').value = state.farm.iso;
 }
 
 /**
@@ -312,7 +366,7 @@ function renderFarm() {
   $('horizon-label').textContent = fixed ? 'When (fixed for this view)' : 'When';
   if (state.tab === 'decisions' && !f.fromList) showDecisions();
   else if (f.k !== null) openFarmCell(f.k, f.fromList);
-  else showMessage(panel, state.tab === 'crops' ? `Where can ${cropName().toLowerCase()} grow?` : 'Farming potential in Egypt',
+  else showMessage(panel, state.tab === 'crops' ? `Where can ${cropName().toLowerCase()} grow?` : `Farming potential in ${farmCountry().name}`,
     `Click any cell on the map to see every crop for that place: now${o.horizons.length > 1 ? `, in ${o.horizons[o.horizons.length - 1]}` : ''}`
     + `${hasHeat(o) ? ', and how many years before the heat becomes too much' : ''}.`);
 }
@@ -361,8 +415,15 @@ function openFarmPoint(lat, lon) {
   if (!f.outlook) return;
   const { lat0, lon0, dlat, dlon, ncols } = f.outlook.grid;
   const k = Math.round((lat - lat0) / dlat) * ncols + Math.round((lon - lon0) / dlon);
-  if (f.cells.some((c) => c.k === k)) openFarmCell(k);
-  else showMessage(panel, placeName(lat, lon), 'Farming analysis is available for Egypt. Click a place inside Egypt, or use the Trends tab here.');
+  if (f.cells.some((c) => c.k === k)) return openFarmCell(k);
+  // A click in another focus country switches to it.
+  const other = state.farm.countries.find((c) => c.iso !== f.iso && lon >= c.bbox[0] && lon <= c.bbox[2] && lat >= c.bbox[1] && lat <= c.bbox[3]
+    && (describePlace(lat, lon, state.countries, state.places) || '').includes(c.name));
+  if (other) {
+    return showFarmCountry(other.iso).then((ok) => { if (ok) openFarmPoint(lat, lon); });
+  }
+  const names = state.farm.countries.map((c) => c.name).join(' and ');
+  showMessage(panel, placeName(lat, lon), `Farming analysis is available for ${names}. Click a place inside one of them, pick the country above, or use the Trends tab here.`);
 }
 
 /* ====================== How we know ====================== */
@@ -399,7 +460,7 @@ async function setTab(tab) {
   globe.hideWorld();
   state.farm.fromList = false;
   if (!(await ensureFarm())) return;
-  globe.selectCountry('EGY', EGYPT.bbox);
+  globe.selectCountry(farmCountry().iso, farmCountry().bbox);
   renderFarm();
 }
 
@@ -437,6 +498,33 @@ function fillVariables() {
   };
 }
 
+/** The year range picker: any range of at least minRange years inside the record. */
+function fillYears() {
+  const y = state.years;
+  const from = $('year-from'), to = $('year-to');
+  const options = (lo, hi) => { let h = ''; for (let k = lo; k <= hi; k++) h += `<option value="${k}">${k}</option>`; return h; };
+  from.innerHTML = options(y.min, y.max - y.minRange + 1);
+  to.innerHTML = options(y.min + y.minRange - 1, y.max);
+  const show = () => {
+    from.value = y.from; to.value = y.to;
+    $('year-reset').hidden = wholeRecord();
+    const n = y.to - y.from + 1;
+    $('year-note').textContent = wholeRecord() ? `The whole NASA record, ${n} years. Pick any range of at least ${y.minRange} years.`
+      : `${n} years chosen. Shorter ranges prove fewer changes: fewer years to tell a real change from normal ups and downs.`;
+  };
+  const reload = () => {
+    show();
+    loadWorld();
+    if (state.regionShown || state.regionWanted) showRegion(state.mapCountry);
+    loadPointTrend();
+  };
+  from.onchange = () => { y.from = Number(from.value); if (y.to - y.from + 1 < y.minRange) y.to = y.from + y.minRange - 1; reload(); };
+  to.onchange = () => { y.to = Number(to.value); if (y.to - y.from + 1 < y.minRange) y.from = y.to - y.minRange + 1; reload(); };
+  $('year-reset').onclick = () => { y.from = y.min; y.to = y.max; reload(); };
+  state.resetYears = () => { if (!wholeRecord()) { y.from = y.min; y.to = y.max; show(); } };
+  show();
+}
+
 async function init() {
   try {
     const [health, vars, countries, places] = await Promise.all([
@@ -444,6 +532,10 @@ async function init() {
     ]);
     state.mock = Boolean(health.mock);
     state.variables = vars.variables;
+    if (vars.start_year && vars.end_year) {
+      Object.assign(state.years, { min: vars.start_year, max: vars.end_year, from: vars.start_year, to: vars.end_year, minRange: vars.min_range_years || 10 });
+    }
+    fillYears();
     state.countries = countries;
     state.places = places;
     fillVariables();
@@ -455,9 +547,11 @@ async function init() {
         : select({ kind: 'city', lat: r.lat, lon: r.lon, label: `${r.name}, ${r.country}`, coords: coordText(r.lat, r.lon) })),
     });
     loadWorld();
+    loadFarmCountries();
   } catch (e) {
     toast(`Could not reach the server: ${e.message}`);
   }
+  $('farm-country').onchange = (e) => { showFarmCountry(e.target.value); };
   setRegionButton();
   $('region-toggle').onclick = () => {
     if (state.regionShown === state.mapCountry.iso) return hideRegion();
@@ -485,6 +579,7 @@ function countryByIso(iso) {
 
 const tour = createTour({
   reset: async () => {
+    if (state.resetYears) state.resetYears(); // the tour tells the whole record's story
     hideRegion();
     globe.clearSelection();
     state.selection = null;
@@ -505,7 +600,8 @@ const tour = createTour({
     const o = state.farm.outlook;
     if (!o) return null;
     // A model's file may not have this crop or this view: fall back to what it does have.
-    state.farm.crop = o.crops.some((c) => c.id === crop) ? crop : o.crops[0].id;
+    const wanted = (Array.isArray(crop) ? crop : [crop]).find((id) => o.crops.some((c) => c.id === id));
+    state.farm.crop = wanted ?? o.crops[0].id;
     state.farm.cropView = view === 'heat' && !hasHeat(o) ? 'score' : view;
     $('crop-select').value = state.farm.crop;
     document.querySelectorAll('[data-crop-view]').forEach((b) => b.classList.toggle('on', b.dataset.cropView === state.farm.cropView));

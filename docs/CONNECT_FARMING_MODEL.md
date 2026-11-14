@@ -4,13 +4,15 @@ The Crops, Farmland and Decisions tabs contain no model. They read ONE answer:
 
     GET /api/farming?country=EGY   ->   the file ml/outputs/farming_EGY.json
 
-Today that file is written by `ml/farming.py` (a simple FAO ECOCROP calculator, so the tabs can be
-demoed). To use your trained model instead: **make your model write `ml/outputs/farming_EGY.json`
-in the format below, then run the check.** No change to `app/` or `api/` is needed; reload the page
+**Status, Sat 14 Nov: the trained model is connected.** The file is written by
+`python run.py crop-model` (`ml/crop_outlook.py`) from the model in `ml/crop_model/` (40 crops,
+see `ml/crop_model/README.md` and `ml/model_card.md`). `ml/farming.py` (a simple FAO ECOCROP
+calculator) was the stand-in and is kept as the fixture. To connect another model: **make it write
+`ml/outputs/farming_EGY.json` in the format below, then run the check.** No change to `app/` or `api/` is needed; reload the page
 and the tabs show your model. (If the file is missing, the API falls back to
 `contracts/fixtures/farming_EGY.json`.)
 
-Full format: `contracts/farming.schema.json` (v0.4). Real example: `ml/outputs/farming_EGY.json`.
+Full format: `contracts/farming.schema.json` (v0.5). Real example: `ml/outputs/farming_EGY.json`.
 
 ## Three steps
 
@@ -39,7 +41,7 @@ from it unless your model uses another grid.
 
 | Field | Meaning |
 |---|---|
-| `version` | `"0.4"` |
+| `version` | `"0.5"` |
 | `region` | `{"id": "EGY", "name": "Egypt", "bbox": [west, south, east, north]}` |
 | `grid` | `{"lat0", "lon0", "dlat", "dlon", "nrows", "ncols"}` |
 | `method` | one or two sentences describing your model, shown in the app under "How we know" |
@@ -62,6 +64,8 @@ best yield of that crop. Say how in `method`.
 | `temp_now_c`, `rain_now_mm`, `temp_trend_per_decade` | per-cell climate lines in the place panel (`climate_period`, e.g. `"2016 to 2025"`, labels the first) |
 | `evidence` | string, one character per cell: `S` strong, `M` moderate, `N` not proven, `-` no data: the evidence badges |
 | `suitable_threshold` | score at which a crop "fits" a place (50 if you leave it out) |
+| `farmland` | string, one character per cell: `1` = farmed today. The place panel shows "Farmed today" and, in irrigated mode, warns where no farmland is mapped that the scores assume water can be brought |
+| `outside_training` | string, one character per cell: `1` = the climate is outside what the model was trained on. The place panel shows a caution |
 | `source` | short text shown as "Source: ..." (for example your training data) |
 | `score_note` | how to read a score, in plain words, shown in the place panel |
 | per crop: `scientific_name`, `season_months`, `temp_opt_c: [lo, hi]`, `temp_abs_c: [lo, hi]` | the crop line under the crop picker |

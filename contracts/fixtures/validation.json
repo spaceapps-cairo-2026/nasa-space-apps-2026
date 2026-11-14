@@ -6,44 +6,49 @@
    "ours": {
     "label": "Our data (NASA POWER / MERRA-2), whole Earth, area weighted",
     "per_decade": 0.166,
-    "ci_low": -0.286,
-    "ci_high": 0.626,
-    "p": 0.29
+    "ci_low": 0.003,
+    "ci_high": 0.336,
+    "p": 0.046,
+    "p_plain": 0.0026
    },
    "ours_no_antarctica": {
     "label": "Our data without Antarctica",
     "per_decade": 0.201,
-    "ci_low": -0.102,
-    "ci_high": 0.511,
-    "p": 0.11
+    "ci_low": 0.057,
+    "ci_high": 0.357,
+    "p": 0.016,
+    "p_plain": 0.0002
    },
    "arctic": {
     "label": "Our data, Arctic only (north of 60 N)",
     "per_decade": 0.347,
     "ci_low": 0.154,
     "ci_high": 0.608,
-    "p": 0.003
+    "p": 0.003,
+    "p_plain": 0.003
    },
    "antarctica": {
     "label": "Our data, Antarctica only (south of 60 S)",
     "per_decade": -0.232,
-    "ci_low": -1.898,
-    "ci_high": 1.11,
-    "p": 0.62
+    "ci_low": -0.818,
+    "ci_high": 0.265,
+    "p": 0.27,
+    "p_plain": 0.17
    },
    "reference": {
     "label": "NASA GISTEMP v4 (stations and ships, a different method)",
     "per_decade": 0.251,
-    "ci_low": 0.106,
-    "ci_high": 0.4,
-    "p": 0.0078
+    "ci_low": 0.137,
+    "ci_high": 0.36,
+    "p": 0.00089,
+    "p_plain": 4.9e-07
    },
    "period": [
     2001,
     2025
    ],
    "agrees": true,
-   "plain": "From 2001 to 2025, NASA's GISTEMP record warms the planet +0.25 °C per decade. Our data gives +0.17 for the whole Earth, because it shows Antarctica cooling (-0.23); without Antarctica it gives +0.20, and the two 95% ranges overlap. Our data also shows the Arctic warming fastest (+0.35 °C per decade), the pattern known as Arctic amplification. The datasets measure slightly different things (air at 2 m vs surface and sea temperature), so we show both numbers instead of hiding the gap."
+   "plain": "Our engine run on NASA's GISTEMP record finds +0.25 °C per decade from 2001 to 2025 (strong evidence, luck less than 0.1%). On our own data (NASA POWER, air 2 m above the ground) the whole Earth warms +0.17 °C per decade (moderate evidence, luck 4.6%), and +0.20 without Antarctica, where our data swings strongly (moderate evidence, luck 1.6%). The Arctic warms fastest, +0.35 °C per decade (strong evidence): the known pattern of Arctic amplification. Our global rate is a little lower than GISTEMP's: the two records measure slightly different things (air 2 m above the ground vs surface and sea temperature), and ours stays flat until about 2014 before rising."
   },
   "false_alarms": {
    "title": "How often the test cries wolf",
@@ -53,52 +58,681 @@
    "year_to_year_resemblance": -0.32,
    "false_alarm_rate": {
     "Egypt-like noise": 0.01,
-    "strong year-to-year resemblance (0.5)": 0.068
+    "strong year-to-year resemblance (0.5)": 0.076
    },
    "simulations": 20000,
    "d1_candidates": null,
-   "plain": "We made 20,000 fake 25-year series with Egypt's real noise and NO trend, and ran our real engine on them. It called 1.0% of them a trend (the target is about 5%). With strong year-to-year resemblance it called 6.8%. The team compared 7 methods on 20,000 series before choosing this one (decision D1)."
+   "plain": "We made 20,000 fake 25-year series with Egypt's real noise and NO trend, and ran our real engine on them. It called 1.0% of them a trend (the target is about 5%; it is lower because in Egypt a warm year tends to be followed by a cooler one, which makes lucky trends rarer). With strong year-to-year resemblance it called 7.6%. The team compared 8 methods on 20,000 series before choosing this one (decision D1)."
   },
   "many_places": {
    "title": "Testing many places at once",
-   "cells": 357,
-   "p_below_0_05": 197,
-   "q_below_0_05": 131,
-   "lucky_if_no_trend": 18,
-   "plain": "Egypt has 357 grid cells. Testing each at p < 0.05 would show about 18 'trends' by pure luck even if nothing changed. Without correction 197 cells pass; after the false discovery rate correction 131 remain, and those are the ones the map calls proven."
+   "cells": 323,
+   "p_below_0_05": 164,
+   "q_below_0_05": 84,
+   "lucky_if_no_trend": 16,
+   "plain": "Egypt has 323 grid cells. Testing each at p < 0.05 would show about 16 'trends' by pure luck even if nothing changed. Without correction 164 cells pass; after the false discovery rate correction 84 remain, and those are the ones the map calls proven."
   },
   "farming": {
-   "title": "Common-sense checks of the farming outlook",
+   "title": "Checks of the crop model",
    "checks": [
     {
-     "check": "Apples cannot survive Aswan's summer",
+     "check": "On world regions kept out of training, the model tells where a crop is grown from where it is not",
      "passed": true,
-     "detail": "score 0"
+     "detail": "AUC 0.90 averaged over 40 crops; 0.5 is guessing, 1 is perfect"
     },
     {
-     "check": "Date palms do better in Aswan than in the Delta",
+     "check": "Trained without any Egyptian cell, it still ranks the crops Egypt grows (FAOSTAT) above those it does not",
      "passed": true,
-     "detail": "79 vs 72"
+     "detail": "AUC 0.93"
     },
     {
-     "check": "Wheat grows in the Delta's winter",
+     "check": "Wheat fits the irrigated Delta",
      "passed": true,
      "detail": "score 98"
     },
     {
-     "check": "Rain alone cannot grow wheat anywhere in Egypt",
+     "check": "Sugarcane fits irrigated Aswan, where Egypt grows it",
      "passed": true,
-     "detail": "best rain-only score 0"
+     "detail": "score 85"
+    },
+    {
+     "check": "Cocoa, oil palm and rubber (humid tropics) do not fit Aswan even with irrigation",
+     "passed": true,
+     "detail": "best score 0"
+    },
+    {
+     "check": "In Egypt's 247 dry cells (under 50 mm of rain a year), rain alone fits almost no crop",
+     "passed": true,
+     "detail": "0.00 crops on rain only, 11.2 with irrigation, of 40"
+    },
+    {
+     "check": "In Egypt's 75 wetter cells (50 mm of rain or more), rain alone fits almost nothing but wheat and barley",
+     "passed": true,
+     "detail": "0.00 other crops per cell on rain only"
+    },
+    {
+     "check": "On dry land kept out of training (100 to 250 mm of rain, not farmed), rain alone fits almost no crop",
+     "passed": true,
+     "detail": "0.63 of 40 crops per place score 50 or more on rain only"
     }
    ]
+  },
+  "nasa_records": {
+   "title": "Our trends checked against NASA's station and satellite records",
+   "period": [
+    2001,
+    2025
+   ],
+   "sources": {
+    "temperature": "NASA GISTEMP v4, 250 km smoothing (GHCN v4 stations), https://data.giss.nasa.gov/pub/gistemp/gistemp250_GHCNv4.nc.gz",
+    "rain": "GPCP v2.3 monthly precipitation (satellites + gauges; NASA GSFC led, NOAA PSL), https://downloads.psl.noaa.gov/Datasets/gpcp/precip.mon.mean.nc"
+   },
+   "egypt_temperature": {
+    "boxes": 32,
+    "gistemp_per_decade": 0.419,
+    "power_per_decade": 0.237,
+    "gistemp_proven": 30,
+    "power_proven": 12,
+    "same_direction": 32,
+    "median_corr": 0.92,
+    "rows": [
+     {
+      "lat": 21.0,
+      "lon": 29.0,
+      "power_cells": 4,
+      "gistemp": 0.498,
+      "gistemp_p": 0.0023,
+      "gistemp_level": 2,
+      "power": 0.119,
+      "power_p": 0.27,
+      "power_level": 0,
+      "corr": 0.72
+     },
+     {
+      "lat": 21.0,
+      "lon": 31.0,
+      "power_cells": 4,
+      "gistemp": 0.342,
+      "gistemp_p": 0.0019,
+      "gistemp_level": 2,
+      "power": 0.141,
+      "power_p": 0.14,
+      "power_level": 0,
+      "corr": 0.84
+     },
+     {
+      "lat": 21.0,
+      "lon": 33.0,
+      "power_cells": 3,
+      "gistemp": 0.287,
+      "gistemp_p": 0.021,
+      "gistemp_level": 1,
+      "power": 0.168,
+      "power_p": 0.11,
+      "power_level": 0,
+      "corr": 0.88
+     },
+     {
+      "lat": 21.0,
+      "lon": 35.0,
+      "power_cells": 2,
+      "gistemp": 0.215,
+      "gistemp_p": 0.3,
+      "gistemp_level": 0,
+      "power": 0.271,
+      "power_p": 0.014,
+      "power_level": 1,
+      "corr": 0.73
+     },
+     {
+      "lat": 23.0,
+      "lon": 27.0,
+      "power_cells": 15,
+      "gistemp": 0.388,
+      "gistemp_p": 0.0022,
+      "gistemp_level": 2,
+      "power": 0.1,
+      "power_p": 0.39,
+      "power_level": 0,
+      "corr": 0.85
+     },
+     {
+      "lat": 23.0,
+      "lon": 29.0,
+      "power_cells": 20,
+      "gistemp": 0.409,
+      "gistemp_p": 0.0032,
+      "gistemp_level": 2,
+      "power": 0.142,
+      "power_p": 0.17,
+      "power_level": 0,
+      "corr": 0.85
+     },
+     {
+      "lat": 23.0,
+      "lon": 31.0,
+      "power_cells": 20,
+      "gistemp": 0.333,
+      "gistemp_p": 0.003,
+      "gistemp_level": 2,
+      "power": 0.193,
+      "power_p": 0.053,
+      "power_level": 0,
+      "corr": 0.9
+     },
+     {
+      "lat": 23.0,
+      "lon": 33.0,
+      "power_cells": 15,
+      "gistemp": 0.384,
+      "gistemp_p": 0.00099,
+      "gistemp_level": 2,
+      "power": 0.21,
+      "power_p": 0.065,
+      "power_level": 0,
+      "corr": 0.91
+     },
+     {
+      "lat": 23.0,
+      "lon": 35.0,
+      "power_cells": 10,
+      "gistemp": 0.398,
+      "gistemp_p": 0.00071,
+      "gistemp_level": 2,
+      "power": 0.355,
+      "power_p": 0.0012,
+      "power_level": 2,
+      "corr": 0.83
+     },
+     {
+      "lat": 25.0,
+      "lon": 27.0,
+      "power_cells": 15,
+      "gistemp": 0.405,
+      "gistemp_p": 0.0019,
+      "gistemp_level": 2,
+      "power": 0.076,
+      "power_p": 0.56,
+      "power_level": 0,
+      "corr": 0.84
+     },
+     {
+      "lat": 25.0,
+      "lon": 29.0,
+      "power_cells": 20,
+      "gistemp": 0.4,
+      "gistemp_p": 0.011,
+      "gistemp_level": 1,
+      "power": 0.187,
+      "power_p": 0.065,
+      "power_level": 0,
+      "corr": 0.92
+     },
+     {
+      "lat": 25.0,
+      "lon": 31.0,
+      "power_cells": 20,
+      "gistemp": 0.424,
+      "gistemp_p": 0.00084,
+      "gistemp_level": 2,
+      "power": 0.207,
+      "power_p": 0.016,
+      "power_level": 1,
+      "corr": 0.94
+     },
+     {
+      "lat": 25.0,
+      "lon": 33.0,
+      "power_cells": 15,
+      "gistemp": 0.432,
+      "gistemp_p": 0.00035,
+      "gistemp_level": 2,
+      "power": 0.334,
+      "power_p": 0.0063,
+      "power_level": 1,
+      "corr": 0.92
+     },
+     {
+      "lat": 25.0,
+      "lon": 35.0,
+      "power_cells": 9,
+      "gistemp": 0.434,
+      "gistemp_p": 0.00035,
+      "gistemp_level": 2,
+      "power": 0.41,
+      "power_p": 4.4e-05,
+      "power_level": 2,
+      "corr": 0.93
+     },
+     {
+      "lat": 27.0,
+      "lon": 25.0,
+      "power_cells": 10,
+      "gistemp": 0.229,
+      "gistemp_p": 0.054,
+      "gistemp_level": 0,
+      "power": 0.115,
+      "power_p": 0.32,
+      "power_level": 0,
+      "corr": 0.81
+     },
+     {
+      "lat": 27.0,
+      "lon": 27.0,
+      "power_cells": 15,
+      "gistemp": 0.417,
+      "gistemp_p": 0.0016,
+      "gistemp_level": 2,
+      "power": 0.14,
+      "power_p": 0.2,
+      "power_level": 0,
+      "corr": 0.88
+     },
+     {
+      "lat": 27.0,
+      "lon": 29.0,
+      "power_cells": 20,
+      "gistemp": 0.431,
+      "gistemp_p": 0.0016,
+      "gistemp_level": 2,
+      "power": 0.222,
+      "power_p": 0.042,
+      "power_level": 0,
+      "corr": 0.94
+     },
+     {
+      "lat": 27.0,
+      "lon": 31.0,
+      "power_cells": 20,
+      "gistemp": 0.404,
+      "gistemp_p": 0.002,
+      "gistemp_level": 2,
+      "power": 0.291,
+      "power_p": 0.034,
+      "power_level": 0,
+      "corr": 0.96
+     },
+     {
+      "lat": 27.0,
+      "lon": 33.0,
+      "power_cells": 15,
+      "gistemp": 0.456,
+      "gistemp_p": 0.00055,
+      "gistemp_level": 2,
+      "power": 0.371,
+      "power_p": 0.0026,
+      "power_level": 1,
+      "corr": 0.95
+     },
+     {
+      "lat": 27.0,
+      "lon": 35.0,
+      "power_cells": 3,
+      "gistemp": 0.508,
+      "gistemp_p": 0.0005,
+      "gistemp_level": 2,
+      "power": 0.381,
+      "power_p": 0.00012,
+      "power_level": 2,
+      "corr": 0.96
+     },
+     {
+      "lat": 29.0,
+      "lon": 25.0,
+      "power_cells": 10,
+      "gistemp": 0.305,
+      "gistemp_p": 0.003,
+      "gistemp_level": 2,
+      "power": 0.107,
+      "power_p": 0.36,
+      "power_level": 0,
+      "corr": 0.87
+     },
+     {
+      "lat": 29.0,
+      "lon": 27.0,
+      "power_cells": 15,
+      "gistemp": 0.404,
+      "gistemp_p": 0.00071,
+      "gistemp_level": 2,
+      "power": 0.174,
+      "power_p": 0.17,
+      "power_level": 0,
+      "corr": 0.9
+     },
+     {
+      "lat": 29.0,
+      "lon": 29.0,
+      "power_cells": 20,
+      "gistemp": 0.493,
+      "gistemp_p": 0.0005,
+      "gistemp_level": 2,
+      "power": 0.232,
+      "power_p": 0.065,
+      "power_level": 0,
+      "corr": 0.9
+     },
+     {
+      "lat": 29.0,
+      "lon": 31.0,
+      "power_cells": 20,
+      "gistemp": 0.392,
+      "gistemp_p": 0.0047,
+      "gistemp_level": 2,
+      "power": 0.298,
+      "power_p": 0.023,
+      "power_level": 0,
+      "corr": 0.95
+     },
+     {
+      "lat": 29.0,
+      "lon": 33.0,
+      "power_cells": 15,
+      "gistemp": 0.467,
+      "gistemp_p": 0.00035,
+      "gistemp_level": 2,
+      "power": 0.347,
+      "power_p": 0.0041,
+      "power_level": 1,
+      "corr": 0.96
+     },
+     {
+      "lat": 29.0,
+      "lon": 35.0,
+      "power_cells": 8,
+      "gistemp": 0.542,
+      "gistemp_p": 0.00012,
+      "gistemp_level": 2,
+      "power": 0.375,
+      "power_p": 0.00014,
+      "power_level": 2,
+      "corr": 0.94
+     },
+     {
+      "lat": 31.0,
+      "lon": 25.0,
+      "power_cells": 8,
+      "gistemp": 0.396,
+      "gistemp_p": 0.0006,
+      "gistemp_level": 2,
+      "power": 0.203,
+      "power_p": 0.042,
+      "power_level": 0,
+      "corr": 0.93
+     },
+     {
+      "lat": 31.0,
+      "lon": 27.0,
+      "power_cells": 12,
+      "gistemp": 0.456,
+      "gistemp_p": 0.00035,
+      "gistemp_level": 2,
+      "power": 0.206,
+      "power_p": 0.053,
+      "power_level": 0,
+      "corr": 0.92
+     },
+     {
+      "lat": 31.0,
+      "lon": 29.0,
+      "power_cells": 13,
+      "gistemp": 0.465,
+      "gistemp_p": 0.00013,
+      "gistemp_level": 2,
+      "power": 0.286,
+      "power_p": 0.021,
+      "power_level": 0,
+      "corr": 0.92
+     },
+     {
+      "lat": 31.0,
+      "lon": 31.0,
+      "power_cells": 16,
+      "gistemp": 0.479,
+      "gistemp_p": 0.0012,
+      "gistemp_level": 2,
+      "power": 0.372,
+      "power_p": 0.0072,
+      "power_level": 1,
+      "corr": 0.93
+     },
+     {
+      "lat": 31.0,
+      "lon": 33.0,
+      "power_cells": 9,
+      "gistemp": 0.57,
+      "gistemp_p": 0.00017,
+      "gistemp_level": 2,
+      "power": 0.383,
+      "power_p": 0.0019,
+      "power_level": 1,
+      "corr": 0.95
+     },
+     {
+      "lat": 31.0,
+      "lon": 35.0,
+      "power_cells": 4,
+      "gistemp": 0.587,
+      "gistemp_p": 2.9e-05,
+      "gistemp_level": 2,
+      "power": 0.337,
+      "power_p": 0.00099,
+      "power_level": 2,
+      "corr": 0.92
+     }
+    ]
+   },
+   "world_temperature": {
+    "boxes": 6866,
+    "same_direction_share": 0.87,
+    "gistemp_proven_share": 0.436,
+    "power_proven_share": 0.238,
+    "power_proven_where_gistemp_proven": 0.443,
+    "opposite_proven": 0,
+    "gistemp_mean_per_decade": 0.364,
+    "power_mean_per_decade": 0.239,
+    "slope_corr": 0.48
+   },
+   "egypt_rain": {
+    "egypt": {
+     "label": "Egypt, all land cells",
+     "years": [
+      2001,
+      2002,
+      2003,
+      2004,
+      2005,
+      2006,
+      2007,
+      2008,
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+     ],
+     "power_mm": [
+      13.3,
+      18.1,
+      15.3,
+      16.2,
+      12.8,
+      16.1,
+      16.6,
+      21.6,
+      10.5,
+      9.3,
+      21.4,
+      16.3,
+      18.4,
+      15.9,
+      30.2,
+      46.1,
+      30.4,
+      33.9,
+      25.4,
+      78.2,
+      63.2,
+      43.7,
+      41.1,
+      27.8,
+      22.0
+     ],
+     "gpcp_mm": [
+      24.2,
+      28.6,
+      30.9,
+      26.4,
+      27.9,
+      24.6,
+      28.6,
+      26.5,
+      29.8,
+      26.9,
+      34.8,
+      40.8,
+      33.7,
+      33.1,
+      43.6,
+      35.4,
+      28.1,
+      38.1,
+      44.0,
+      52.3,
+      35.5,
+      43.3,
+      38.1,
+      30.8,
+      23.5
+     ],
+     "power_before": 15.8,
+     "power_after": 41.2,
+     "power_jump": 2.6,
+     "power_change_year": 2015,
+     "gpcp_before": 29.8,
+     "gpcp_after": 36.9,
+     "gpcp_jump": 1.24,
+     "gpcp_change_year": 2011
+    },
+    "north_coast": {
+     "label": "Egypt's north coast (30.5 N and north)",
+     "years": [
+      2001,
+      2002,
+      2003,
+      2004,
+      2005,
+      2006,
+      2007,
+      2008,
+      2009,
+      2010,
+      2011,
+      2012,
+      2013,
+      2014,
+      2015,
+      2016,
+      2017,
+      2018,
+      2019,
+      2020,
+      2021,
+      2022,
+      2023,
+      2024,
+      2025
+     ],
+     "power_mm": [
+      65.1,
+      88.6,
+      77.0,
+      77.2,
+      64.3,
+      85.6,
+      81.2,
+      102.8,
+      56.0,
+      32.7,
+      100.6,
+      73.4,
+      82.0,
+      68.7,
+      158.9,
+      135.2,
+      126.1,
+      155.0,
+      90.8,
+      293.7,
+      280.2,
+      174.3,
+      140.6,
+      91.9,
+      70.6
+     ],
+     "gpcp_mm": [
+      132.7,
+      157.6,
+      165.2,
+      155.4,
+      144.5,
+      122.0,
+      137.7,
+      139.6,
+      146.5,
+      114.5,
+      183.9,
+      180.7,
+      157.6,
+      143.7,
+      229.8,
+      152.2,
+      134.0,
+      182.8,
+      197.9,
+      221.2,
+      163.8,
+      159.8,
+      173.9,
+      121.2,
+      104.0
+     ],
+     "power_before": 75.4,
+     "power_after": 155.8,
+     "power_jump": 2.07,
+     "power_change_year": 2015,
+     "gpcp_before": 148.7,
+     "gpcp_after": 161.1,
+     "gpcp_jump": 1.08,
+     "gpcp_change_year": null
+    }
+   },
+   "plain_temperature": "Over Egypt, NASA's station record (GISTEMP, 250 km) warms +0.42 °C per decade from 2001 to 2025; our NASA POWER cells in the same 32 areas of 2 by 2 degrees warm +0.24. Both records go the same way in 32 of 32 areas and their yearly values move together (median correlation 0.92). With the same test, the station record proves the warming in 30 of 32 areas, POWER in 12: POWER (a weather model, MERRA-2) shows weaker warming than the thermometers over Egypt, so many 'not proven' cells in our maps are too cautious, not a sign that Egypt is not warming.",
+   "plain_rain": "Rain: POWER over Egypt is 2.6 times higher after 2015 than before (16 mm to 41 mm a year). NASA's GPCP record (satellites and rain gauges) at the same places changes by 1.24 times (30 mm to 37 mm). The jump is in the POWER record, not in real rain, so the crop projections take this one-time step out of rain, humidity and soil wetness before measuring their trend, and continue that trend from today's level."
   }
  },
  "limitations": [
   "Each grid cell is about 55 by 60 km: it describes a region, not one farm.",
   "NASA POWER is a model built from satellites and weather stations (MERRA-2): very good on large scales, less exact for one valley or oasis.",
   "25 years is enough to detect strong trends; small ones may stay 'not proven' until more years are measured.",
-  "Future views assume today's measured trend continues in a straight line. They are not forecasts and ignore irrigation changes, new crop varieties and soil.",
-  "Crop needs come from FAO ECOCROP averages; real varieties differ, and soil, salinity and water supply are not included.",
-  "We never claim why something changes; we say a pattern is consistent with a cause."
+  "Future views assume every measured trend continues in a straight line (for rain, humidity and soil wetness the trend is measured without the 2015 step of the NASA POWER record). They are not forecasts and ignore irrigation changes, new crop varieties and soil.",
+  "Over Egypt, NASA POWER (a weather model) warms more slowly than NASA's weather station record (GISTEMP): about 0.24 against 0.42 °C per decade. Many cells our maps call 'not proven' are proven warming in the station record, so 'not proven' means 'this record alone cannot prove it', never 'no warming'.",
+  "Crop scores come from a model that learned where 40 crops are grown today (IFPRI MapSPAM 2020). Where a crop is grown also reflects markets, policy and water, not only climate. A score is how well the climate matches, not a yield and not the chance of a good harvest.",
+  "Irrigated scores assume water can be supplied; they do not show that water exists. Soil chemistry, salinity and water supply are not included, and NASA's soil wetness describes the natural land, not a watered field.",
+  "Rain only scores fade to 0 below 100 mm of rain a year (a documented rule, since farming on rain alone needs about 200 to 250 mm), so in Egypt only wheat and barley on the wettest north coast can reach 50 on rain alone. Near that limit the model is cautious: it may miss some real rain-fed crops. Olive and date palm are not separate crops in the crop maps and are not covered.",
+  "We never claim why something changes; we say a pattern is consistent with a cause.",
+  "Rain in this NASA POWER record jumps around 2015 in many places at once (across Egypt about 2.6 times higher after 2015). NASA's GPCP rain record (satellites and gauges) does not show the jump over Egypt, so it is in the record, not in real rain: every rain trend carries a warning, and the crop projections take the step out before measuring the rain, humidity and soil wetness trends."
  ]
 }
