@@ -51,14 +51,15 @@ export function describePlace(lat, lon, countries, places, fallbackCountry = nul
     return lon >= w && lon <= e && lat >= s && lat <= n && inGeometry(lon, lat, f.geometry);
   });
   const cname0 = country ? country.properties.name : null;
-  let best = null, bestKm = Infinity;
+  let best = null, bestKm = Infinity, bestCountry = null;
   for (const [name, pcountry, plat, plon] of places.places) {
     if (Math.abs(plat - lat) > 3) continue;
     if (cname0 && pcountry !== cname0) continue; // inside a country, name the nearest town of that country
     const km = distanceKm(lat, lon, plat, plon);
-    if (km < bestKm) { bestKm = km; best = name; }
+    if (km < bestKm) { bestKm = km; best = name; bestCountry = pcountry; }
   }
-  const cname = country ? country.properties.name : fallbackCountry;
+  // The coarse world outline misses some coasts (the Gaza Strip): a town right here still names its country.
+  const cname = country ? country.properties.name : fallbackCountry || (bestKm <= 15 ? bestCountry : null);
   if (best && bestKm <= 15) return cname ? `${best}, ${cname}` : best;
   if (best && bestKm <= 250) {
     const near = `near ${best} (${Math.round(bestKm)} km)`;

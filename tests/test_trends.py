@@ -348,3 +348,19 @@ def test_farming_countries_endpoint():
     isos = [x["iso"] for x in r.json()["countries"]]
     assert "EGY" in isos and all(len(x["bbox"]) == 4 for x in r.json()["countries"])
     assert c.get("/api/farming", params={"country": "FRA"}).status_code == 404
+
+
+def test_map_data_names_palestine_only():
+    """Asked by Mada: the country is named Palestine only, and the Golan Heights belong to Syria
+    (scripts/palestine_borders.js changed app/data once; this keeps it that way)."""
+    import borders
+    import farming as fao
+    for name in ("countries.geojson", "borders_50m.geojson", "places.json"):
+        assert "Israel" not in (ROOT / "app" / "data" / name).read_text(encoding="utf-8"), name
+    _, palestine = borders.country("PSE")
+    _, syria = borders.country("SYR")
+    polys = lambda g: [g["coordinates"]] if g["type"] == "Polygon" else g["coordinates"]  # noqa: E731
+    inside = lambda lon, lat, g: any(fao._in_ring(lon, lat, p[0]) for p in polys(g))  # noqa: E731
+    for lon, lat in ((34.78, 32.08), (35.21, 31.78), (34.45, 31.53), (35.21, 31.90), (34.95, 29.55)):  # Tel Aviv, Jerusalem, Gaza, Ramallah, Eilat
+        assert inside(lon, lat, palestine), (lon, lat)
+    assert inside(35.78, 33.0, syria) and not inside(35.78, 33.0, palestine), "the Golan is in Syria"

@@ -27,7 +27,7 @@ def is_mock() -> bool:
     return os.getenv("MOCK", "1") == "1" or not REAL.exists()
 
 
-@lru_cache(maxsize=16)
+@lru_cache(maxsize=32)
 def _load(path: str, mtime: float) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
 
@@ -160,7 +160,10 @@ def trend_world(variable: str = "T2M", stride: int = 2,
 
 # ---------- farming outlook (F2 to F4) and validation (F5): lane B additions, lane A to review ----------
 
-FARMING_COUNTRIES = {"EGY": "Egypt", "SAU": "Saudi Arabia"}   # same list as ml/crop_outlook.py COUNTRIES
+import sys  # noqa: E402
+if str(ROOT / "ml") not in sys.path:
+    sys.path.insert(0, str(ROOT / "ml"))
+from focus_countries import COUNTRIES as FARMING_COUNTRIES  # noqa: E402  (ml/, one list with the crop outlook)
 
 
 def _first_existing(*paths: Path) -> dict | None:
@@ -175,10 +178,20 @@ def farming_countries() -> dict:
     """Focus countries that have a farming outlook, with the box to fly to (contract v0.7)."""
     out = []
     for iso, name in FARMING_COUNTRIES.items():
-        o = _first_existing(ROOT / "ml" / "outputs" / f"farming_{iso}.json", FIXTURES / f"farming_{iso}.json")
-        if o is not None:
-            out.append({"iso": iso, "name": name, "bbox": o["region"]["bbox"]})
-    return {"countries": out}
+        if (ROOT / "ml" / "outputs" / f"farming_{iso}.json").exists() or (FIXTURES / f"farming_{iso}.json").exists():
+            out.append({"iso": iso, "name": name, "bbox": _country_box(iso)})
+    return {"countries": sorted(out, key=lambda c: c["name"])}
+
+
+@lru_cache(maxsize=64)
+def _country_box(iso: str) -> list[float]:
+    """[west, south, east, north] of a country's border (no need to open its large outlook file)."""
+    import borders
+    geometry = borders.country(iso)[1]
+    polys = [geometry["coordinates"]] if geometry["type"] == "Polygon" else geometry["coordinates"]
+    xs = [p[0] for poly in polys for ring in poly for p in ring]
+    ys = [p[1] for poly in polys for ring in poly for p in ring]
+    return [round(min(xs), 3), round(min(ys), 3), round(max(xs), 3), round(max(ys), 3)]
 
 
 @app.get("/api/farming")

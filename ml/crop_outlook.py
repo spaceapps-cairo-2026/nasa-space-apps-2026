@@ -3,6 +3,7 @@
     python run.py crop-model            Egypt: writes ml/outputs/farming_EGY.json (about 3 minutes)
     python run.py crop-model SAU        Saudi Arabia: ml/outputs/farming_SAU.json (the first run downloads its NASA
                                         POWER grid once, no login; then a few minutes)
+    python run.py crop-model all        every focus country (ml/focus_countries.py), or a list: MAR,DZA,TUN
 
 The model needs no farm data to answer: it reads the climate of each grid cell (six NASA POWER measurements)
 and says how well that climate fits each crop. Crop maps (IFPRI MapSPAM) were used only to TRAIN it, and here only
@@ -63,9 +64,9 @@ N_BOOT, BLOCK_LEN, SEED = 200, 3, 42   # the training run's settings: keep them,
 FARMLAND_MIN_HA = 1000             # same rule as the model's training farmland
 SUITABLE = 50
 MODES = ("irrigated", "rainfed")
-# Focus countries for the farming tabs (decision D7). Egypt reads the repo's NASA table; the others are fetched
-# from NASA POWER for the box around the border (data/cache/, downloaded once). The API serves the same list.
-COUNTRIES = {"EGY": "Egypt", "SAU": "Saudi Arabia"}
+# Focus countries for the farming tabs (decision D7): ml/focus_countries.py, shared with the API. Egypt reads the
+# repo's NASA table; the others are fetched from NASA POWER for the box around the border (data/cache/, once).
+from focus_countries import COUNTRIES  # noqa: E402
 # Decision D5 update: every feature follows its trend. The moisture features (POWER rain and what responds to it)
 # have the 2015 step of the record taken out before their trend is measured.
 TEMPERATURE = ("t_mean", "t_coldest", "t_warmest", "tmax_hottest")
@@ -174,6 +175,9 @@ def prepare_cells(cubes: dict[str, np.ndarray], inside: np.ndarray) -> dict[int,
     ncols = inside.shape[1]
     preps: dict[int, dict] = {}
     for i, j in zip(*np.nonzero(inside)):
+        top = cubes["GWETTOP"][i, j]
+        if np.isfinite(top).any() and np.nanstd(top) == 0:   # sea: POWER fills soil wetness with one constant
+            continue
         try:
             preps[int(i) * ncols + int(j)] = remove_step(ce._prepare(cell_parameters(cubes, i, j), BASE_YEAR,
                                                                      HORIZONS, N_BOOT, BLOCK_LEN, SEED))
@@ -314,10 +318,11 @@ def report(o: dict) -> None:
 
 if __name__ == "__main__":
     t0 = time.time()
-    iso = (sys.argv[1] if len(sys.argv) > 1 else "EGY").upper()
-    outlook = build(iso)
-    out = out_path(iso)
-    out.parent.mkdir(parents=True, exist_ok=True)
-    out.write_text(json.dumps(outlook, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
-    report(outlook)
-    print(f"wrote {out} ({out.stat().st_size / 1024:.0f} KB) in {time.time() - t0:.0f} s. Check it: python run.py farming-check {out}")
+    arg = (sys.argv[1] if len(sys.argv) > 1 else "EGY").upper()
+    for iso in (list(COUNTRIES) if arg == "ALL" else arg.split(",")):
+        outlook = build(iso)
+        out = out_path(iso)
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(outlook, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
+        report(outlook)
+        print(f"wrote {out} ({out.stat().st_size / 1024:.0f} KB) in {time.time() - t0:.0f} s. Check it: python run.py farming-check {out}")

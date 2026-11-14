@@ -137,3 +137,16 @@ maize, banana and sorghum, and 5 crops on rain alone; the Asir highlands score v
 (POWER x2.55 after 2015, GPCP x1.21) is removed before the moisture trends, as for Egypt. Limits: the greening seen from
 space in Saudi Arabia comes mostly from groundwater irrigation, not from climate, so the model cannot show it; date palm is
 inside "tropical fruit".
+## 13. The Middle East and North Africa (Sat 14 Nov)
+
+20 focus countries (`ml/focus_countries.py`), built with the same model and steps (`python run.py crop-model all`; NASA POWER
+tiles for 10 to 40 N, 18 W to 64 E downloaded once into `data/cache/`). Sea cells, where POWER fills soil wetness with a
+constant, are skipped. Per country (cells / farmed today / warming proven by POWER / by NASA stations where they have data):
+Egypt 322 / 117 / 83 / 291, Saudi Arabia 614 / 79 / 515 / 474, Morocco 228 / 127 / 1 / 178, Algeria 759 / 127 / 18 / 230,
+Tunisia 75 / 62 / 43 / 63, Libya 535 / 63 / 0 / 83, Sudan 567 / 322 / 280 / 106, Mauritania 337 / 51 / 0 / 189,
+Djibouti 11 / 10 / 7 / 0, Palestine 17 / 15 / 17 / 17, Jordan 43 / 14 / 43 / 43, Lebanon 11 / 11 / 11 / 11, Syria 84 / 66 / 84 / 84,
+Iraq 175 / 95 / 175 / 163, Iran 570 / 402 / 128 / 432, Kuwait 11 / 3 / 11 / 11, Qatar 10 / 4 / 10 / 10,
+United Arab Emirates 33 / 14 / 33 / 33, Oman 120 / 25 / 0 / 60, Yemen 157 / 59 / 47 / 0. Where POWER proves little (Morocco,
+Libya, Mauritania, Oman) the station record still shows warming: read "not proven" there as "this record alone cannot prove it".
+Yemen and Djibouti have no GISTEMP station data for 2001 to 2025. Yemen's highland rain in POWER (about 90 mm) is far below
+station climatologies (about 250 mm in Sana'a), so its rain-only scores are unreliable.

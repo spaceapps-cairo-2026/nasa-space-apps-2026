@@ -31,6 +31,7 @@ Model card (what it is, how good it is, what it gets wrong): `ml/model_card.md`.
     python run.py crop-model       runs the model on the Egypt grid, writes ml/outputs/farming_EGY.json (about 3 minutes)
     python run.py crop-model SAU   the same for Saudi Arabia -> ml/outputs/farming_SAU.json (first run downloads its
                                    NASA POWER grid once, no login)
+    python run.py crop-model all   all 20 Middle East and North Africa countries in ml/focus_countries.py
     python run.py farming-check    checks that file before the app reads it
     python run.py api              open http://localhost:8000, tabs Crops, Farmland, Decisions (country picker on top)
 
@@ -38,7 +39,7 @@ Model card (what it is, how good it is, what it gets wrong): `ml/model_card.md`.
 repo's `data/processed/power_monthly.parquet`; other countries: downloaded once per 10 x 10 degree block and kept in
 `data/cache/`), calls the engine, and writes the file in the shape of `contracts/farming.schema.json`. The API serves
 it at `/api/farming?country=EGY` (or `SAU`); `/api/farming/countries` lists the countries that have one.
-Adding a country: add it to `COUNTRIES` in `ml/crop_outlook.py` and `FARMING_COUNTRIES` in `api/main.py`, then run
+Adding a country: add it to `ml/focus_countries.py` (one list for the outlook and the API), then run
 `python run.py crop-model <ISO>`.
 
 **What the model needs to answer.** Only climate: the six NASA POWER measurements of a place, turned into 10 yearly
