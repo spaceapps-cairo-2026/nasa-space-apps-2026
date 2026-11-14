@@ -5,6 +5,7 @@
     python run.py space deploy <user>/<space>     stage and upload with the huggingface_hub package
     python run.py space push <user>/<space>       stage and push with git + Git LFS (when PyPI is blocked)
     python run.py space push <user>/<space> gradio   same, for a Space created with the free Gradio SDK
+    python run.py space model <user>/<model-repo>    upload the crop model (weights, numpy runtime, card) to a model repo
 
 Before the first deploy: make a free account on huggingface.co and create a token with "write" access
 (Settings > Access Tokens). For `deploy`: run `hf auth login` once (or put HF_TOKEN=... in .env); the Space
@@ -36,22 +37,25 @@ def _writable_retry(func, path, _exc) -> None:
     func(path)
 
 
+def _empty(folder: Path) -> None:
+    """Empty a folder but keep it (on Windows a terminal sitting in it would block removing the folder itself)."""
+    folder.mkdir(parents=True, exist_ok=True)
+    for old in folder.iterdir():
+        if not old.is_dir():
+            old.unlink()
+        elif sys.version_info >= (3, 12):
+            shutil.rmtree(old, onexc=_writable_retry)
+        else:
+            shutil.rmtree(old, onerror=_writable_retry)
+
+
 def tracked_files() -> list[str]:
     out = subprocess.run(["git", "ls-files", *TRACKED], cwd=ROOT, capture_output=True, text=True, check=True)
     return [f for f in out.stdout.splitlines() if not any(f.startswith(s) for s in SKIP_TRACKED)]
 
 
 def stage(sdk: str = "docker") -> Path:
-    # Empty the folder but keep it (on Windows a terminal sitting in it would block removing the folder itself).
-    STAGE.mkdir(parents=True, exist_ok=True)
-    for old in STAGE.iterdir():
-        if old.is_dir():
-            if sys.version_info >= (3, 12):
-                shutil.rmtree(old, onexc=_writable_retry)
-            else:
-                shutil.rmtree(old, onerror=_writable_retry)
-        else:
-            old.unlink()
+    _empty(STAGE)
     files = tracked_files()
     for pattern in EXTRA_GLOBS:
         files += [p.relative_to(ROOT).as_posix() for p in ROOT.glob(pattern) if p.is_file()]
@@ -139,7 +143,39 @@ def push(repo_id: str, sdk: str = "docker") -> int:
     return 0
 
 
+MODEL_STAGE = ROOT / "dist" / "hf_model"
+MODEL_FILES = {
+    "ml/crop_model/crop_suitability_v3.npz": "crop_suitability_v3.npz",
+    "ml/crop_model/crop_engine_v3.py": "crop_engine_v3.py",
+    "ml/crop_model/metrics_v3.json": "metrics_v3.json",
+    "ml/model_card.md": "MODEL_CARD_FULL.md",
+    "deploy/MODEL_README.md": "README.md",
+}
+
+
+def push_model(repo_id: str) -> int:
+    """Upload the crop model (weights + numpy runtime + card) to a free Hugging Face MODEL repo with git + LFS.
+    Create it first on the website: huggingface.co/new (a model, not a Space)."""
+    _empty(MODEL_STAGE)
+    for src, dst in MODEL_FILES.items():
+        shutil.copy2(ROOT / src, MODEL_STAGE / dst)
+    (MODEL_STAGE / ".gitattributes").write_text("*.npz filter=lfs diff=lfs merge=lfs -text\n", encoding="utf-8")
+    url = f"https://huggingface.co/{repo_id}"
+    steps = [("init", "-q", "-b", "main"), ("config", "core.autocrlf", "false"), ("lfs", "install", "--local"),
+             ("add", "-A"),
+             ("-c", "user.name=CropShift team", "-c", "user.email=team@cropshift.invalid",
+              "commit", "-q", "-m", "Crop suitability model v3.1 from the team repository"),
+             ("push", "--force", url, "main")]
+    for step in steps:
+        if git(*step, cwd=MODEL_STAGE) != 0:
+            return 1
+    print(f"Pushed. Model page: {url}")
+    return 0
+
+
 def main(args: list[str]) -> int:
+    if args[:1] == ["model"] and len(args) == 2 and "/" in args[1]:
+        return push_model(args[1])
     if args[:1] == ["stage"]:
         stage()
         return 0
