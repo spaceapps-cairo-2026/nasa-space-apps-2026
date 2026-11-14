@@ -37,7 +37,27 @@ function splitBar(parts, total) {
     <div class="note" style="display:flex;flex-wrap:wrap;gap:4px 14px">${parts.map((p) => `<span><i class="sw" style="background:${p.color}"></i>${esc(p.label)}</span>`).join('')}</div>`;
 }
 
-/** Check 5 (only after python run.py crosscheck): the same numbers from NASA Giovanni, a challenge resource. */
+/** Check 5 (python run.py nasa-check): our trends against NASA's station (GISTEMP) and rain (GPCP) records. */
+function nasaRecordsHTML(n) {
+  if (!n || !n.egypt_temperature) return '';
+  const t = n.egypt_temperature, w = n.world_temperature, r = n.egypt_rain && n.egypt_rain.egypt;
+  const tile = (label, value, sub) => `<div style="flex:1;min-width:120px;background:rgba(255,255,255,.05);border-radius:8px;padding:8px 10px">
+      <div class="note">${esc(label)}</div><div style="font-size:18px;font-weight:700">${value}</div><div class="note">${esc(sub)}</div></div>`;
+  const row = (items) => `<div style="display:flex;flex-wrap:wrap;gap:8px;margin:8px 0">${items.join('')}</div>`;
+  const plus = (x) => `${x > 0 ? '+' : ''}${x.toFixed(2)}`;
+  return `<h3>Check 5: ${esc(n.title)}</h3>
+    <p class="note"><strong>Temperature over Egypt, ${n.period[0]} to ${n.period[1]}, °C per decade</strong></p>
+    ${row([tile('NASA GISTEMP (weather stations)', plus(t.gistemp_per_decade), `proven in ${t.gistemp_proven} of ${t.boxes} areas`),
+           tile('NASA POWER (our data)', plus(t.power_per_decade), `proven in ${t.power_proven} of ${t.boxes} areas`)])}
+    <p class="note">${esc(n.plain_temperature)}</p>
+    ${w ? `<p class="note">Whole world, ${w.boxes.toLocaleString('en-US')} areas with stations: same direction in ${Math.round(100 * w.same_direction_share)}% of the area, never proven in opposite directions (${w.opposite_proven} areas). Average ${plus(w.gistemp_mean_per_decade)} (stations) vs ${plus(w.power_mean_per_decade)} (POWER).</p>` : ''}
+    ${r ? `<p class="note"><strong>Rain over Egypt, mm per year, 2001 to 2014 vs 2016 to 2025</strong></p>
+    ${row([tile('NASA POWER (our data)', `x${r.power_jump.toFixed(1)}`, `${Math.round(r.power_before)} to ${Math.round(r.power_after)} mm`),
+           tile('GPCP (satellites and gauges)', `x${r.gpcp_jump.toFixed(2)}`, `${Math.round(r.gpcp_before)} to ${Math.round(r.gpcp_after)} mm`)])}
+    <div class="callout info">${esc(n.plain_rain)}</div>` : ''}`;
+}
+
+/** Check 6 (only after python run.py crosscheck): the same numbers from NASA Giovanni, a challenge resource. */
 function giovanniHTML(g) {
   if (!g || !g.rows || !g.rows.length) return '';
   const unit = (r) => (r.kind === 'rain' ? 'mm/day' : '°C');
@@ -46,7 +66,7 @@ function giovanniHTML(g) {
   const rows = g.rows.map((r) => `<tr><td>${esc(r.area_label)}</td><td>${esc(r.source_label.replace(' (Giovanni)', ''))}</td>
       <td>${rate(r.giovanni, r)}${jump(r.giovanni, r)}<br><span class="note">${esc(r.giovanni.level_name)}</span></td>
       <td>${rate(r.ours, r)}${jump(r.ours, r)}<br><span class="note">${esc(r.ours.level_name)}</span></td></tr>`).join('');
-  return `<h3>Check 5: ${esc(g.title)}</h3>
+  return `<h3>Check 6: ${esc(g.title)}</h3>
     <table class="crop-table"><thead><tr><th>Area</th><th>Giovanni record</th><th>Giovanni, per decade</th><th>Ours (POWER)</th></tr></thead>
       <tbody>${rows}</tbody></table>
     <p class="note">${esc(g.plain)}</p>
@@ -106,13 +126,15 @@ export function methodsHTML(v) {
     <h3>Check 4: ${esc(fm.title)}</h3>
     <ul class="checks">${fm.checks.map((k) => `<li><span class="${k.passed ? 'ok' : 'bad'}">${k.passed ? '✓' : '✗'}</span> ${esc(k.check)} <span class="note">(${esc(k.detail)})</span></li>`).join('')}</ul>
 
+    ${nasaRecordsHTML(c.nasa_records)}
+
     ${giovanniHTML(c.giovanni)}
 
     <h3>Limits we are honest about</h3>
     <ul class="limits">${v.limitations.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
 
     <h3>Data</h3>
-    <p class="note">NASA POWER (MERRA-2) · NASA GISTEMP v4${c.giovanni ? ' · NASA Giovanni (MERRA-2, GPM IMERG)' : ''} · NASA GIBS imagery (Blue Marble, VIIRS) · IFPRI MapSPAM 2020 crop maps
+    <p class="note">NASA POWER (MERRA-2) · NASA GISTEMP v4${c.nasa_records ? ' (global and 250 km station grid) · GPCP v2.3 rain' : ''}${c.giovanni ? ' · NASA Giovanni (MERRA-2, GPM IMERG)' : ''} · NASA GIBS imagery (Blue Marble, VIIRS) · IFPRI MapSPAM 2020 crop maps
       (crop model training) · FAOSTAT (crop model check) · Natural Earth borders. Analysis code is open in our repository.</p>
     <p class="note">This data was provided by the International Food Policy Research Institute (IFPRI). IFPRI bears no responsibility
       for the analyses or interpretations of the data presented here.</p>`;

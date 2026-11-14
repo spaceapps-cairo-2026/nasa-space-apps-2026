@@ -71,3 +71,20 @@ No false alarms with any rule: no crop Egypt grows on under 1,000 ha reaches 50 
 
 To rerun one experiment: `python ml/crop_model/retrain/xgb_strategies.py xgb-cx63-gate` (any name in VARIANTS).
 Set `N_JOBS` to your number of CPUs.
+## Fine-tuning check (Sat 14 Nov, after v3.1)
+
+`tune_strategies.py`, v3.1 labels (`CROPSHIFT_LABELS=area CROPSHIFT_PRES_HA=500`), same counter-examples and rain gate:
+
+| Variant | AUC | Brier | ECE | Worst crop | Dry-margin cereals | FAOSTAT | Unfarmed 100-250 mm |
+|---|---|---|---|---|---|---|---|
+| tune-base (= v3.1) | 0.899 | 0.129 | 0.040 | 0.821 | 0.702 | 0.930 | 0.63 |
+| tune-n400 | 0.904 | 0.134 | 0.066 | 0.827 | 0.688 | 0.944 | 0.60 |
+| tune-n600 | 0.906 | 0.139 | 0.082 | 0.828 | 0.677 | 0.946 | 0.60 |
+| tune-n400-d4 | 0.898 | 0.130 | 0.041 | 0.815 | 0.712 | 0.920 | 0.66 |
+| tune-n400-d8 | 0.907 | 0.140 | 0.086 | 0.831 | 0.671 | 0.946 | 0.58 |
+| tune-col08 | 0.899 | 0.129 | 0.039 | 0.821 | 0.694 | 0.930 | 0.59 |
+| tune-mcw5 | 0.899 | 0.129 | 0.039 | 0.820 | 0.697 | 0.933 | 0.64 |
+| tune-n400-col08-mcw5 | 0.903 | 0.133 | 0.060 | 0.825 | 0.683 | 0.944 | 0.59 |
+
+Kept v3.1. More or deeper trees buy up to +0.008 AUC with overconfident scores (ECE doubles) and fall under the
+dry-margin cereal guardrail (0.70); the app reads scores against a fixed 50, so calibration matters more than ranking.

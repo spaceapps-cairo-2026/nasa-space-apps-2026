@@ -256,6 +256,21 @@ export function showMessage(panel, title, message, kind = 'info') {
   shell(panel, `<h2>${esc(title)}</h2><div class="callout ${kind}">${esc(message)}</div>`);
 }
 
+/** Contract v0.7: the same air temperature trend in NASA's weather station record (GISTEMP), as a second opinion. */
+function stationHTML(sc, t, unit) {
+  if (!sc || sc.slope_per_decade === null || sc.slope_per_decade === undefined) return '';
+  const rate = `${sc.slope_per_decade > 0 ? '+' : ''}${sc.slope_per_decade.toFixed(2)} ${esc(unit)} per decade`;
+  const badge = { 2: 'strong', 1: 'moderate', 0: 'not_proven' }[sc.level] || 'not_proven';
+  const ours = t.level ?? 0;
+  const why = sc.level > 0 && ours === 0
+    ? ' The stations prove what NASA POWER alone cannot: "not proven" here means this record is too noisy, not that nothing changes.'
+    : sc.level > 0 && ours > 0 ? ' Both NASA records agree that the change is real.'
+      : sc.level === 0 && ours > 0 ? ' The station record is noisier here and does not prove it on its own.' : '';
+  return `<div class="callout info"><strong>Weather stations nearby:</strong> ${rate}
+    <span class="badge ${badge}" style="margin-left:4px">${LEVEL_TEXT[badge]}</span>
+    <span class="note" style="display:block;margin-top:4px">NASA GISTEMP (thermometers within about 250 km), same years and same test.${why}</span></div>`;
+}
+
 /** trend_point (lane A) -> the result panel. */
 export function showTrend(panel, res, placeLabel, mockNote = null) {
   const v = varInfo(res.variable), t = res.trend;
@@ -275,6 +290,7 @@ export function showTrend(panel, res, placeLabel, mockNote = null) {
     <p class="range"><strong>How big is the change?</strong> ${fmt(total)} is our best estimate${lo !== null && hi !== null ? `; the true change is most likely between
       <strong>${fmtRange(lo, hi)[0]}</strong> and <strong>${fmtRange(lo, hi)[1]}</strong> ${esc(v.unit)}` : ''}.</p>
     ${luckHTML(t.p, conf)}
+    ${stationHTML(res.station_check, t, v.unit)}
     ${per.span + 1 < 20 ? `<p class="note">You chose ${per.span + 1} years. Short ranges rarely prove a change: there are too few years to tell it from normal ups and downs. Try a longer range.</p>` : ''}`}
     <div class="chart" id="trend-chart"></div>
     <p class="sentence">${esc(res.sentence)}</p>

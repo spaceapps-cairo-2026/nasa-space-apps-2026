@@ -11,12 +11,16 @@ Model card: ml/model_card.md. Numbers behind it: ml/crop_model/metrics.json.
 
 This script is the bridge to the app. For every grid cell of the Egypt table in the repo it:
 1. builds the yearly climate features 2001 to 2025 with the engine's own code;
-2. scores the 40 crops, irrigated and rain only, on the trend value for 2025 ("now") and on each
-   feature's own Theil-Sen trend continued to 2030 and 2035 ("if current trends continue");
+2. scores the 40 crops, irrigated and rain only, on every feature's trend value for 2025 ("now") and its own
+   Theil-Sen trend continued to 2030 and 2035 ("if current trends continue"). All six NASA measurements are
+   projected. Rain, humidity and soil wetness first lose the one-time 2015 step of the NASA POWER record
+   (decision D5 update, Sat 14 Nov, chosen by Mada: over Egypt POWER rain jumps 2.6 times in 2015 while NASA's
+   GPCP rain record changes 1.24 times, see ml/nasa_check.py), so their trend is measured without the jump and
+   continued from today's level;
 3. gives 2035 a 95% range from the engine's 200 block-bootstrap resamples of the years;
 4. adds the warming trend and its evidence level from OUR trend engine (decision D1 + FDR, the same
-   numbers as the Trends tab), the farmland that exists today (MapSPAM) and a flag for climates the
-   model never saw in training;
+   numbers as the Trends tab), the same for NASA's station record (GISTEMP 250 km), the farmland that
+   exists today (MapSPAM) and a flag for climates the model never saw in training;
 5. writes the file the Crops, Farmland and Decisions tabs read (contracts/farming.schema.json).
 
 v2 (Manus) was checked against the training run: the scores equalled the notebook's own Egypt export for all 341 land cells, 40 crops, both water modes and all three years (largest difference 0). v3 uses the same code path.
@@ -41,29 +45,38 @@ sys.path.insert(0, str(MODEL_DIR))
 
 import crop_engine_v3 as ce  # noqa: E402  (the trained model's runtime, numpy only)
 import farming as fao        # noqa: E402  (grid, border and file helpers shared with the FAO calculator)
+import nasa_check            # noqa: E402  (NASA GISTEMP station warming per cell)
 import trends as T           # noqa: E402  (decision D1 trend engine)
 
-VERSION = "0.5"
+VERSION = "0.6"
 BASE_YEAR = 2025
 HORIZONS = (5, 10)                 # years after BASE_YEAR
 N_BOOT, BLOCK_LEN, SEED = 200, 3, 42   # the training run's settings: keep them, or the numbers change
 FARMLAND_MIN_HA = 1000             # same rule as the model's training farmland
 SUITABLE = 50
 MODES = ("irrigated", "rainfed")
+# Decision D5 update: every feature follows its trend. The moisture features (POWER rain and what responds to it)
+# have the 2015 step of the record taken out before their trend is measured.
+TEMPERATURE = ("t_mean", "t_coldest", "t_warmest", "tmax_hottest")
+STEP_FEATURES = tuple(f for f in ce.FEATURES if f not in TEMPERATURE)
+STEP_YEAR = 2015                   # before = up to 2014, after = from 2016 (same split as ml/nasa_check.py)
 EVIDENCE = {2: "S", 1: "M", 0: "N", -1: "-"}
 IFPRI_NOTICE = ("This data was provided by the International Food Policy Research Institute (IFPRI). IFPRI bears no "
                 "responsibility for the analyses or interpretations of the data presented here.")
 METHOD = ("Machine-learned crop suitability (model crop-suitability-v3.1): one XGBoost model per crop, trained on where "
           "40 crops are grown today (IFPRI MapSPAM 2020, 22,450 farmland cells worldwide), each cell described by "
           "10 climate features from six NASA POWER measurements, 2001 to 2025. On regions held out of training it "
-          "tells places that grow a crop from places that do not with AUC 0.90. Rain only also needs enough rain: scores fade to 0 below 100 mm a year (200 mm is full strength for wheat and barley, 250 mm for other crops). Future years: each feature's own "
-          "2001 to 2025 trend (Theil-Sen) continued, with a 95% range from 200 resamples of the years. Not a forecast.")
+          "tells places that grow a crop from places that do not with AUC 0.90. Rain only also needs enough rain: scores fade to 0 below 100 mm a year (200 mm is full strength for wheat and barley, 250 mm for other crops). "
+          "Now and future years: each of the 10 climate features follows its own 2001 to 2025 trend (Theil-Sen), continued to "
+          "2030 and 2035, with a 95% range from 200 resamples of the years. For rain, humidity and soil wetness the one-time "
+          "2015 step of the NASA POWER record is taken out before the trend is measured (NASA's GPCP rain record does not "
+          "show it), and the trend continues from today's level. Not a forecast.")
 SOURCE = "NASA POWER climate and a model trained on IFPRI MapSPAM 2020 crop maps"
 SCORE_NOTE = ("A score runs from 0 to 100: how typical this climate is of the places where the crop is grown today. "
               "50 means as typical of places that grow it as of places that do not. It is not a yield and not the "
               "chance of a good harvest. Irrigated assumes water can be supplied; it does not show that water exists "
-              "here. Rain only uses the NASA POWER rain record, which jumps around 2015 over Egypt, so read rain only "
-              "changes with care. Crops Egypt grows only on small areas (soybean, sunflower, chickpea, lentil) can score low "
+              "here. The NASA POWER rain record jumps around 2015 over Egypt; that step is not carried into the future, only the "
+              "trend measured without it. Crops Egypt grows only on small areas (soybean, sunflower, chickpea, lentil) can score low "
               "even where they are grown. Olive and date palm are not separate crops in the crop maps and are not covered. "
               + IFPRI_NOTICE)
 
@@ -86,6 +99,29 @@ def cell_parameters(cubes: dict[str, np.ndarray], i: int, j: int) -> dict[str, d
     return out
 
 
+def remove_step(prep: dict) -> dict:
+    """Decision D5 update: the moisture features are projected with their trend measured WITHOUT the 2015 step.
+
+    Per feature: step = median(2016 to 2025) - median(2001 to 2014); the years after 2015 are lowered by it, the
+    Theil-Sen trend and its block bootstrap (same resamples as the engine) are measured on that series, and the step
+    is added back, so the projection starts from today's level and only the trend is free of the jump.
+    Temperature features keep the engine's values. Edits prep in place; prep["step"] keeps each feature's step."""
+    years = prep["years"]
+    before, after = years < STEP_YEAR, years > STEP_YEAR
+    cols = [ce.FEATURES.index(f) for f in STEP_FEATURES]
+    Y = prep["Fy"][:, cols].T.copy()                                   # (features, years)
+    step = np.median(Y[:, after], axis=1) - np.median(Y[:, before], axis=1) if before.any() and after.any()         else np.zeros(len(cols))
+    Y[:, after] -= step[:, None]
+    idx = ce.block_bootstrap_indices(len(years), prep["n_boot"], BLOCK_LEN, SEED)
+    proj = ce.project_series(Y, years, prep["base_year"], prep["H"], idx)
+    pt, dr = prep["pt"].copy(), prep["dr"].copy()
+    pt[:, cols] = (proj["point"] + step[:, None]).T                   # (H, features)
+    dr[:, :, cols] = np.transpose(proj["draws"] + step[:, None, None], (1, 2, 0))
+    prep["pt"], prep["dr"] = ce.clip_features(pt), ce.clip_features(dr)
+    prep["step"] = dict(zip(STEP_FEATURES, step.tolist()))
+    return prep
+
+
 def prepare_cells(cubes: dict[str, np.ndarray], inside: np.ndarray) -> dict[int, dict]:
     """Yearly features, trend values and bootstrap draws for every cell inside the country that has
     all six measurements (sea cells have no soil wetness and are skipped)."""
@@ -93,8 +129,8 @@ def prepare_cells(cubes: dict[str, np.ndarray], inside: np.ndarray) -> dict[int,
     preps: dict[int, dict] = {}
     for i, j in zip(*np.nonzero(inside)):
         try:
-            preps[int(i) * ncols + int(j)] = ce._prepare(cell_parameters(cubes, i, j), BASE_YEAR, HORIZONS,
-                                                         N_BOOT, BLOCK_LEN, SEED)
+            preps[int(i) * ncols + int(j)] = remove_step(ce._prepare(cell_parameters(cubes, i, j), BASE_YEAR,
+                                                                     HORIZONS, N_BOOT, BLOCK_LEN, SEED))
         except ValueError:
             continue
     return preps
@@ -174,6 +210,7 @@ def build() -> dict:
             high[mode][cid] = [None if v is None else max(v, last[k]) for k, v in enumerate(hi)]
 
     slope, level = warming(cube_t, inside.reshape(touches.shape))
+    st_slope, st_level, _ = nasa_check.station_warming(lats, lons)
     outside_training = {k: not bool(engine.in_training_range(p["pt"]).all()) for k, p in preps.items()}
     dlat, dlon = fao.GRID_STEP
     return {
@@ -194,6 +231,8 @@ def build() -> dict:
         "outside_training": _bits(np.array([outside_training.get(k, False) for k in range(n)])),
         "evidence": "".join(EVIDENCE[int(v)] if inside[k] else "-" for k, v in enumerate(level.ravel())),
         "temp_trend_per_decade": _grid(n, {k: slope.ravel()[k] for k in preps}, 3),
+        "station_evidence": "".join(EVIDENCE[int(v)] if inside[k] else "-" for k, v in enumerate(st_level.ravel())),
+        "station_trend_per_decade": _grid(n, {k: st_slope.ravel()[k] for k in preps}, 3),
         "temp_now_c": _grid(n, {k: p["pt"][0, ce.FEATURES.index("t_mean")] for k, p in preps.items()}, 1),
         "rain_now_mm": _grid(n, {k: p["pt"][0, ce.FEATURES.index("rain_annual")] for k, p in preps.items()}, 0),
         "crops": [{"id": crop_id(name), "name": name[0].upper() + name[1:]} for name in engine.crops],
@@ -219,6 +258,8 @@ def report(o: dict) -> None:
     print(f"farmland today: crops that fit irrigated {np.mean([fits('irrigated', 0, k) for k in farm]):.1f} now, "
           f"{np.mean([fits('irrigated', 2, k) for k in farm]):.1f} in {o['horizons'][-1]}")
     print("evidence of warming:", {name: o["evidence"].count(letter) for letter, name in
+                                   (("S", "strong"), ("M", "moderate"), ("N", "not proven"))})
+    print("evidence of warming, NASA station record:", {name: o["station_evidence"].count(letter) for letter, name in
                                    (("S", "strong"), ("M", "moderate"), ("N", "not proven"))})
 
 

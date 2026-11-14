@@ -66,7 +66,11 @@ function placeName(lat, lon, fallbackCountry = null) {
   return describePlace(lat, lon, state.countries, state.places, fallbackCountry);
 }
 // Farming cells all belong to Egypt, even when a coastal cell's center sits over the sea.
-const farmPlace = (lat, lon) => placeName(lat, lon, 'Egypt').replace(/^Over water, /, 'Egypt (coast), ');
+// A border cell whose center falls in a neighbour (Taba, Sudan) is still an Egypt cell: never name it after the neighbour.
+const farmPlace = (lat, lon) => {
+  const name = placeName(lat, lon, 'Egypt').replace(/^Over water, /, 'Egypt (coast), ');
+  return name.includes('Egypt') ? name : `Egypt (border), ${coordText(lat, lon)}`;
+};
 
 const globe = new Globe('globe', {
   onPoint: (ll) => (isFarmTab()

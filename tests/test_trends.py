@@ -326,3 +326,15 @@ def test_air_temperature_anywhere_needs_no_download():
     schema = json.loads((ROOT / "contracts" / "trend.schema.json").read_text(encoding="utf-8"))
     for answer in (rus, pt):
         jsonschema.validate(answer, schema)
+
+
+def test_station_check_for_air_temperature_only():
+    """v0.7: air temperature answers carry NASA GISTEMP (weather stations) for the same years; other measurements do not.
+    Over Cairo the stations warm faster than POWER and prove it (ml/nasa_check.py)."""
+    r = live.point_trend("T2M", 30.04, 31.24)
+    sc = r["station_check"]
+    assert sc and sc["start_year"] == 2001 and sc["end_year"] == 2025
+    assert sc["level"] == 2 and sc["slope_per_decade"] > r["trend"]["slope_per_decade"] > 0
+    assert live.point_trend("T2M", 30.04, 31.24, 2010, 2025)["station_check"]["end_year"] == 2025
+    assert live.point_trend("RH2M", 30.04, 31.24)["station_check"] is None
+    assert live.point_trend("T2M", 0.0, -30.0)["station_check"] is None      # mid Atlantic: no stations

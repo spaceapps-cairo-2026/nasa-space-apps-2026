@@ -131,7 +131,10 @@ export class Globe {
     const attempt = (tries) => {
       if (this.pending[channel] !== token) return; // superseded by a newer change
       try { fn(); } catch (e) {
-        if (tries > 0) setTimeout(() => attempt(tries - 1), 150);
+        // While the style is still loading (slow or blocked imagery can take well over 15 s), keep waiting
+        // without using up the tries: giving up here left the Whole Earth layer missing for good.
+        if (!this.map.isStyleLoaded()) setTimeout(() => attempt(tries), 300);
+        else if (tries > 0) setTimeout(() => attempt(tries - 1), 150);
         else console.error(e);
       }
     };

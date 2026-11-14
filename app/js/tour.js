@@ -26,7 +26,7 @@ export function createTour(ctx) {
     },
     {
       run: async () => ctx.selectCountry('EGY'),
-      text: (c) => (c ? `Egypt: ${c.increasing} places are proven to be warming. Grey tiles are not proven: normal ups and downs could explain them.`
+      text: (c) => (c ? `Egypt: ${c.increasing} places are proven to be warming in this record. Grey tiles are not proven here, yet NASA's weather stations prove warming across most of Egypt.`
         : 'Egypt, cell by cell: raised columns are proven changes, grey tiles are not proven.'),
       dwell: 7000,
     },
@@ -67,7 +67,8 @@ export function createTour(ctx) {
         const x = v.checks.cross_check;
         const rate = (r) => `${r.per_decade > 0 ? '+' : ''}${r.per_decade.toFixed(2)}`;
         return `And we test ourselves: on trendless data with Egypt's noise our engine raises a false alarm only ${(v.checks.false_alarms.false_alarm_rate['Egypt-like noise'] * 100).toFixed(1)}% of the time, `
-          + `run on NASA's GISTEMP record it finds the planet warming ${rate(x.reference)} °C per decade, and on our data the Arctic warms fastest (${rate(x.arctic)}), both strong evidence.`;
+          + `run on NASA's GISTEMP record it finds the planet warming ${rate(x.reference)} °C per decade, and on our data the Arctic warms fastest (${rate(x.arctic)}), both strong evidence.`
+          + (v.checks.nasa_records ? ` Over Egypt, NASA's weather stations warm ${rate({ per_decade: v.checks.nasa_records.egypt_temperature.gistemp_per_decade })} °C per decade.` : '');
       },
       dwell: 8000,
     },

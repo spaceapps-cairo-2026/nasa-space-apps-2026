@@ -17,11 +17,12 @@ FOLDERS = ["api", "ml", "contracts", "tests", "app", "data/processed", "data/cro
 DATA_SCRIPTS = ["data/power_point_fetch.py", "data/power_world_fetch.py", "data/power_fetch.py", "data/README.md"]
 DOCS = ["docs/METHODS.md", "docs/DECISIONS.md"]
 SKIP_PARTS = {"__pycache__", "outputs", "artifacts", ".pytest_cache"}
-# ml/outputs holds local caches (skipped) and the two files the app reads (always shipped: the crop model's Egypt
-# outlook for the farming tabs and the checks for "How we know"; without them the API falls back to the fixtures).
-OUTPUTS = ["ml/outputs/farming_EGY.json", "ml/outputs/validation.json"]
+# ml/outputs holds local caches (skipped) and the files the app reads (always shipped: the crop model's Egypt
+# outlook for the farming tabs, the checks for "How we know", and NASA GISTEMP station yearly means for the
+# weather station line of air temperature answers; without them the API falls back to the fixtures / no station line).
+OUTPUTS = ["ml/outputs/farming_EGY.json", "ml/outputs/validation.json", "ml/outputs/gistemp250_annual.npz"]
 
-README = """# CropShift Earth backend (trend engine + API), contract v0.6
+README = """# CropShift Earth backend (trend engine + API), contract v0.7
 
 This folder runs on its own. It answers: how much is a NASA measurement changing at a place,
 and how confident are we that the change is real and not normal year to year variation.

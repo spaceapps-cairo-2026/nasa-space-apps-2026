@@ -69,20 +69,62 @@ def test_scores_stay_between_0_and_1_and_irrigation_matters(engine):
     assert (wet >= 0.5).sum() >= 5, "with water, several crops fit a hot desert climate"
 
 
-def test_app_file_is_the_models_answer(cairo_report):
+@pytest.fixture(scope="module")
+def cairo_prep(cubes) -> dict:
+    """Cairo's features the way the app file is built: every feature on its trend, the 2015 step taken out of the
+    moisture features first (D5 update)."""
+    lats, lons, _ = cubes["T2M"]
+    i, j = int(np.argmin(abs(lats - CAIRO[0]))), int(np.argmin(abs(lons - CAIRO[1])))
+    parameter = co.cell_parameters({v: c[2] for v, c in cubes.items()}, i, j)
+    return co.remove_step(co.ce._prepare(parameter, co.BASE_YEAR, co.HORIZONS, 10, co.BLOCK_LEN, co.SEED))
+
+
+def test_app_file_is_the_models_answer(engine, cairo_prep):
     """ml/outputs/farming_EGY.json holds the engine's scores, as whole numbers 0 to 100."""
     o = json.loads(co.OUT.read_text(encoding="utf-8"))
     g = o["grid"]
     k = round((CAIRO[0] - g["lat0"]) / g["dlat"]) * g["ncols"] + round((CAIRO[1] - g["lon0"]) / g["dlon"])
     assert o["horizons"] == [2025, 2030, 2035] and o["model"]["id"] == "crop-suitability-v3.1"
     for mode in co.MODES:
-        for name, crop in cairo_report["modes"][mode]["crops"].items():
+        expected = engine.suitability(cairo_prep["pt"], mode)          # [now, 2030, 2035] x crops
+        for c, name in enumerate(engine.crops):
             grids = o["suitability"][mode][co.crop_id(name)]
-            expected = [crop["now"], crop["plus5"]["point"], crop["plus10"]["point"]]
-            assert all(abs(grids[h][k] - 100 * expected[h]) <= 0.51 for h in range(3)), (mode, name)
+            assert all(abs(grids[h][k] - 100 * expected[h, c]) <= 0.51 for h in range(3)), (mode, name)
             low, high = o["suitability_10_low"][mode][co.crop_id(name)][k], o["suitability_10_high"][mode][co.crop_id(name)][k]
             assert low <= grids[2][k] <= high
     assert o["farmland"][k] == "1" and o["inside"][k] == "1"
+
+
+def test_every_measurement_is_projected_without_the_2015_step(cairo_prep):
+    """D5 update (Mada's choice): all 10 features follow their trend to 2035. For rain, humidity and soil wetness the
+    one-time 2015 step of the POWER record is removed before the trend is measured, then added back, so "now" is
+    today's level and only the trend is free of the jump."""
+    years, Fy = cairo_prep["years"], cairo_prep["Fy"]
+    t = years - co.BASE_YEAR
+    rain = co.ce.FEATURES.index("rain_annual")
+    y = Fy[:, rain].copy()
+    step = np.median(y[years > 2015]) - np.median(y[years < 2015])
+    assert abs(cairo_prep["step"]["rain_annual"] - step) < 1e-9 and step > 0, "Cairo's POWER rain jumps up in 2015"
+    y[years > 2015] -= step
+    a, b = co.ce.theil_sen_batch(y[None, :], t)
+    expected = np.maximum(a[0] + step + b[0] * np.array([0, 5, 10]), 0)    # rain is clipped at 0 mm
+    assert np.allclose(cairo_prep["pt"][:, rain], expected)
+    raw = co.ce.theil_sen_batch(Fy[:, rain][None, :], t)[1][0]
+    assert abs(b[0]) < abs(raw), "without the step the rain trend is smaller than the raw one"
+    tm = co.ce.FEATURES.index("t_mean")
+    assert cairo_prep["pt"][2, tm] > cairo_prep["pt"][0, tm], "Cairo's mean temperature trend is upward"
+    moving = [f for f in co.STEP_FEATURES if not np.allclose(cairo_prep["dr"][:, 2, co.ce.FEATURES.index(f)],
+                                                                cairo_prep["pt"][2, co.ce.FEATURES.index(f)])]
+    assert moving, "moisture features vary between bootstrap draws: they are projected, not held"
+
+
+def test_station_warming_travels_with_the_app_file():
+    """NASA GISTEMP (stations) gives every Egypt cell a second warming estimate; it proves warming in most cells."""
+    o = json.loads(co.OUT.read_text(encoding="utf-8"))
+    ev = [e for e, i in zip(o["station_evidence"], o["inside"]) if i == "1"]
+    assert sum(e in "SM" for e in ev) >= 0.8 * len(ev)
+    vals = [v for v, i in zip(o["station_trend_per_decade"], o["inside"]) if i == "1" and v is not None]
+    assert 0.2 < float(np.median(vals)) < 0.7
 
 
 def test_rain_gate_only_touches_rain_only_mode(engine):

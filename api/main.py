@@ -11,14 +11,16 @@ from functools import lru_cache
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException, Query
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 
 ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "contracts" / "fixtures" / "sample_predictions.json"
 REAL = ROOT / "ml" / "outputs" / "predictions.json"
 FIXTURES = ROOT / "contracts" / "fixtures"
-API_VERSION = "0.6"
+API_VERSION = "0.7"
 
 
 def is_mock() -> bool:
@@ -37,6 +39,26 @@ def bundle() -> dict:
 
 app = FastAPI(title="Space Apps 2026", version=API_VERSION)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["GET"], allow_headers=["*"])
+
+
+@app.exception_handler(RequestValidationError)
+async def plain_validation_error(request, exc):
+    """Bad query values answer with one plain sentence, like every other error (contract: the app shows `detail` as is)."""
+    parts = []
+    for e in exc.errors():
+        name = str(e.get("loc", ["", "value"])[-1])
+        parts.append(f"{name}: {e.get('msg', 'not a valid value').rstrip('.').lower()}")
+    return JSONResponse(status_code=422, content={"detail": "Please check the request (" + "; ".join(parts) + ")."})
+
+
+@app.middleware("http")
+async def revalidate_app_files(request, call_next):
+    """Browsers kept old copies of the app's JavaScript modules after an update (a new panel did not show up).
+    'no-cache' makes them ask every time; unchanged files still come back as a quick 304."""
+    response = await call_next(request)
+    if not request.url.path.startswith("/api/"):
+        response.headers["Cache-Control"] = "no-cache"
+    return response
 
 
 @app.get("/health")

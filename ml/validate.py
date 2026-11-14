@@ -5,6 +5,7 @@
 2. False alarms: how often the trend test calls pure noise a trend (Egypt-like noise).
 3. Many places at once: how many Egypt cells pass p < 0.05 vs after the FDR correction (q < 0.05).
 4. Reality checks for the farming outlook.
+5. Our trends against two other NASA records: GISTEMP stations (temperature) and GPCP (rain), from ml/nasa_check.py.
 
 Run:  python ml/validate.py   -> ml/outputs/validation.json and contracts/fixtures/validation.json
 """
@@ -220,12 +221,13 @@ LIMITATIONS = [
     "Each grid cell is about 55 by 60 km: it describes a region, not one farm.",
     "NASA POWER is a model built from satellites and weather stations (MERRA-2): very good on large scales, less exact for one valley or oasis.",
     "25 years is enough to detect strong trends; small ones may stay 'not proven' until more years are measured.",
-    "Future views assume today's measured trend continues in a straight line. They are not forecasts and ignore irrigation changes, new crop varieties and soil.",
+    "Future views assume every measured trend continues in a straight line (for rain, humidity and soil wetness the trend is measured without the 2015 step of the NASA POWER record). They are not forecasts and ignore irrigation changes, new crop varieties and soil.",
+    "Over Egypt, NASA POWER (a weather model) warms more slowly than NASA's weather station record (GISTEMP): about 0.24 against 0.42 °C per decade. Many cells our maps call 'not proven' are proven warming in the station record, so 'not proven' means 'this record alone cannot prove it', never 'no warming'.",
     "Crop scores come from a model that learned where 40 crops are grown today (IFPRI MapSPAM 2020). Where a crop is grown also reflects markets, policy and water, not only climate. A score is how well the climate matches, not a yield and not the chance of a good harvest.",
     "Irrigated scores assume water can be supplied; they do not show that water exists. Soil chemistry, salinity and water supply are not included, and NASA's soil wetness describes the natural land, not a watered field.",
     "Rain only scores fade to 0 below 100 mm of rain a year (a documented rule, since farming on rain alone needs about 200 to 250 mm), so in Egypt only wheat and barley on the wettest north coast can reach 50 on rain alone. Near that limit the model is cautious: it may miss some real rain-fed crops. Olive and date palm are not separate crops in the crop maps and are not covered.",
     "We never claim why something changes; we say a pattern is consistent with a cause.",
-    "Rain in this NASA POWER record jumps around 2015 in many places at once (across Egypt about 3 times higher after 2015). That looks like a change in how the record is made, so every rain trend carries a warning.",
+    "Rain in this NASA POWER record jumps around 2015 in many places at once (across Egypt about 2.6 times higher after 2015). NASA's GPCP rain record (satellites and gauges) does not show the jump over Egypt, so it is in the record, not in real rain: every rain trend carries a warning, and the crop projections take the step out before measuring the rain, humidity and soil wetness trends.",
 ]
 
 
@@ -233,6 +235,9 @@ if __name__ == "__main__":
     out = {"version": "0.3", "checks": {"cross_check": gistemp_check(), "false_alarms": false_alarm_check(),
                                         "many_places": fdr_check(), "farming": farming_checks()},
            "limitations": LIMITATIONS}
+    nasa = ROOT / "ml" / "outputs" / "nasa_check.json"          # python run.py nasa-check (no login)
+    if nasa.exists():
+        out["checks"]["nasa_records"] = json.loads(nasa.read_text(encoding="utf-8"))
     giovanni = ROOT / "ml" / "outputs" / "crosscheck.json"     # python run.py crosscheck (needs Giovanni files)
     if giovanni.exists():
         out["checks"]["giovanni"] = json.loads(giovanni.read_text(encoding="utf-8"))
@@ -240,6 +245,6 @@ if __name__ == "__main__":
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps(out, indent=1, ensure_ascii=False), encoding="utf-8")
     for k, v in out["checks"].items():
-        print(f"\n[{k}] {v.get('plain', '')}")
+        print(f"\n[{k}] {v.get('plain', v.get('plain_temperature', ''))}")
         for c in v.get("checks", []):
             print("  ", "PASS" if c["passed"] else "FAIL", c["check"], "|", c["detail"])

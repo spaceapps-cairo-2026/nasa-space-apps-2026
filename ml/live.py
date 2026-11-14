@@ -32,7 +32,7 @@ import power_point_fetch as point_src  # noqa: E402
 import power_world_fetch as world_src  # noqa: E402
 import trends as T  # noqa: E402
 
-VERSION = "0.6"
+VERSION = "0.7"
 PERIOD = f"{T.START_YEAR}-{T.END_YEAR}"
 YEARS = list(range(T.START_YEAR, T.END_YEAR + 1))
 SOURCE = "NASA POWER (MERRA-2), monthly, 0.5 x 0.625 degree grid"
@@ -372,6 +372,39 @@ def point_data(var: str, lat: float, lon: float) -> dict:
             "from": "cache" if res["cached"] else "nasa"}
 
 
+# ---------- second opinion for air temperature: NASA's weather stations ----------
+
+GISTEMP_NPZ = ROOT / "ml" / "outputs" / "gistemp250_annual.npz"    # python run.py nasa-check
+STATION_SOURCE = "NASA GISTEMP v4, 250 km (weather stations), 2 x 2 degree box"
+
+
+@lru_cache(maxsize=1)
+def _gistemp() -> dict | None:
+    if not GISTEMP_NPZ.exists():
+        return None
+    with np.load(GISTEMP_NPZ) as z:
+        return {k: z[k] for k in z.files}
+
+
+def station_check(lat: float, lon: float, s: int, e: int) -> dict | None:
+    """Air temperature trend at the same place and years in NASA's station record (contract v0.7), same engine.
+    None when the 2 degree box has too few station years. Over Egypt POWER warms more slowly than the stations
+    (ml/nasa_check.py), so this tells 'not proven in POWER' apart from 'not warming'."""
+    g = _gistemp()
+    if g is None or not (int(g["years"][0]) <= s and e <= int(g["years"][-1])):
+        return None
+    i, j = int(np.abs(g["lats"] - lat).argmin()), int(np.abs(g["lons"] - lon).argmin())
+    annual = g["values"][i, j].astype(np.float64)
+    if np.isfinite(_cut(annual, s, e)).sum() < T.min_valid_years(e - s + 1):
+        return None
+    t = _trend_block(annual, s, e)
+    if t["level"] < 0:
+        return None
+    keep = ("start_year", "end_year", "change_total", "slope_per_decade", "slope_low", "slope_high", "p", "level", "level_name")
+    return {**{k: t[k] for k in keep}, "box_lat": float(g["lats"][i]), "box_lon": float(g["lons"][j]),
+            "source": STATION_SOURCE}
+
+
 # ---------- the three answers ----------
 
 def point_trend(variable: str, lat: float, lon: float,
@@ -395,6 +428,7 @@ def point_trend(variable: str, lat: float, lon: float,
         "sentence": sentence(var, trend),
         "caution": RAIN_CAUTION if variable == "PRECTOTCORR" else None,
         "data_from": data["from"],
+        "station_check": station_check(lat, lon, s, e) if variable == "T2M" else None,
         "seconds": 0.0,
     }
     if variable == "PRECTOTCORR" and trend["mean"] is not None and trend["mean"] < ARID_MM_DAY:
