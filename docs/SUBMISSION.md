@@ -17,9 +17,9 @@ TODO (team)
 - No NASA logos. AI-made images or video must be marked as AI-made. No names, voices or faces of anyone under 18.
 
 ## 2. Project links
-- **Final project (live app):** TODO Render link (`https://cropshift-earth.onrender.com` or similar). Free Render sleeps after 15 minutes idle: the first visit takes about a minute. Test it in a private browser window before submitting.
+- **Final project (live app):** https://cropshift-earth.onrender.com (free Render: it sleeps after 15 minutes without visitors, so the first visit takes about a minute; open it a few minutes before judges look). API docs: https://cropshift-earth.onrender.com/docs
 - **GitHub repository:** `https://github.com/spaceapps-cairo-2026/nasa-space-apps-2026` . **It is PRIVATE now (checked Sat 14 Nov). Make it public before submitting**, or judges get a 404. Its README should open with the live link and the one sentence pitch.
-- **Development links:** the trained crop model with its model card, on Hugging Face: `https://huggingface.co/OmarGhost2005/cropshift-earth-crop-model` ; the API's interactive docs: `<live link>/docs` ; the crop model card: `ml/model_card.md` in the repository; the method choice evidence: `docs/DECISIONS.md` and `docs/METHODS.md`.
+- **Development links:** the trained crop model with its model card, on Hugging Face: `https://huggingface.co/OmarGhost2005/cropshift-earth-crop-model` ; the API's interactive docs: https://cropshift-earth.onrender.com/docs ; the crop model card: `ml/model_card.md` in the repository; the method choice evidence: `docs/DECISIONS.md` and `docs/METHODS.md`.
 
 ## 3. Project summary (problem, solution, impact, challenge fit; about 200 words)
 **Problem.** Climate data is everywhere, but people cannot tell a real change from a few unusual years, and a trend alone does not tell a farmer what to plant. In the Middle East and North Africa, the most water-scarce region in the world, where about 1 in 6 Egyptian workers farms, that gap costs harvests and money.
