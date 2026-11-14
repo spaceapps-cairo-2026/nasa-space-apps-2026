@@ -15,7 +15,7 @@ For 20 countries of the Middle East and North Africa, three tabs turn the trends
 
 How it works
 - Data: NASA POWER monthly grids (built on NASA's MERRA-2), 2001 to 2025, fetched live for any region and cached.
-- Trend and confidence: Theil-Sen slope; Mann-Kendall test with its variance corrected for year to year memory; Benjamini-Hochberg false discovery rate on every map; Pettitt test for when the change started. We tested 7 methods on 20,000 simulated places with no real trend and chose the only one that kept false alarms near 5% while still finding real trends.
+- Trend and confidence: Theil-Sen slope; Mann-Kendall test with its variance corrected for year to year memory; Benjamini-Hochberg false discovery rate on every map; Pettitt test for when the change started. We tested 7 methods on 20,000 simulated 25-year series and chose the one with the best balance: false alarms near 5% (3.3 to 8.8%) while still finding two thirds of the stronger real trends.
 - Crop model: one XGBoost model per crop, trained on where 40 crops are grown today (IFPRI MapSPAM 2020, 22,450 farmland cells worldwide) from 10 climate features of all six NASA POWER measurements. On regions held out of training it reaches AUC 0.90; trained without Egypt, it recognizes Egypt's real crop list (FAOSTAT) with AUC 0.93.
 - Projections: every climate feature follows its own 2001 to 2025 trend to 2030 and 2035, with a 95% range from 200 resamples of the years. Always labeled "if current trends continue", never a forecast.
 
