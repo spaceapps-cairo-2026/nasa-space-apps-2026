@@ -25,7 +25,7 @@
   "EG rf crops>=100": 0.36363636363636365,
   "EG rf crops unfarmed": 0.0,
   "EG irr fits": 10.681034482758621,
-  "seconds": 14.4
+  "seconds": 16.7
  },
  "per_crop_auc": {
   "wheat": 0.961,

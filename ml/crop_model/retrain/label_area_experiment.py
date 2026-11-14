@@ -1,5 +1,5 @@
 """Experiment: labels 'share' (v2/v3: present = >= 2% of the cell's harvest) vs 'area' (also present when >= 1,000 ha).
-Run: CROPSHIFT_LABELS=share|area python label_area_test.py   (same v3 recipe; Egypt FAOSTAT is label-independent)."""
+Run: CROPSHIFT_LABELS=share|area python label_area_experiment.py   (same v3 recipe; Egypt FAOSTAT is label-independent)."""
 import numpy as np
 import harness as H
 import evalx as E
