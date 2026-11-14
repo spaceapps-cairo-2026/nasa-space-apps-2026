@@ -72,6 +72,7 @@ select { font: inherit; color: var(--fg); background: #0d1626; border: 1px solid
 .badge.strong { background: var(--strong); color: #04210f; }
 .badge.moderate { background: var(--moderate); color: #2a1e00; }
 .badge.not_proven { background: var(--notproven); color: #0d0f12; }
+.badge.unreliable { background: #4a3a1c; color: #f6d3a2; border: 1px solid rgba(240, 184, 110, .55); }
 .rate { font-size: 24px; font-weight: 700; margin: 10px 0 2px; font-variant-numeric: tabular-nums; }
 .range { color: var(--muted); font-size: 13px; margin: 0 0 6px; }
 .chart { width: 100%; height: 220px; margin: 6px 0; }
@@ -180,6 +181,7 @@ details dd { margin: 0; font-family: var(--mono); font-size: 12px; overflow-wrap
 .luck { border-radius: 8px; padding: 8px 10px; margin: 8px 0; border: 1px solid var(--line); background: var(--glass-2); }
 .luck.strong { border-color: rgba(47, 191, 113, .55); }
 .luck.moderate { border-color: rgba(224, 178, 58, .55); }
+.luck.unreliable { border-color: rgba(240, 184, 110, .45); }
 .luck-top { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
 .luck-label { font-size: 11px; text-transform: uppercase; letter-spacing: .1em; color: var(--muted); font-weight: 600; }
 .luck-value { font-size: 20px; font-weight: 700; font-variant-numeric: tabular-nums; }

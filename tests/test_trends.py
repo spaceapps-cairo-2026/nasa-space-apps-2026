@@ -137,7 +137,8 @@ def test_every_rain_answer_carries_the_2015_jump_caution():
     reg = live.region_trend("PRECTOTCORR", 22, 32, 25, 35, "EGY")
     for r in (pt, reg):
         validate(r)
-        assert "2015" in r["caution"] and "rain gauges" in r["caution"]
+        # v0.7: where the break is found at the place, the stronger "not reliable" note replaces the general caution
+        assert "2015" in r["caution"] and ("rain gauges" in r["caution"] or "not reliable" in r["caution"].lower())
     assert live.point_trend("T2M", 30.04, 31.24)["caution"] is None
 
 
@@ -326,3 +327,28 @@ def test_air_temperature_anywhere_needs_no_download():
     schema = json.loads((ROOT / "contracts" / "trend.schema.json").read_text(encoding="utf-8"))
     for answer in (rus, pt):
         jsonschema.validate(answer, schema)
+
+
+def test_moisture_records_are_not_called_evidence_where_nasa_rain_breaks():
+    """v0.7: in Egypt NASA POWER rain is 2 to 5 times higher after 2015, and its humidity and soil wetness move with
+    it while ERA5 does not (docs/DECISIONS.md). There these answers are "not reliable", never evidence."""
+    asyut = live.point_trend("RH2M", 27.5, 31.52)          # was "strong evidence" of rising humidity
+    assert asyut["trend"]["level"] == -2 and asyut["trend"]["level_name"] == "not reliable"
+    assert asyut["reliability"]["reliable"] is False and "Not reliable here" in asyut["caution"]
+    assert "not evidence of a real change" in asyut["sentence"]
+    for code in ("PRECTOTCORR", "GWETTOP", "GWETROOT"):
+        assert live.point_trend(code, 30.04, 31.24)["trend"]["level"] == -2, code
+    assert live.point_trend("T2M", 27.5, 31.52)["trend"]["level"] >= 0     # temperature is never affected
+    egy = live.region_trend("RH2M", 22.0, 31.586, 24.7, 36.866, country="EGY")
+    assert egy["summary"]["with_data"] == 0 and egy["summary"]["not_reliable"] > 300
+    assert egy["mean_trend"]["level"] == -2 and "not mapped" in egy["sentence"]
+    for answer in (asyut, egy):
+        jsonschema.validate(answer, SCHEMA)
+
+
+def test_rain_break_rule():
+    years = np.arange(2001, 2026)
+    steady = np.where(years < 2015, 2.0, 2.1)                 # Paris-like: same rain before and after 2015
+    jump = np.where(years < 2015, 0.07, 0.37)                 # Cairo: about 5 times higher after 2015
+    dry = np.full(25, 0.002)                                  # Kharga: it hardly rains
+    assert not live.rain_break(steady) and live.rain_break(jump) and live.rain_break(dry)

@@ -144,15 +144,21 @@ export function cellPanelHTML(o, k, mode, placeLabel, selectedCrop) {
     return { c, now, later, d: later - now, lo, hi, heat: o.years_to_heat_limit?.[c.id]?.[k], m: o.best_start_month?.[mode]?.[c.id]?.[k] };
   }).sort((a, b) => b.now - a.now || b.later - a.later);
   const body = rows.map((r) => {
-    const cls = r.d > 0 ? 'delta-up' : r.d < 0 ? 'delta-down' : 'delta-flat';
-    const range = r.lo !== undefined && r.hi !== undefined && r.lo !== r.hi ? ` title="95% range ${r.lo} to ${r.hi}"` : '';
+    // A change counts only when today's score lies outside the 95% range for the last year: near a crop's limit
+    // the model can flip on a small warming, and the range then spans today's score (the change is unclear).
+    const hasRange = isNum(r.lo) && isNum(r.hi);
+    const clear = !hasRange || r.now < r.lo || r.now > r.hi;
+    const cls = !clear ? 'delta-flat' : r.d > 0 ? 'delta-up' : r.d < 0 ? 'delta-down' : 'delta-flat';
+    const range = hasRange && r.lo !== r.hi ? ` title="95% range ${r.lo} to ${r.hi}"` : '';
+    const change = !clear ? `<span title="Today's score ${r.now} lies inside the 95% range for ${o.horizons[last]} (${r.lo} to ${r.hi})">unclear</span>`
+      : r.d ? sign(r.d, 0) : '0';
     const season = r.now > 0 && isNum(r.m) && isNum(r.c.season_months)
       ? (r.c.season_months >= 12 ? 'all year' : `${MON[r.m]} to ${MON[(r.m + r.c.season_months - 1) % 12]}`) : '';
     const heat = r.heat === null || r.heat === undefined ? '' : r.heat >= 99 ? '99+ y' : `${Math.round(r.heat)} y`;
     return `<tr class="${r.c.id === selectedCrop ? 'sel' : ''}">
       <td>${esc(r.c.name)}<span class="sub" style="display:block;color:var(--muted);font-size:11px">${season}</span></td>
       <td><div class="bar"><i style="width:${r.now}%;background:${r.now ? ramp(GREEN, r.now / 100) : 'transparent'}"></i></div></td>
-      <td>${r.now}</td>${last > 0 ? `<td${range}>${r.later}</td><td class="${cls}">${r.d ? sign(r.d, 0) : '0'}</td>` : ''}${showHeat ? `<td>${heat}</td>` : ''}</tr>`;
+      <td>${r.now}</td>${last > 0 ? `<td${range}>${r.later}</td><td class="${cls}">${change}</td>` : ''}${showHeat ? `<td>${heat}</td>` : ''}</tr>`;
   }).join('');
   const fitsNow = fits(o, mode, 0, k), fitsLater = fits(o, mode, last, k);
   return `
@@ -173,6 +179,7 @@ export function cellPanelHTML(o, k, mode, placeLabel, selectedCrop) {
       <thead><tr><th>Crop</th><th></th><th>Now</th>${last > 0 ? `<th>${o.horizons[last]}</th><th>Change</th>` : ''}${showHeat ? '<th>Heat limit</th>' : ''}</tr></thead>
       <tbody>${body}</tbody>
     </table>
+    ${last > 0 && rows.some((r) => isNum(r.lo)) ? `<p class="note">Change to ${o.horizons[last]}: shown only where today's score lies outside the 95% range for ${o.horizons[last]}; otherwise "unclear". Hover a ${o.horizons[last]} score for its range.</p>` : ''}
     <details><summary>How we know</summary>
       <p>${esc(o.method)}</p>
       ${o.score_note ? `<p>${esc(o.score_note)}</p>` : ''}

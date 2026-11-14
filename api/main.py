@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 FIXTURE = ROOT / "contracts" / "fixtures" / "sample_predictions.json"
 REAL = ROOT / "ml" / "outputs" / "predictions.json"
 FIXTURES = ROOT / "contracts" / "fixtures"
-API_VERSION = "0.6"
+API_VERSION = "0.7"
 
 
 def is_mock() -> bool:

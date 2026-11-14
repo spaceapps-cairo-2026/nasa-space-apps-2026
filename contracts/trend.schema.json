@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "trend.schema.json",
   "title": "Trend answers (F1)",
-  "description": "Shapes returned by /api/trend/point, /api/trend/region and /api/trend/world. Lane A owns it. v0.6 (data_from may be world: read from the committed world grid). v0.5 added the year range and the total change; v0.4 added the optional country on trend_region). The app must ignore fields it does not know.",
+  "description": "Shapes returned by /api/trend/point, /api/trend/region and /api/trend/world. Lane A owns it. v0.7 (trend level -2 = not reliable: rain, humidity or soil wetness where the NASA rain record breaks around 2015; optional reliability object; summary.not_reliable). v0.6: data_from may be world (the committed world grid). v0.5 added the year range and the total change; v0.4 added the optional country on trend_region). The app must ignore fields it does not know.",
   "oneOf": [
     {"$ref": "#/$defs/trend_point"},
     {"$ref": "#/$defs/trend_region"},
@@ -45,10 +45,10 @@
         "slope_low": {"$ref": "#/$defs/number_or_null", "description": "95% range of the slope, low end"},
         "slope_high": {"$ref": "#/$defs/number_or_null"},
         "p": {"$ref": "#/$defs/number_or_null", "description": "How often a trend at least this strong appears when nothing is changing. NOT the probability that the trend is true."},
-        "level": {"enum": [-1, 0, 1, 2], "description": "-1 no data, 0 not proven, 1 moderate evidence (below 0.05), 2 strong evidence (below 0.01)"},
-        "level_name": {"enum": ["no data", "not proven", "moderate evidence", "strong evidence"]},
+        "level": {"enum": [-2, -1, 0, 1, 2], "description": "-2 not reliable (the NASA record breaks at this place; numbers shown, never evidence), -1 no data, 0 not proven, 1 moderate evidence (below 0.05), 2 strong evidence (below 0.01)"},
+        "level_name": {"enum": ["not reliable", "no data", "not proven", "moderate evidence", "strong evidence"]},
         "significant": {"type": "boolean"},
-        "direction": {"enum": ["increasing", "decreasing", "not proven", "no data"]},
+        "direction": {"enum": ["increasing", "decreasing", "not proven", "no data", "not reliable"]},
         "change_point_year": {"type": ["integer", "null"], "description": "Year the level shifted (Pettitt test), only for proven trends"},
         "n_years": {"type": "integer"},
         "mean": {"$ref": "#/$defs/number_or_null"},
@@ -78,6 +78,7 @@
         "increasing": {"type": "integer", "description": "cells with level 1 or 2 and a positive slope"},
         "decreasing": {"type": "integer"},
         "not_proven": {"type": "integer"},
+        "not_reliable": {"type": "integer", "description": "v0.7, moisture measurements only: cells left out because the NASA rain record breaks there"},
         "strong": {"type": "integer"},
         "moderate": {"type": "integer"},
         "median_slope_per_decade": {"$ref": "#/$defs/number_or_null"}
@@ -105,6 +106,9 @@
         "sentence": {"type": "string"},
         "caution": {"type": ["string", "null"]},
         "data_from": {"enum": ["repo", "cache", "nasa", "world"]},
+        "reliability": {"type": "object", "description": "v0.7, moisture measurements only",
+          "properties": {"reliable": {"type": ["boolean", "null"]}, "reason": {"type": ["string", "null"]},
+                         "rain_ratio_after_2015": {"type": ["number", "null"]}}},
         "seconds": {"type": "number"}
       }
     },

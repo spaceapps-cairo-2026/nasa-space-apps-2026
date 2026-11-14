@@ -69,17 +69,23 @@ def test_scores_stay_between_0_and_1_and_irrigation_matters(engine):
     assert (wet >= 0.5).sum() >= 5, "with water, several crops fit a hot desert climate"
 
 
-def test_app_file_is_the_models_answer(cairo_report):
+def test_app_file_is_the_models_answer(engine, cubes):
     """ml/outputs/farming_EGY.json holds the engine's scores, as whole numbers 0 to 100."""
     o = json.loads(co.OUT.read_text(encoding="utf-8"))
     g = o["grid"]
     k = round((CAIRO[0] - g["lat0"]) / g["dlat"]) * g["ncols"] + round((CAIRO[1] - g["lon0"]) / g["dlon"])
     assert o["horizons"] == [2025, 2030, 2035] and o["model"]["id"] == "crop-suitability-v3.1"
+    # The bridge holds rain, humidity and soil wetness at their 2001 to 2025 average (co.hold_moisture); build the
+    # expected scores the same way from the engine.
+    lats, lons, _ = cubes["T2M"]
+    i, j = int(np.argmin(abs(lats - CAIRO[0]))), int(np.argmin(abs(lons - CAIRO[1])))
+    prep = co.hold_moisture(co.ce._prepare(co.cell_parameters({v: c[2] for v, c in cubes.items()}, i, j),
+                                           co.BASE_YEAR, co.HORIZONS, co.N_BOOT, co.BLOCK_LEN, co.SEED))
     for mode in co.MODES:
-        for name, crop in cairo_report["modes"][mode]["crops"].items():
+        expected = engine.suitability(prep["pt"], mode)                     # [now, +5, +10] x crops
+        for c, name in enumerate(engine.crops):
             grids = o["suitability"][mode][co.crop_id(name)]
-            expected = [crop["now"], crop["plus5"]["point"], crop["plus10"]["point"]]
-            assert all(abs(grids[h][k] - 100 * expected[h]) <= 0.51 for h in range(3)), (mode, name)
+            assert all(abs(grids[h][k] - 100 * expected[h, c]) <= 0.51 for h in range(3)), (mode, name)
             low, high = o["suitability_10_low"][mode][co.crop_id(name)][k], o["suitability_10_high"][mode][co.crop_id(name)][k]
             assert low <= grids[2][k] <= high
     assert o["farmland"][k] == "1" and o["inside"][k] == "1"
@@ -161,3 +167,16 @@ def test_crops_egypt_does_not_grow_stay_low():
     for crop, code in CODES.items():
         if eg["TA_" + code].sum() < 1000:
             assert max(v or 0 for v in s[crop][0]) < 50, crop
+
+
+def test_projections_extend_temperature_only():
+    """Rain, humidity and soil wetness break around 2015 in NASA POWER over Egypt; their trends are not extended."""
+    lats, lons, _ = {v: co.fao.monthly_cube(v) for v in ("T2M",)}["T2M"]
+    cubes = {v: co.fao.monthly_cube(v)[2] for v in co.ce.POWER_PARAMS}
+    i, j = int(np.argmin(abs(lats - CAIRO[0]))), int(np.argmin(abs(lons - CAIRO[1])))
+    prep = co.hold_moisture(co.ce._prepare(co.cell_parameters(cubes, i, j), co.BASE_YEAR, co.HORIZONS, 10))
+    held = [co.ce.FEATURES.index(f) for f in co.HELD]
+    temp = [co.ce.FEATURES.index(f) for f in ("t_mean", "t_warmest")]
+    assert np.allclose(prep["pt"][:, held], prep["pt"][0, held])               # now = 2030 = 2035
+    assert np.allclose(prep["dr"][:, :, held], prep["pt"][0, held])
+    assert not np.allclose(prep["pt"][:, temp], prep["pt"][0, temp])           # temperature still moves

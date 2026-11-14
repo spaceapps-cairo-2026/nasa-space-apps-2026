@@ -17,6 +17,7 @@ from __future__ import annotations
 import json
 import sys
 import time
+import warnings
 from functools import lru_cache
 from pathlib import Path
 
@@ -32,7 +33,7 @@ import power_point_fetch as point_src  # noqa: E402
 import power_world_fetch as world_src  # noqa: E402
 import trends as T  # noqa: E402
 
-VERSION = "0.6"
+VERSION = "0.7"
 PERIOD = f"{T.START_YEAR}-{T.END_YEAR}"
 YEARS = list(range(T.START_YEAR, T.END_YEAR + 1))
 SOURCE = "NASA POWER (MERRA-2), monthly, 0.5 x 0.625 degree grid"
@@ -49,6 +50,18 @@ RAIN_CAUTION = ("Read rain trends with care: in this NASA POWER rain record, rai
                 "places at once (across Egypt it is about 3 times higher after 2015 in most grid cells). A jump "
                 "that sudden and widespread may come from how the record is made rather than from real rain, "
                 "so check a rain trend against rain gauges before relying on it.")
+
+# Moisture records (rain, humidity, soil wetness) break around 2015 in the same places. Checked against an
+# independent record (ERA5 reanalysis, Open-Meteo archive, 16 places, Sat 14 Nov; docs/DECISIONS.md): air
+# temperature agrees everywhere (correlation 0.72 to 0.98); where NASA POWER's own rain is >= 1.5 times higher
+# after 2015, or where it hardly rains, POWER humidity and topsoil wetness move the opposite way to ERA5
+# (Asyut, Cairo, Kharga humidity +1.3 to +1.5 points per decade in POWER, -0.7 to -1.4 in ERA5). There these
+# four records are "not reliable here": the numbers are shown, never called evidence of a change.
+MOISTURE = ("PRECTOTCORR", "RH2M", "GWETTOP", "GWETROOT")
+BREAK_RATIO = 1.5            # rain 2015-2025 vs 2001-2014 at the place
+DRY_MM_DAY = 0.1             # under this mean rain the ratio means nothing (Kharga 0.001 mm a day)
+BREAK_YEAR = 2015
+LEVEL_UNRELIABLE = -2
 
 # code: (plain name, unit, decimals shown, available for regions)
 _VARS = {
@@ -170,6 +183,37 @@ def _series(annual: np.ndarray) -> list[dict]:
     return [{"t": y, "v": _num(v)} for y, v in zip(YEARS, annual)]
 
 
+def rain_break(rain_annual: np.ndarray) -> np.ndarray | bool:
+    """True where the NASA POWER rain record shows the 2015 break (or it hardly rains). rain_annual is
+    [..., year] for 2001 to 2025 in mm per day; where there is no rain record the answer is False."""
+    k = BREAK_YEAR - T.START_YEAR
+    with np.errstate(invalid="ignore", divide="ignore"), warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        pre = np.nanmean(rain_annual[..., :k], axis=-1)
+        post = np.nanmean(rain_annual[..., k:], axis=-1)
+        mean = np.nanmean(rain_annual, axis=-1)
+        out = (mean < DRY_MM_DAY) | (post >= BREAK_RATIO * pre)
+    return np.where(np.isfinite(mean), out, False)
+
+
+def _unreliable_reason(var: dict, ratio: float | None, mean: float | None) -> str:
+    if mean is not None and mean < DRY_MM_DAY:
+        why = f"it hardly ever rains here ({mean * 365:.0f} mm a year in this record)"
+    else:
+        why = f"rain in the same NASA record is {ratio:.1f} times higher from 2015 than before"
+    return (f"Not reliable here: {why}. In such places NASA's rain, humidity and soil wetness records jump around "
+            f"2015 together, which looks like a change in how the record is made: an independent climate record "
+            f"(ERA5) shows no such jump, and across Egypt it shows humidity falling, not rising. We show the "
+            f"numbers but do not call this a real change. Air temperature is not affected.")
+
+
+def _mark_unreliable(trend: dict) -> dict:
+    t = dict(trend)
+    t.update(level=LEVEL_UNRELIABLE, level_name="not reliable", significant=False, direction="not reliable",
+             change_point_year=None)
+    return t
+
+
 def _trend_block(annual: np.ndarray, s: int = T.START_YEAR, e: int = T.END_YEAR) -> dict:
     """Trend of one series over the years s to e, as JSON.
 
@@ -211,11 +255,17 @@ def sentence(var: dict, trend: dict, where: str = "here") -> str:
     unit = _UNIT_TEXT.get(var["unit"], "" if var["unit"] == _SCALE else f" {var['unit']}")
     unit_total = " on the 0 to 1 scale" if var["unit"] == _SCALE else unit
     nd = _VARS[code][2]
-    if trend["level"] < 0 or trend["slope_per_decade"] is None:
+    if trend["level"] == -1 or trend["slope_per_decade"] is None:
         if code.startswith("GWET") and trend.get("mean") in (None, 1.0):   # all missing, or the sea fill value 1
             return f"Soil wetness exists only on land. NASA has no {name} for this place (sea or ice), so there is no trend to measure."
         return f"There is not enough NASA data {where} to measure a trend in {name}."
     slope = trend["slope_per_decade"]
+    if trend["level"] == LEVEL_UNRELIABLE:
+        start, end = (int(y) for y in trend["period"].split("-"))
+        tot = trend.get("change_total")
+        tot = slope * (end - start) / 10 if tot is None else tot
+        return (f"In the NASA POWER record, {name} {where} changes by {_fmt(tot, nd)}{unit_total} from {start} to {end}, "
+                f"but this record is not reliable {where} (see the note below), so this is not evidence of a real change.")
     luck = luck_percent(trend["p"])
     start, end = (int(y) for y in trend["period"].split("-"))
     when = f"Since {start}" if end == T.END_YEAR else f"From {start} to {end}"
@@ -400,8 +450,32 @@ def point_trend(variable: str, lat: float, lon: float,
     if variable == "PRECTOTCORR" and trend["mean"] is not None and trend["mean"] < ARID_MM_DAY:
         out["caution"] = ("Rain here is close to zero, so even a confident rain trend is a very small "
                           "amount of water. " + RAIN_CAUTION)
+    if variable in MOISTURE and trend["level"] >= 0:
+        out.update(_point_reliability(var, out, lat, lon, annual))
     out["seconds"] = round(time.perf_counter() - t0, 3)
     return out
+
+
+def _point_reliability(var: dict, out: dict, lat: float, lon: float, annual: np.ndarray) -> dict:
+    """Moisture answers: is the record reliable at this place? (See MOISTURE.)"""
+    try:
+        if var["code"] == "PRECTOTCORR":
+            rain = np.asarray(annual, float)
+        else:
+            rain = np.asarray(T.annual_means(point_data("PRECTOTCORR", lat, lon)["values"]), float)
+    except (BadRequest, SourceUnavailable):
+        return {"reliability": {"reliable": None, "reason": "The rain record needed for this check is not available right now."}}
+    k = BREAK_YEAR - T.START_YEAR
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        pre, post, mean = float(np.nanmean(rain[:k])), float(np.nanmean(rain[k:])), float(np.nanmean(rain))
+    ratio = post / pre if pre > 0 else None
+    if not bool(rain_break(rain)):
+        return {"reliability": {"reliable": True, "reason": None, "rain_ratio_after_2015": _num(ratio, 2)}}
+    reason = _unreliable_reason(var, ratio, mean)
+    trend = _mark_unreliable(out["trend"])
+    return {"trend": trend, "sentence": sentence(var, trend), "caution": reason,
+            "reliability": {"reliable": False, "reason": reason, "rain_ratio_after_2015": _num(ratio, 2)}}
 
 
 def _map_block(annual: np.ndarray) -> tuple[dict, dict]:
@@ -462,19 +536,49 @@ def _region_trend(variable: str, lat_min: float, lat_max: float, lon_min: float,
         # correction, the counts and the average all cover the country only.
         place, mask = _country_mask(country, lats, lons)
         annual = np.where(mask[:, :, None], annual, np.nan)
+    withheld, share_withheld, rain_ok = 0, 0.0, True
+    annual_all = annual
+    if variable in MOISTURE:
+        # Cells whose rain record breaks in 2015 are left out BEFORE testing (see MOISTURE).
+        try:
+            rain = annual if variable == "PRECTOTCORR" else \
+                region_annual("PRECTOTCORR", lat_min, lat_max, lon_min, lon_max)["annual"]
+            land = np.isfinite(annual).any(axis=-1)
+            broken = rain_break(rain) & land
+            withheld = int(broken.sum())
+            share_withheld = withheld / max(int(land.sum()), 1)
+            annual = np.where(broken[:, :, None], np.nan, annual)
+        except (BadRequest, SourceUnavailable, RegionTooLarge):
+            rain_ok = False
     m, counts = _map_block(_cut(annual, s, e))
     if country:
         counts["cells"] = int(mask.sum())
+    if variable in MOISTURE:
+        counts["not_reliable"] = withheld
     nd = _VARS[variable][2] + 2
 
-    # Region average (cells weighted by their real area) for the chart.
-    w = np.cos(np.radians(lats))[:, None, None] * np.isfinite(annual)
+    # Region average (cells weighted by their real area) for the chart. When most cells are left out (see
+    # MOISTURE), the average of all cells is still shown, labelled not reliable.
+    src = annual_all if share_withheld > 0.5 else annual
+    w = np.cos(np.radians(lats))[:, None, None] * np.isfinite(src)
     with np.errstate(invalid="ignore", divide="ignore"):
-        mean_series = np.nansum(annual * w, axis=(0, 1)) / w.sum(axis=(0, 1))
+        mean_series = np.nansum(np.nan_to_num(src) * w, axis=(0, 1)) / w.sum(axis=(0, 1))
     mean_trend = _trend_block(mean_series, s, e)
+    if share_withheld > 0.5 and mean_trend["level"] >= 0:
+        mean_trend = _mark_unreliable(mean_trend)
 
     arid = variable == "PRECTOTCORR" and counts["with_data"] and \
         float(np.nanmean(m["mean"] < ARID_MM_DAY)) > 0.5
+    caution = ("Most of this region gets almost no rain, so rain trends here are very small "
+               "amounts of water. " + RAIN_CAUTION) if arid else RAIN_CAUTION if variable == "PRECTOTCORR" else None
+    if withheld:
+        caution = (f"{withheld} grid cells are left out of this map: there NASA's rain record jumps from 2015 (or it "
+                   f"hardly rains), and its {var['name']} moves with that break while an independent climate record "
+                   f"(ERA5) does not." + (" The cells shown have a steady rain record." if counts["with_data"] else "")
+                   + (" The average for the whole area is not reliable for the same reason." if share_withheld > 0.5 else ""))
+    elif variable in MOISTURE and not rain_ok:
+        caution = (f"The rain record needed to check {var['name']} here is not available right now, so read this map "
+                   f"with care: where NASA's rain jumps from 2015, {var['name']} moves with it.")
     return {
         "version": VERSION, "kind": "trend_region", "variable": var, "period": f"{s}-{e}",
         "start_year": s, "end_year": e,
@@ -492,10 +596,11 @@ def _region_trend(variable: str, lat_min: float, lat_max: float, lon_min: float,
         "mean_series": _series(mean_series),
         "mean_trend_line": _trend_line(mean_series, mean_trend),
         "mean_trend": mean_trend,
-        "sentence": _region_sentence(var, counts, place, s, e),
+        "sentence": (f"{var['name'].capitalize()} is not mapped in {place or 'this region'}: in all {withheld} grid cells "
+                     f"NASA's record is not reliable (see the note below)." if withheld and not counts["with_data"]
+                     else _region_sentence(var, counts, place, s, e)),
         "mean_sentence": sentence(var, mean_trend, where=f"across {place or 'this region'}"),
-        "caution": ("Most of this region gets almost no rain, so rain trends here are very small "
-                    "amounts of water. " + RAIN_CAUTION) if arid else RAIN_CAUTION if variable == "PRECTOTCORR" else None,
+        "caution": caution,
         "method": METHOD_TEXT,
         "data_from": data["from"],
     }

@@ -56,14 +56,16 @@ IFPRI_NOTICE = ("This data was provided by the International Food Policy Researc
 METHOD = ("Machine-learned crop suitability (model crop-suitability-v3.1): one XGBoost model per crop, trained on where "
           "40 crops are grown today (IFPRI MapSPAM 2020, 22,450 farmland cells worldwide), each cell described by "
           "10 climate features from six NASA POWER measurements, 2001 to 2025. On regions held out of training it "
-          "tells places that grow a crop from places that do not with AUC 0.90. Rain only also needs enough rain: scores fade to 0 below 100 mm a year (200 mm is full strength for wheat and barley, 250 mm for other crops). Future years: each feature's own "
-          "2001 to 2025 trend (Theil-Sen) continued, with a 95% range from 200 resamples of the years. Not a forecast.")
+          "tells places that grow a crop from places that do not with AUC 0.90. Rain only also needs enough rain: scores fade to 0 below 100 mm a year (200 mm is full strength for wheat and barley, 250 mm for other crops). Future years: the four temperature "
+          "features' own 2001 to 2025 trends (Theil-Sen) continued, with a 95% range from 200 resamples of the years; "
+          "rain, humidity and soil wetness are held at their 2001 to 2025 average, because their NASA records break "
+          "around 2015 over Egypt. Not a forecast.")
 SOURCE = "NASA POWER climate and a model trained on IFPRI MapSPAM 2020 crop maps"
 SCORE_NOTE = ("A score runs from 0 to 100: how typical this climate is of the places where the crop is grown today. "
               "50 means as typical of places that grow it as of places that do not. It is not a yield and not the "
               "chance of a good harvest. Irrigated assumes water can be supplied; it does not show that water exists "
-              "here. Rain only uses the NASA POWER rain record, which jumps around 2015 over Egypt, so read rain only "
-              "changes with care. Crops Egypt grows only on small areas (soybean, sunflower, chickpea, lentil) can score low "
+              "here. Rain, humidity and soil wetness are their 2001 to 2025 averages, because their NASA records break "
+              "around 2015 over Egypt; changes to 2030 and 2035 come from the measured warming only. Crops Egypt grows only on small areas (soybean, sunflower, chickpea, lentil) can score low "
               "even where they are grown. Olive and date palm are not separate crops in the crop maps and are not covered. "
               + IFPRI_NOTICE)
 
@@ -86,15 +88,33 @@ def cell_parameters(cubes: dict[str, np.ndarray], i: int, j: int) -> dict[str, d
     return out
 
 
+# Rain, humidity and soil wetness in NASA POWER break around 2015 over Egypt (rain 2 to 5 times higher after
+# 2015, humidity and topsoil wetness rising where an independent record, ERA5, has them flat or falling;
+# docs/DECISIONS.md, Sat 14 Nov). Extending their 2001 to 2025 trends would project that break into 2030 and
+# 2035, so these features are held at their 2001 to 2025 average (the same definition as the model's training
+# features). Only the four temperature features, which agree with ERA5, carry their measured trend forward.
+HELD = ("rain_annual", "rain_wettest3_share", "rh_mean", "soil_top_wetness", "soil_root_wetness", "soil_root_wetness_min")
+HELD_IDX = [ce.FEATURES.index(f) for f in HELD]
+
+
+def hold_moisture(prep: dict) -> dict:
+    """The engine's prepared cell with the moisture features held at their 2001 to 2025 average."""
+    avg = ce.clip_features(np.nanmean(prep["Fy"], axis=0)[None, :])[0]
+    pt, dr = prep["pt"].copy(), prep["dr"].copy()
+    pt[:, HELD_IDX] = avg[HELD_IDX]
+    dr[:, :, HELD_IDX] = avg[HELD_IDX]
+    return {**prep, "pt": pt, "dr": dr}
+
+
 def prepare_cells(cubes: dict[str, np.ndarray], inside: np.ndarray) -> dict[int, dict]:
     """Yearly features, trend values and bootstrap draws for every cell inside the country that has
-    all six measurements (sea cells have no soil wetness and are skipped)."""
+    all six measurements (sea cells have no soil wetness and are skipped). Moisture features held (HELD)."""
     ncols = inside.shape[1]
     preps: dict[int, dict] = {}
     for i, j in zip(*np.nonzero(inside)):
         try:
-            preps[int(i) * ncols + int(j)] = ce._prepare(cell_parameters(cubes, i, j), BASE_YEAR, HORIZONS,
-                                                         N_BOOT, BLOCK_LEN, SEED)
+            preps[int(i) * ncols + int(j)] = hold_moisture(ce._prepare(cell_parameters(cubes, i, j), BASE_YEAR,
+                                                                       HORIZONS, N_BOOT, BLOCK_LEN, SEED))
         except ValueError:
             continue
     return preps
@@ -186,7 +206,7 @@ def build() -> dict:
         "source": SOURCE,
         "score_note": SCORE_NOTE,
         "model": {"id": engine.version, "algorithm": engine.meta.get("algorithm"), "trained_utc": engine.meta.get("trained_utc")},
-        "climate_period": f"trend value for {BASE_YEAR}",
+        "climate_period": f"trend value for {BASE_YEAR}",          # temperature; rain is the 2001 to 2025 average
         "horizons": [BASE_YEAR] + [BASE_YEAR + h for h in HORIZONS],
         "suitable_threshold": SUITABLE,
         "inside": _bits(inside),
