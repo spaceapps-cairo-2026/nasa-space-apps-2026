@@ -1,0 +1,16 @@
+# Render.com Blueprint: free hosting for the API + app (no credit card, sign in with GitHub).
+# Render: New > Blueprint > pick this repository. Free instances sleep after 15 minutes without visitors
+# and take about a minute to wake up. Measured locally: about 300 MB of memory (the free limit is 512 MB).
+services:
+  - type: web
+    name: cropshift-earth
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn api.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: MOCK
+        value: "0"
+      - key: PYTHON_VERSION
+        value: "3.12.8"

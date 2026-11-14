@@ -17,6 +17,7 @@ Usage:
     python run.py crop-model run the trained crop model on the Egypt grid -> ml/outputs/farming_EGY.json (about 3 minutes); add SAU for Saudi Arabia
     python run.py farming-check   check the farming outlook file a model wrote, before the app reads it (add a path)
     python run.py package    build dist/cropshift_backend.zip for the UI merge
+    python run.py space      host on a Hugging Face Space: stage | test | deploy <user>/<space> (scripts/hf_space.py)
 """
 from __future__ import annotations
 
@@ -52,6 +53,7 @@ COMMANDS = {
     "crop-model": lambda: sh([PY, "ml/crop_outlook.py", *sys.argv[2:]]),
     "farming-check": lambda: sh([PY, "ml/check_farming.py", *sys.argv[2:]]),
     "package": lambda: sh([PY, "scripts/package_backend.py"]),
+    "space": lambda: sh([PY, "scripts/hf_space.py", *sys.argv[2:]]),
 }
 
 if __name__ == "__main__":

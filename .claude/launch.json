@@ -39,6 +39,23 @@
         "MOCK": "1"
       },
       "port": 8021
+    },
+    {
+      "name": "hf-space-staged",
+      "runtimeExecutable": "python",
+      "runtimeArgs": [
+        "-m",
+        "uvicorn",
+        "--app-dir",
+        "dist/hf_space",
+        "api.main:app",
+        "--port",
+        "7860"
+      ],
+      "env": {
+        "MOCK": "0"
+      },
+      "port": 7860
     }
   ]
 }
