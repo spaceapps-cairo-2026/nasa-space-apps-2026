@@ -1,4 +1,4 @@
-# API contract (v0.7)
+# API contract (v0.6)
 
 Owned by lane A. Lane B implements it in `api/main.py`. The app only talks to these endpoints.
 
@@ -62,7 +62,6 @@ Every trend endpoint takes optional `start_year` and `end_year`. The trend (amou
 - `sentence` is ready to show as is. `caution` (may be null) must be shown when present.
 - Every precipitation answer has a `caution`: in this NASA POWER rain record rain jumps around 2015 in many places at once (across Egypt about 3 times higher after 2015), which looks like a change in how the record is made. Never present a rain trend without it.
 - A series that never changes (soil wetness over the sea is a constant fill value of 1) is no data (`level` -1), not "not proven".
-- **Not reliable (v0.7):** rain, humidity and both soil wetness measures get `level` -2 (`level_name` "not reliable") where the place's own NASA rain record is at least 1.5 times higher in 2015 to 2025 than in 2001 to 2014, or where rain averages under 0.1 mm a day. There these records jump around 2015 together while an independent record (ERA5) does not (checked at 16 places; docs/DECISIONS.md). The numbers are still given; show the badge "Not reliable here" and the `caution`, never an evidence level. Point answers carry `reliability` {reliable, reason, rain_ratio_after_2015}; country maps leave those cells out (level -1) and count them in `summary.not_reliable`; when more than half are left out, `mean_trend` is -2 too. Air temperature is never affected.
 - **Region grid:** `grid.slope_per_decade[i][j]` belongs to the cell centered at `grid.lats[i]`, `grid.lons[j]`; the cell is `lat_step` x `lon_step` degrees. `null` = no data. Draw each cell as a rectangle.
 - The region is a **box**. If the user picked a country, send `country=<ISO>` as well (see "Country maps") and clip the drawn cells to the border.
 - `data_from`: `repo` (Egypt, in git), `world` (v0.6: the committed world grid `data/processed/world/<var>_annual.npz`; air temperature outside Egypt, no download, the same on every laptop and the same numbers as the Whole Earth layer), `cache` (fetched before), `nasa` (fetched just now).

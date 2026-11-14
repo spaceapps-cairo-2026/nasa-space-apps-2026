@@ -225,7 +225,7 @@ LIMITATIONS = [
     "Irrigated scores assume water can be supplied; they do not show that water exists. Soil chemistry, salinity and water supply are not included, and NASA's soil wetness describes the natural land, not a watered field.",
     "Rain only scores fade to 0 below 100 mm of rain a year (a documented rule, since farming on rain alone needs about 200 to 250 mm), so in Egypt only wheat and barley on the wettest north coast can reach 50 on rain alone. Near that limit the model is cautious: it may miss some real rain-fed crops. Olive and date palm are not separate crops in the crop maps and are not covered.",
     "We never claim why something changes; we say a pattern is consistent with a cause.",
-    "Rain in this NASA POWER record jumps around 2015 in many places at once (across Egypt about 3 times higher after 2015), and humidity and soil wetness move with it while an independent record (ERA5) does not. Where that happens, these measurements say 'Not reliable here' instead of an evidence level, and crop projections extend only the temperature trends.",
+    "Rain in this NASA POWER record jumps around 2015 in many places at once (across Egypt about 3 times higher after 2015). That looks like a change in how the record is made, so every rain trend carries a warning.",
 ]
 
 

@@ -39,8 +39,6 @@ Deployed v3 on Egypt: Cairo irrigated tomato 0.977, wheat 0.973, onion 0.968, 13
 
 Deployed fit, irrigated score where Egypt grows the crop (area weighted), v3 to v3.1: sweet potato 18 to 69, beans 27 to 69, sesame 33 to 70, banana 26 to 75, groundnut 49 to 68, barley 38 to 54. Major crops barely move: wheat 95 to 94, maize 79, rice 73 to 75, tomato 96 to 90. No crop that Egypt grows on less than 1,000 ha reaches 50 anywhere in Egypt. Still low: soybean (27) and sunflower (33). Egypt grows them on only 13,000 and 7,600 ha, too spread out to reach 500 ha in a cell. The app says so in its score note. Comparability: AUC, recall and the Egypt cell AUC are measured against each version's own labels. Brier, ECE, false alarms and FAOSTAT do not depend on the labels.
 
-**Projections (Sat 14 Nov).** Only the four temperature features carry their 2001 to 2025 trend to 2030 and 2035. Rain, rain seasonality, humidity and soil wetness are held at their 2001 to 2025 average, because their NASA POWER records break around 2015 over Egypt (an independent record, ERA5, does not show the jump; docs/DECISIONS.md). Future changes in the app therefore come from the measured warming only.
-
 **v2 performance (held-out, spatial cross-validation in the notebook, mean over 40 crops).**
 | Check | Result |
 |---|---|

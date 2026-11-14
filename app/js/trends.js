@@ -27,10 +27,8 @@ export function varInfo(v) {
   };
 }
 
-// -2 (contract v0.7): the NASA record itself is not reliable at this place (rain, humidity, soil wetness where the
-// rain record breaks around 2015). The numbers are shown, never called evidence.
-const LEVELS = { 2: 'strong', 1: 'moderate', 0: 'not_proven', '-2': 'unreliable' };
-const LEVEL_TEXT = { strong: 'Strong evidence', moderate: 'Moderate evidence', not_proven: 'Not proven', unreliable: 'Not reliable here' };
+const LEVELS = { 2: 'strong', 1: 'moderate', 0: 'not_proven' };
+const LEVEL_TEXT = { strong: 'Strong evidence', moderate: 'Moderate evidence', not_proven: 'Not proven' };
 const PALETTES = {
   heat: ['#2166ac', '#f2f2f2', '#b2182b'],
   water: ['#8c510a', '#f2f2f2', '#01665e'],
@@ -87,13 +85,6 @@ function oneIn(p) {
  * the badge is the same number in words (under 1% strong, under 5% moderate, otherwise not proven).
  */
 function luckHTML(p, conf) {
-  if (conf === 'unreliable') {
-    return `<div class="luck unreliable">
-      <div class="luck-top"><span class="luck-label">Is the change real?</span><span class="badge unreliable">${LEVEL_TEXT.unreliable}</span></div>
-      <p>We cannot tell from this record. Here NASA's rain, humidity and soil wetness records jump around 2015 in a way an
-      independent climate record does not show, so we do not test or judge this change. The note below explains.</p>
-    </div>`;
-  }
   const pct = luckPercent(p);
   if (pct === null) return '';
   const odds = oneIn(p);
@@ -231,13 +222,8 @@ export function worldImage(res) {
   };
 }
 
-export function legendHTML(variable, range, kind = 'region', period = null, summary = null) {
+export function legendHTML(variable, range, kind = 'region', period = null) {
   const v = varInfo(variable);
-  if (summary && summary.not_reliable && !summary.with_data) {
-    return `<div class="note">${esc(v.name)}: not mapped here. NASA's record for it is not reliable in this area (see the panel).</div>`;
-  }
-  const withheld = summary && summary.not_reliable
-    ? `<div class="note">${summary.not_reliable} cells left out: NASA's record for ${esc(v.name)} is not reliable there.</div>` : '';
   const pal = paletteFor(v.code);
   // The map is colored by rate; the scale is labeled with the total change over the chosen years.
   const r = fmt(period ? totalChange(range, period) : range).replace('+', '');
@@ -248,12 +234,12 @@ export function legendHTML(variable, range, kind = 'region', period = null, summ
   // No proven cell on this map: there is no color scale to show.
   if (!(range > 1e-8)) {
     return `<div class="note">${esc(v.name)}: no proven change on this map, so nothing is colored.</div>
-      ${kind === 'world' ? '' : '<div class="np"><i></i>Flat grey tile: not proven, could be normal year to year variation</div>'}${withheld}`;
+      ${kind === 'world' ? '' : '<div class="np"><i></i>Flat grey tile: not proven, could be normal year to year variation</div>'}`;
   }
   return `<div class="note">${esc(v.name)}: ${period ? `total change, ${period.text}` : 'change per decade'} (${esc(v.unit)})</div>
     <div class="bar" style="background:linear-gradient(90deg,${pal[0]},${pal[1]},${pal[2]})"></div>
     <div class="scale"><span>-${r}</span><span>0</span><span>+${r}</span></div>
-    ${notes}${withheld}`;
+    ${notes}`;
 }
 
 function shell(panel, inner) {
@@ -286,10 +272,8 @@ export function showTrend(panel, res, placeLabel, mockNote = null) {
     <div class="where">${esc(where)} · trend over ${per.text}</div>
     ${mockNote ? `<div class="callout warn">${esc(mockNote)}</div>` : ''}
     ${t.level === -1 ? '<div class="callout warn">No data here: too few valid years for a trend.</div>' : `${headlineHTML(total, t.slope_per_decade, v.unit, per)}
-    ${conf === 'unreliable'
-    ? `<p class="range"><strong>In this NASA record</strong> the change is ${fmt(total)} ${esc(v.unit)}, but the record is not reliable here, so this is not an estimate of the real change.</p>`
-    : `<p class="range"><strong>How big is the change?</strong> ${fmt(total)} is our best estimate${lo !== null && hi !== null ? `; the true change is most likely between
-      <strong>${fmtRange(lo, hi)[0]}</strong> and <strong>${fmtRange(lo, hi)[1]}</strong> ${esc(v.unit)}` : ''}.</p>`}
+    <p class="range"><strong>How big is the change?</strong> ${fmt(total)} is our best estimate${lo !== null && hi !== null ? `; the true change is most likely between
+      <strong>${fmtRange(lo, hi)[0]}</strong> and <strong>${fmtRange(lo, hi)[1]}</strong> ${esc(v.unit)}` : ''}.</p>
     ${luckHTML(t.p, conf)}
     ${per.span + 1 < 20 ? `<p class="note">You chose ${per.span + 1} years. Short ranges rarely prove a change: there are too few years to tell it from normal ups and downs. Try a longer range.</p>` : ''}`}
     <div class="chart" id="trend-chart"></div>
@@ -327,8 +311,7 @@ export function showRegionSummary(panel, grid, title, prefix = '') {
   shell(panel, `<h2>${esc(title)}</h2>${head}
     <p class="sentence">${esc(prefix)}${esc(grid.mean_sentence || '')}</p>
     ${grid.caution ? `<div class="callout warn">${esc(grid.caution)}</div>` : ''}
-    ${grid.summary && grid.summary.not_reliable && !grid.summary.with_data ? ''
-      : '<div class="callout info">Click a column, or any point, to see its trend.</div>'}`);
+    <div class="callout info">Click a column, or any point, to see its trend.</div>`);
 }
 
 export function showCellSummary(panel, props, variable, label, reason, period = null) {
@@ -347,7 +330,7 @@ export function showCellSummary(panel, props, variable, label, reason, period = 
 function drawChart(el, res, conf) {
   const s = res.series.filter((p) => p.v !== null);
   const line = res.trend_line || [];
-  const lineColor = conf === 'not_proven' || conf === 'unreliable' ? '#9aa3ae' : '#ffcc66';
+  const lineColor = conf === 'not_proven' ? '#9aa3ae' : '#ffcc66';
   const cp = res.trend.change_point_year;
   const per = periodOf(res.trend, res.series);
   const shapes = cp ? [{ type: 'line', x0: cp, x1: cp, yref: 'paper', y0: 0, y1: 1, line: { color: 'rgba(255,204,102,.6)', width: 1.5, dash: 'dot' } }] : [];

@@ -175,12 +175,9 @@ async function showRegion(country) {
     globe.showCells(fc, border);
     state.regionShown = country.iso;
     setRegionButton();
-    $('region-note').textContent = grid.summary.not_reliable && !grid.summary.with_data
-      ? `${v.name} is not mapped in ${country.label}: in all ${grid.summary.not_reliable} cells the NASA record is not reliable (see the panel).`
-      : `Inside ${country.label}, ${state.regionPeriod.text}: ${counts.increasing} cells rising, ${counts.decreasing} falling, `
-        + `${counts.not_proven} not proven (of ${counts.total}). Each cell is ${cellSizeText(midLat(country.bbox))}.`
-        + (grid.summary.not_reliable ? ` ${grid.summary.not_reliable} cells left out: the NASA record is not reliable there.` : '');
-    $('legend').innerHTML = legendHTML(v, range, 'region', state.regionPeriod, grid.summary);
+    $('region-note').textContent = `Inside ${country.label}, ${state.regionPeriod.text}: ${counts.increasing} cells rising, ${counts.decreasing} falling, `
+      + `${counts.not_proven} not proven (of ${counts.total}). Each cell is ${cellSizeText(midLat(country.bbox))}.`;
+    $('legend').innerHTML = legendHTML(v, range, 'region', state.regionPeriod);
     $('legend').hidden = false;
     showRegionSummary(panel, grid, `${v.name} in ${country.label}`, state.mock ? 'Sample mode: the map shows the fixed Egypt sample. ' : '');
     return counts;
