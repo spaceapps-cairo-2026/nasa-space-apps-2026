@@ -115,9 +115,27 @@ def deploy(repo_id: str) -> int:
 LFS_PATTERNS = ["*.npz", "*.parquet", "*.png", "*.jpg", "*.jpeg", "*.ico", "*.woff", "*.woff2", "*.pdf"]
 
 
+def _hf_token() -> str | None:
+    """HF_TOKEN from the environment or the gitignored .env file (never printed)."""
+    try:
+        from dotenv import load_dotenv
+        load_dotenv(ROOT / ".env")
+    except ImportError:
+        pass
+    token = os.getenv("HF_TOKEN", "").strip()
+    return token or None
+
+
 def git(*args: str, cwd: Path = STAGE) -> int:
     print(">", "git", *args)
-    return subprocess.call(["git", *args], cwd=cwd)
+    env = None
+    if args and args[0] == "push" and _hf_token():
+        # Give git the token through a one-off credential helper that reads it from the environment,
+        # so it never appears on screen, in a URL or in the saved git config.
+        env = {**os.environ, "HF_TOKEN": _hf_token()}
+        args = ("-c", "credential.helper=",
+                "-c", 'credential.helper=!f() { echo username=hf_user; echo "password=$HF_TOKEN"; }; f', *args)
+    return subprocess.call(["git", *args], cwd=cwd, env=env)
 
 
 def push(repo_id: str, sdk: str = "docker") -> int:

@@ -35,7 +35,7 @@ Add every item the moment you use it. Everything below is used by the app, the a
 - Browser: MapLibre GL JS 5.6 (globe), Plotly.js 2.35 (charts), polygon-clipping (border cutting), Leaflet 1.9 (bundled)
 
 ## Tools used to build and deploy
-- Hosting: Hugging Face Spaces, Docker SDK (free CPU container, public https link): https://huggingface.co/spaces
+- Hosting: Render (free web service, public https link): https://render.com ; the crop model is published on the Hugging Face Hub: https://huggingface.co/OmarGhost2005/cropshift-earth-crop-model
 - Docker, official `python:3.12-slim` image (`deploy/Dockerfile`): https://hub.docker.com/_/python
 - Git and Git LFS (pushing the app and its data files to the Space): https://git-lfs.com
 - GitHub (code, pull requests) and GitHub Actions (tests on every push, `.github/workflows/check.yml`): https://github.com
