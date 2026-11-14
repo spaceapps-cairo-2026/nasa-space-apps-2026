@@ -72,6 +72,10 @@ export class Globe {
       attributionControl: { compact: true },
     });
     this.map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'bottom-right');
+    // Map credits start folded into the (i) button (tap it to read them), so the long credit line never runs
+    // under the sidebar or the place panel. MapLibre itself folds them on the first drag of the map.
+    this.map.once('load', () => document.querySelectorAll('.maplibregl-ctrl-attrib.maplibregl-compact-show')
+      .forEach((el) => { el.classList.remove('maplibregl-compact-show'); el.removeAttribute('open'); }));
     this.watchCloseUpImagery();
 
     let cellClicked = false;

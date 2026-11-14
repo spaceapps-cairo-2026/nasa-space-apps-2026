@@ -336,13 +336,16 @@ function drawChart(el, res, conf) {
   const shapes = cp ? [{ type: 'line', x0: cp, x1: cp, yref: 'paper', y0: 0, y1: 1, line: { color: 'rgba(255,204,102,.6)', width: 1.5, dash: 'dot' } }] : [];
   // Chosen years highlighted when they are not the whole record.
   if (!per.whole) shapes.push({ type: 'rect', x0: per.s - 0.5, x1: per.e + 0.5, yref: 'paper', y0: 0, y1: 1, fillcolor: 'rgba(111,211,255,.10)', line: { width: 0 }, layer: 'below' });
+  const height = cp ? 236 : 222;
+  el.style.height = `${height}px`;   // the box takes the chart's real height, so nothing below is covered
   Plotly.newPlot(el, [
     { x: s.map((p) => p.t), y: s.map((p) => p.v), mode: 'lines+markers', name: 'Yearly average',
       line: { color: '#6fd3ff', width: 2 }, marker: { size: 5 }, hovertemplate: '%{x}: %{y:.2f}<extra></extra>' },
     { x: line.map((p) => p.t), y: line.map((p) => p.v), mode: 'lines', name: 'Trend',
       line: { color: lineColor, width: 2.5, dash: 'dash' }, hoverinfo: 'skip' },
   ], {
-    margin: { l: 44, r: 8, t: 6, b: 28 }, height: 220,
+    // Room above the plot for the "change starts" label (it sits just above the top edge).
+    margin: { l: 44, r: 10, t: cp ? 24 : 10, b: 28 }, height,
     paper_bgcolor: 'rgba(0,0,0,0)', plot_bgcolor: 'rgba(0,0,0,0)',
     font: { color: '#9aabc2', size: 11 },
     xaxis: { gridcolor: 'rgba(255,255,255,0.06)', zeroline: false },
@@ -351,4 +354,12 @@ function drawChart(el, res, conf) {
     annotations: cp ? [{ x: cp, yref: 'paper', y: 1, text: `change starts ${cp}`, showarrow: false, font: { size: 10, color: '#ffcc66' }, yanchor: 'bottom' }] : [],
     showlegend: false,
   }, { displayModeBar: false, responsive: true });
+  // Redraw at the new width whenever the panel changes size (window resized, phone turned, layout switched);
+  // Plotly's own option only listens to the window and missed the panel's switch between layouts.
+  if (window.ResizeObserver) {
+    let last = el.clientWidth;
+    new ResizeObserver(() => {
+      if (el.isConnected && el.clientWidth && el.clientWidth !== last) { last = el.clientWidth; Plotly.Plots.resize(el); }
+    }).observe(el);
+  }
 }
