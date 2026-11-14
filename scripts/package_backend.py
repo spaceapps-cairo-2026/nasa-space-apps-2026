@@ -17,6 +17,9 @@ FOLDERS = ["api", "ml", "contracts", "tests", "app", "data/processed", "data/cro
 DATA_SCRIPTS = ["data/power_point_fetch.py", "data/power_world_fetch.py", "data/power_fetch.py", "data/README.md"]
 DOCS = ["docs/METHODS.md", "docs/DECISIONS.md"]
 SKIP_PARTS = {"__pycache__", "outputs", "artifacts", ".pytest_cache"}
+# ml/outputs holds local caches (skipped) and the two files the app reads (always shipped: the crop model's Egypt
+# outlook for the farming tabs and the checks for "How we know"; without them the API falls back to the fixtures).
+OUTPUTS = ["ml/outputs/farming_EGY.json", "ml/outputs/validation.json"]
 
 README = """# CropShift Earth backend (trend engine + API), contract v0.5
 
@@ -70,12 +73,18 @@ Interactive API docs: http://localhost:8000/docs
 """
 
 
+# The crop model's training material and the v2 rollback stay in git; the backend runs v3 only.
+SKIP_CROP_MODEL = {"retrain", "training", "crop_suitability_v2.npz", "crop_engine_v2.py", "metrics.json"}
+
+
 def wanted(path: Path) -> bool:
+    if "crop_model" in path.parts and set(path.parts) & SKIP_CROP_MODEL:
+        return False
     return path.is_file() and not (set(path.parts) & SKIP_PARTS) and path.suffix != ".pyc"
 
 
 def main() -> None:
-    paths = [ROOT / f for f in FILES + DATA_SCRIPTS + DOCS]
+    paths = [ROOT / f for f in FILES + DATA_SCRIPTS + DOCS + OUTPUTS]
     for folder in FOLDERS:
         paths += sorted(p for p in (ROOT / folder).rglob("*") if wanted(p))
     OUT.parent.mkdir(exist_ok=True)
