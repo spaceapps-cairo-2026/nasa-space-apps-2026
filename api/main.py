@@ -160,7 +160,7 @@ def trend_world(variable: str = "T2M", stride: int = 2,
 
 # ---------- farming outlook (F2 to F4) and validation (F5): lane B additions, lane A to review ----------
 
-FARMING_COUNTRIES = {"EGY": "Egypt"}
+FARMING_COUNTRIES = {"EGY": "Egypt", "SAU": "Saudi Arabia"}   # same list as ml/crop_outlook.py COUNTRIES
 
 
 def _first_existing(*paths: Path) -> dict | None:
@@ -168,6 +168,17 @@ def _first_existing(*paths: Path) -> dict | None:
         if path.exists():
             return _load(str(path), path.stat().st_mtime)
     return None
+
+
+@app.get("/api/farming/countries")
+def farming_countries() -> dict:
+    """Focus countries that have a farming outlook, with the box to fly to (contract v0.7)."""
+    out = []
+    for iso, name in FARMING_COUNTRIES.items():
+        o = _first_existing(ROOT / "ml" / "outputs" / f"farming_{iso}.json", FIXTURES / f"farming_{iso}.json")
+        if o is not None:
+            out.append({"iso": iso, "name": name, "bbox": o["region"]["bbox"]})
+    return {"countries": out}
 
 
 @app.get("/api/farming")
@@ -178,7 +189,7 @@ def farming(country: str = "EGY") -> dict:
         raise HTTPException(status_code=404, detail="Farming analysis is available for: " + ", ".join(FARMING_COUNTRIES.values()) + ".")
     out = _first_existing(ROOT / "ml" / "outputs" / f"farming_{country}.json", FIXTURES / f"farming_{country}.json")
     if out is None:
-        raise HTTPException(status_code=404, detail="The farming outlook has not been computed yet (python ml/farming.py).")
+        raise HTTPException(status_code=404, detail=f"The farming outlook has not been computed yet (python run.py crop-model {country}).")
     return out
 
 

@@ -20,7 +20,8 @@ SKIP_PARTS = {"__pycache__", "outputs", "artifacts", ".pytest_cache"}
 # ml/outputs holds local caches (skipped) and the files the app reads (always shipped: the crop model's Egypt
 # outlook for the farming tabs, the checks for "How we know", and NASA GISTEMP station yearly means for the
 # weather station line of air temperature answers; without them the API falls back to the fixtures / no station line).
-OUTPUTS = ["ml/outputs/farming_EGY.json", "ml/outputs/validation.json", "ml/outputs/gistemp250_annual.npz"]
+OUTPUTS = ["ml/outputs/farming_EGY.json", "ml/outputs/farming_SAU.json", "ml/outputs/validation.json",
+           "ml/outputs/gistemp250_annual.npz"]
 
 README = """# CropShift Earth backend (trend engine + API), contract v0.7
 

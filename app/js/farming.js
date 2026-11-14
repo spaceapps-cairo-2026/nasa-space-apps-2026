@@ -142,7 +142,7 @@ export function cellPanelHTML(o, k, mode, placeLabel, selectedCrop) {
   const stBadge = hasStation ? ` <span class="ev ${st}">${EV_TEXT[st]}</span>` : '';
   const stProven = hasStation && (st === 'S' || st === 'M');
   const warmNote = ev !== 'N' ? ''
-    : stProven ? `<div class="callout info">NASA POWER alone does not prove the warming here, but NASA's weather station record does (${sign(stRate, 2)} °C per decade). Over Egypt POWER warms more slowly than the stations, so the changes to 2035 may be on the low side.</div>`
+    : stProven ? `<div class="callout info">NASA POWER alone does not prove the warming here, but NASA's weather station record does (${sign(stRate, 2)} °C per decade). Over ${esc((o.region && o.region.name) || 'this country')} POWER warms more slowly than the stations, so the changes to 2035 may be on the low side.</div>`
     : '<div class="callout warn">The warming trend here is not proven, so the changes to 2035 are only a possibility.</div>';
   const showHeat = hasHeat(o);
   const rows = o.crops.map((c) => {

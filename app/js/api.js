@@ -30,6 +30,7 @@ export const api = {
   cell: (lat, lon, v, years = {}) => getJSON('/api/trend/point', { lat: lat.toFixed(4), lon: lon.toFixed(4), variable: v, ...years }),
   // Lane B additions.
   farming: (country) => getJSON('/api/farming', { country }),
+  farmingCountries: () => getJSON('/api/farming/countries'),
   validation: () => getJSON('/api/validation'),
 };
 

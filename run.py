@@ -14,7 +14,7 @@ Usage:
     python run.py trends     compute the Egypt trend maps and the world overview, print a report (lane A)
     python run.py nasa-check our trends vs NASA GISTEMP stations and GPCP rain (no login, writes ml/outputs/nasa_check.json)
     python run.py crosscheck compare our numbers with NASA Giovanni files in data/raw/giovanni (docs/CROSSCHECK.md)
-    python run.py crop-model run the trained crop model on the Egypt grid -> ml/outputs/farming_EGY.json (about 3 minutes)
+    python run.py crop-model run the trained crop model on the Egypt grid -> ml/outputs/farming_EGY.json (about 3 minutes); add SAU for Saudi Arabia
     python run.py farming-check   check the farming outlook file a model wrote, before the app reads it (add a path)
     python run.py package    build dist/cropshift_backend.zip for the UI merge
 """
@@ -49,7 +49,7 @@ COMMANDS = {
     "trends": lambda: sh([PY, "ml/live.py"]),
     "crosscheck": lambda: sh([PY, "ml/crosscheck.py"]),
     "nasa-check": lambda: sh([PY, "ml/nasa_check.py"]),
-    "crop-model": lambda: sh([PY, "ml/crop_outlook.py"]),
+    "crop-model": lambda: sh([PY, "ml/crop_outlook.py", *sys.argv[2:]]),
     "farming-check": lambda: sh([PY, "ml/check_farming.py", *sys.argv[2:]]),
     "package": lambda: sh([PY, "scripts/package_backend.py"]),
 }

@@ -29,7 +29,8 @@ const state = {
   regionShown: null, // iso of the trend map on screen
   regionWanted: false, // the user asked for a trend map: draw it again when the measurement changes
   regionToken: 0, // ignore answers to outdated requests
-  farm: { outlook: null, cells: null, crop: 'wheat', mode: 'irrigated', h: 0, cropView: 'score', landView: 'count', k: null, fromList: false },
+  farm: { iso: 'EGY', countries: [{ iso: 'EGY', name: 'Egypt', bbox: EGYPT.bbox }], loaded: {},
+    outlook: null, cells: null, crop: 'wheat', mode: 'irrigated', h: 0, cropView: 'score', landView: 'count', k: null, fromList: false },
 };
 
 const panel = $('panel');
@@ -65,11 +66,14 @@ function placeName(lat, lon, fallbackCountry = null) {
   if (!state.countries || !state.places) return coordText(lat, lon);
   return describePlace(lat, lon, state.countries, state.places, fallbackCountry);
 }
-// Farming cells all belong to Egypt, even when a coastal cell's center sits over the sea.
-// A border cell whose center falls in a neighbour (Taba, Sudan) is still an Egypt cell: never name it after the neighbour.
+// The focus country the farming tabs show (Egypt, Saudi Arabia: /api/farming/countries).
+const farmCountry = () => state.farm.countries.find((c) => c.iso === state.farm.iso) || state.farm.countries[0];
+// Farming cells all belong to the focus country, even when a coastal cell's center sits over the sea.
+// A border cell whose center falls in a neighbour (Taba, Sudan) is still that country's cell: never name it after the neighbour.
 const farmPlace = (lat, lon) => {
-  const name = placeName(lat, lon, 'Egypt').replace(/^Over water, /, 'Egypt (coast), ');
-  return name.includes('Egypt') ? name : `Egypt (border), ${coordText(lat, lon)}`;
+  const country = farmCountry().name;
+  const name = placeName(lat, lon, country).replace(/^Over water, /, `${country} (coast), `);
+  return name.includes(country) ? name : `${country} (border)`;   // panels and lists add the coordinates
 };
 
 const globe = new Globe('globe', {
@@ -119,6 +123,7 @@ function select(sel) {
   if (sel.kind === 'point') globe.selectPoint(sel.lon, sel.lat);
   if (sel.kind === 'city') globe.selectCity(sel.lon, sel.lat);
   if (sel.kind === 'country') {
+    if (state.farm.countries.some((c) => c.iso === sel.iso)) setFarmCountry(sel.iso); // the farming tabs follow
     state.mapCountry = { iso: sel.iso, label: sel.label, bbox: sel.bbox };
     globe.selectCountry(sel.iso, sel.bbox);
     return showRegion(state.mapCountry);
@@ -240,22 +245,56 @@ async function loadWorld() {
 
 /* ====================== Farming tabs ====================== */
 
+function setFarmCountry(iso) {
+  const f = state.farm;
+  if (f.iso === iso) return;
+  f.iso = iso;
+  f.outlook = null;   // ensureFarm loads (or takes from memory) the new country's outlook
+  f.k = null;
+  $('farm-country').value = iso;
+}
+
 async function ensureFarm() {
   const f = state.farm;
-  if (f.outlook) return true;
-  $('farm-note').textContent = 'Loading the farming outlook for Egypt…';
+  const c = farmCountry();
+  if (f.outlook && f.outlook.region && f.outlook.region.id === c.iso) return true;
+  $('farm-note').textContent = `Loading the farming outlook for ${c.name}…`;
   try {
-    const [o, border] = await Promise.all([api.farming('EGY'), borderOf('EGY')]);
-    f.outlook = o;
-    f.cells = buildFarmCells(o, border);
-    f.border = border;
-    setupFarmControls(o);
-    $('farm-note').textContent = `${f.cells.length} grid cells of ${cellSizeText(midLat(EGYPT.bbox))} cover Egypt. Click one to see every crop.`;
+    if (!f.loaded[c.iso]) {
+      const [o, border] = await Promise.all([api.farming(c.iso), borderOf(c.iso)]);
+      f.loaded[c.iso] = { o, border, cells: buildFarmCells(o, border) };
+    }
+    if (f.iso !== c.iso) return false;   // the user picked another country meanwhile
+    const got = f.loaded[c.iso];
+    f.outlook = got.o;
+    f.cells = got.cells;
+    f.border = got.border;
+    setupFarmControls(got.o);
+    $('farm-note').textContent = `${f.cells.length} grid cells of ${cellSizeText(midLat(c.bbox))} cover ${c.name}. Click one to see every crop.`;
     return true;
   } catch (e) {
     $('farm-note').textContent = e.message;
     return false;
   }
+}
+
+/** Switch the farming tabs to another focus country: load it, fly there, redraw. */
+async function showFarmCountry(iso) {
+  setFarmCountry(iso);
+  panel.hidden = true;
+  if (!isFarmTab() || !(await ensureFarm())) return false;
+  globe.selectCountry(iso, farmCountry().bbox);
+  renderFarm();
+  return true;
+}
+
+async function loadFarmCountries() {
+  try {
+    const { countries } = await api.farmingCountries();
+    if (countries && countries.length) state.farm.countries = countries;
+  } catch { /* older server: Egypt only */ }
+  $('farm-country').innerHTML = state.farm.countries.map((c) => `<option value="${c.iso}">${c.name}</option>`).join('');
+  $('farm-country').value = state.farm.iso;
 }
 
 /**
@@ -327,7 +366,7 @@ function renderFarm() {
   $('horizon-label').textContent = fixed ? 'When (fixed for this view)' : 'When';
   if (state.tab === 'decisions' && !f.fromList) showDecisions();
   else if (f.k !== null) openFarmCell(f.k, f.fromList);
-  else showMessage(panel, state.tab === 'crops' ? `Where can ${cropName().toLowerCase()} grow?` : 'Farming potential in Egypt',
+  else showMessage(panel, state.tab === 'crops' ? `Where can ${cropName().toLowerCase()} grow?` : `Farming potential in ${farmCountry().name}`,
     `Click any cell on the map to see every crop for that place: now${o.horizons.length > 1 ? `, in ${o.horizons[o.horizons.length - 1]}` : ''}`
     + `${hasHeat(o) ? ', and how many years before the heat becomes too much' : ''}.`);
 }
@@ -376,8 +415,15 @@ function openFarmPoint(lat, lon) {
   if (!f.outlook) return;
   const { lat0, lon0, dlat, dlon, ncols } = f.outlook.grid;
   const k = Math.round((lat - lat0) / dlat) * ncols + Math.round((lon - lon0) / dlon);
-  if (f.cells.some((c) => c.k === k)) openFarmCell(k);
-  else showMessage(panel, placeName(lat, lon), 'Farming analysis is available for Egypt. Click a place inside Egypt, or use the Trends tab here.');
+  if (f.cells.some((c) => c.k === k)) return openFarmCell(k);
+  // A click in another focus country switches to it.
+  const other = state.farm.countries.find((c) => c.iso !== f.iso && lon >= c.bbox[0] && lon <= c.bbox[2] && lat >= c.bbox[1] && lat <= c.bbox[3]
+    && (describePlace(lat, lon, state.countries, state.places) || '').includes(c.name));
+  if (other) {
+    return showFarmCountry(other.iso).then((ok) => { if (ok) openFarmPoint(lat, lon); });
+  }
+  const names = state.farm.countries.map((c) => c.name).join(' and ');
+  showMessage(panel, placeName(lat, lon), `Farming analysis is available for ${names}. Click a place inside one of them, pick the country above, or use the Trends tab here.`);
 }
 
 /* ====================== How we know ====================== */
@@ -414,7 +460,7 @@ async function setTab(tab) {
   globe.hideWorld();
   state.farm.fromList = false;
   if (!(await ensureFarm())) return;
-  globe.selectCountry('EGY', EGYPT.bbox);
+  globe.selectCountry(farmCountry().iso, farmCountry().bbox);
   renderFarm();
 }
 
@@ -501,9 +547,11 @@ async function init() {
         : select({ kind: 'city', lat: r.lat, lon: r.lon, label: `${r.name}, ${r.country}`, coords: coordText(r.lat, r.lon) })),
     });
     loadWorld();
+    loadFarmCountries();
   } catch (e) {
     toast(`Could not reach the server: ${e.message}`);
   }
+  $('farm-country').onchange = (e) => { showFarmCountry(e.target.value); };
   setRegionButton();
   $('region-toggle').onclick = () => {
     if (state.regionShown === state.mapCountry.iso) return hideRegion();

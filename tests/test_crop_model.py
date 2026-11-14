@@ -203,3 +203,20 @@ def test_crops_egypt_does_not_grow_stay_low():
     for crop, code in CODES.items():
         if eg["TA_" + code].sum() < 1000:
             assert max(v or 0 for v in s[crop][0]) < 50, crop
+
+
+def test_saudi_arabia_outlook():
+    """D7: Saudi Arabia is the second focus country, built by the same code (python run.py crop-model SAU)."""
+    path = co.out_path("SAU")
+    if not path.exists():
+        pytest.skip("Saudi outlook not built in this copy")
+    o = json.loads(path.read_text(encoding="utf-8"))
+    assert o["region"]["id"] == "SAU" and o["region"]["name"] == "Saudi Arabia" and o["model"]["id"] == "crop-suitability-v3.1"
+    cells = [k for k, c in enumerate(o["inside"]) if c == "1"]
+    assert len(cells) > 500
+    farmed = [k for k in cells if o["farmland"][k] == "1"]
+    assert 40 <= len(farmed) <= 120, "MapSPAM 2020 maps about 73 farmed cells in Saudi Arabia"
+    wheat = o["suitability"]["irrigated"]["wheat"][0]
+    assert np.mean([wheat[k] >= 50 for k in farmed]) > 0.5, "irrigated wheat fits most of today's Saudi farmland"
+    dry = [k for k in cells if (o["rain_now_mm"][k] or 0) < 50]
+    assert max(o["suitability"]["rainfed"]["wheat"][0][k] or 0 for k in dry) < 50, "no rain-only wheat in the driest land"

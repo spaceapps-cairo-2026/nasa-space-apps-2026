@@ -1,6 +1,12 @@
-"""Lane A: farming outlook for Egypt from the trained crop model (tasks A5 to A8, decisions D4 to D6).
+"""Lane A: farming outlook for a focus country from the trained crop model (tasks A5 to A8, decisions D4 to D7).
 
-    python run.py crop-model        writes ml/outputs/farming_EGY.json (about 3 minutes)
+    python run.py crop-model            Egypt: writes ml/outputs/farming_EGY.json (about 3 minutes)
+    python run.py crop-model SAU        Saudi Arabia: ml/outputs/farming_SAU.json (the first run downloads its NASA
+                                        POWER grid once, no login; then a few minutes)
+
+The model needs no farm data to answer: it reads the climate of each grid cell (six NASA POWER measurements)
+and says how well that climate fits each crop. Crop maps (IFPRI MapSPAM) were used only to TRAIN it, and here only
+to say which cells are farmed today (the "Farmed today" line in the app).
 
 The model (ml/crop_model/, "crop-suitability-v3.1") is Manus's v2 model (trained with Manus in a Kaggle-style
 notebook) retrained here to remove rain-only false alarms (ml/crop_model/retrain/): one XGBoost classifier per crop, 40 crops, learned from where each crop is grown
@@ -45,6 +51,8 @@ sys.path.insert(0, str(MODEL_DIR))
 
 import crop_engine_v3 as ce  # noqa: E402  (the trained model's runtime, numpy only)
 import farming as fao        # noqa: E402  (grid, border and file helpers shared with the FAO calculator)
+import borders               # noqa: E402  (country borders, any ISO code)
+import live                  # noqa: E402  (NASA POWER grid for any box, downloaded once and kept on disk)
 import nasa_check            # noqa: E402  (NASA GISTEMP station warming per cell)
 import trends as T           # noqa: E402  (decision D1 trend engine)
 
@@ -55,6 +63,9 @@ N_BOOT, BLOCK_LEN, SEED = 200, 3, 42   # the training run's settings: keep them,
 FARMLAND_MIN_HA = 1000             # same rule as the model's training farmland
 SUITABLE = 50
 MODES = ("irrigated", "rainfed")
+# Focus countries for the farming tabs (decision D7). Egypt reads the repo's NASA table; the others are fetched
+# from NASA POWER for the box around the border (data/cache/, downloaded once). The API serves the same list.
+COUNTRIES = {"EGY": "Egypt", "SAU": "Saudi Arabia"}
 # Decision D5 update: every feature follows its trend. The moisture features (POWER rain and what responds to it)
 # have the 2015 step of the record taken out before their trend is measured.
 TEMPERATURE = ("t_mean", "t_coldest", "t_warmest", "tmax_hottest")
@@ -70,15 +81,50 @@ METHOD = ("Machine-learned crop suitability (model crop-suitability-v3.1): one X
           "Now and future years: each of the 10 climate features follows its own 2001 to 2025 trend (Theil-Sen), continued to "
           "2030 and 2035, with a 95% range from 200 resamples of the years. For rain, humidity and soil wetness the one-time "
           "2015 step of the NASA POWER record is taken out before the trend is measured (NASA's GPCP rain record does not "
-          "show it), and the trend continues from today's level. Not a forecast.")
+          "show it over Egypt and Saudi Arabia), and the trend continues from today's level. Not a forecast.")
 SOURCE = "NASA POWER climate and a model trained on IFPRI MapSPAM 2020 crop maps"
 SCORE_NOTE = ("A score runs from 0 to 100: how typical this climate is of the places where the crop is grown today. "
               "50 means as typical of places that grow it as of places that do not. It is not a yield and not the "
               "chance of a good harvest. Irrigated assumes water can be supplied; it does not show that water exists "
-              "here. The NASA POWER rain record jumps around 2015 over Egypt; that step is not carried into the future, only the "
-              "trend measured without it. Crops Egypt grows only on small areas (soybean, sunflower, chickpea, lentil) can score low "
-              "even where they are grown. Olive and date palm are not separate crops in the crop maps and are not covered. "
+              "here. The NASA POWER rain record jumps around 2015 over Egypt and Saudi Arabia; that step is not carried into the "
+              "future, only the trend measured without it. Crops grown only on small areas can score low even where they are "
+              "grown. Olive and date palm are not separate crops in the crop maps (date palm is counted under tropical fruit). "
               + IFPRI_NOTICE)
+
+
+def out_path(iso: str) -> Path:
+    return ROOT / "ml" / "outputs" / f"farming_{iso}.json"
+
+
+def country_geometry(iso: str) -> dict:
+    """Egypt: the detailed border the app draws; other countries: Natural Earth 1:50m (ml/borders.py)."""
+    if iso == "EGY":
+        return json.loads(fao.BORDER.read_text(encoding="utf-8"))["geometry"]
+    return borders.country(iso)[1]
+
+
+def _bbox(geometry: dict) -> tuple[float, float, float, float]:
+    """lat_min, lat_max, lon_min, lon_max of a Polygon or MultiPolygon, widened by one grid cell."""
+    polys = [geometry["coordinates"]] if geometry["type"] == "Polygon" else geometry["coordinates"]
+    pts = np.array([pt for poly in polys for ring in poly for pt in ring], dtype=float)
+    dlat, dlon = fao.GRID_STEP
+    return (float(pts[:, 1].min() - dlat), float(pts[:, 1].max() + dlat),
+            float(pts[:, 0].min() - dlon), float(pts[:, 0].max() + dlon))
+
+
+def country_cubes(iso: str, geometry: dict) -> tuple[np.ndarray, np.ndarray, dict[str, np.ndarray]]:
+    """lats, lons and {measurement: monthly values [lat, lon, year, 12]} for the six NASA POWER measurements."""
+    if iso == "EGY":                                  # the repo's table, so Egypt's numbers stay exactly as before
+        lats, lons, cube_t = fao.monthly_cube("T2M")
+        return lats, lons, {"T2M": cube_t} | {v: fao.monthly_cube(v)[2] for v in ce.POWER_PARAMS if v != "T2M"}
+    box = _bbox(geometry)
+    cubes, lats, lons = {}, None, None
+    for v in ce.POWER_PARAMS:
+        d = live.world_src.region_monthly(v, *box)   # downloads missing 10 x 10 degree tiles once, then from disk
+        lats, lons = np.asarray(d["lats"], float), np.asarray(d["lons"], float)
+        vals = np.asarray(d["values"], float)
+        cubes[v] = vals.reshape(*vals.shape[:2], -1, 12)[:, :, :fao.END - fao.START + 1]
+    return lats, lons, cubes
 
 
 def load_engine() -> "ce.CropSuitabilityEngine":
@@ -180,16 +226,19 @@ def _bits(mask: np.ndarray) -> str:
     return "".join("1" if v else "0" for v in mask.ravel())
 
 
-def build() -> dict:
+def build(iso: str = "EGY") -> dict:
+    if iso not in COUNTRIES:
+        raise SystemExit(f"Unknown focus country {iso}. Choose one of: {', '.join(COUNTRIES)} (add it to COUNTRIES first).")
+    country_name = COUNTRIES[iso]
     engine = load_engine()
-    lats, lons, cube_t = fao.monthly_cube("T2M")
-    cubes = {"T2M": cube_t} | {v: fao.monthly_cube(v)[2] for v in ce.POWER_PARAMS if v != "T2M"}
-    border = json.loads(fao.BORDER.read_text(encoding="utf-8"))["geometry"]
+    border = country_geometry(iso)
+    lats, lons, cubes = country_cubes(iso, border)
+    cube_t = cubes["T2M"]
     polys = [border["coordinates"]] if border["type"] == "Polygon" else border["coordinates"]
     touches = np.array([[fao.touches_country(float(la), float(lo), polys) for lo in lons] for la in lats])
 
     preps = prepare_cells(cubes, touches)
-    print(f"{len(preps)} cells inside Egypt with all six NASA measurements; scoring {engine.n_crops} crops")
+    print(f"{len(preps)} cells inside {country_name} with all six NASA measurements; scoring {engine.n_crops} crops")
     scores = score_cells(engine, preps)
     n = touches.size
     inside = np.zeros(n, dtype=bool)
@@ -215,7 +264,7 @@ def build() -> dict:
     dlat, dlon = fao.GRID_STEP
     return {
         "version": VERSION,
-        "region": {"id": "EGY", "name": "Egypt", "bbox": [float(lons[0] - dlon / 2), float(lats[0] - dlat / 2),
+        "region": {"id": iso, "name": country_name, "bbox": [float(lons[0] - dlon / 2), float(lats[0] - dlat / 2),
                                                           float(lons[-1] + dlon / 2), float(lats[-1] + dlat / 2)]},
         "grid": {"lat0": float(lats[0]), "lon0": float(lons[0]), "dlat": dlat, "dlon": dlon,
                  "nrows": len(lats), "ncols": len(lons)},
@@ -265,8 +314,10 @@ def report(o: dict) -> None:
 
 if __name__ == "__main__":
     t0 = time.time()
-    outlook = build()
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    OUT.write_text(json.dumps(outlook, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
+    iso = (sys.argv[1] if len(sys.argv) > 1 else "EGY").upper()
+    outlook = build(iso)
+    out = out_path(iso)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(outlook, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
     report(outlook)
-    print(f"wrote {OUT} ({OUT.stat().st_size / 1024:.0f} KB) in {time.time() - t0:.0f} s. Check it: python run.py farming-check")
+    print(f"wrote {out} ({out.stat().st_size / 1024:.0f} KB) in {time.time() - t0:.0f} s. Check it: python run.py farming-check {out}")

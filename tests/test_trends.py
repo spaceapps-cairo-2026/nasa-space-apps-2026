@@ -338,3 +338,13 @@ def test_station_check_for_air_temperature_only():
     assert live.point_trend("T2M", 30.04, 31.24, 2010, 2025)["station_check"]["end_year"] == 2025
     assert live.point_trend("RH2M", 30.04, 31.24)["station_check"] is None
     assert live.point_trend("T2M", 0.0, -30.0)["station_check"] is None      # mid Atlantic: no stations
+
+
+def test_farming_countries_endpoint():
+    from api.main import app
+    c = TestClient(app)
+    r = c.get("/api/farming/countries")
+    assert r.status_code == 200
+    isos = [x["iso"] for x in r.json()["countries"]]
+    assert "EGY" in isos and all(len(x["bbox"]) == 4 for x in r.json()["countries"])
+    assert c.get("/api/farming", params={"country": "FRA"}).status_code == 404
