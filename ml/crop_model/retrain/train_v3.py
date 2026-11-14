@@ -1,4 +1,4 @@
-"""Train, pack and check crop-suitability-v3 (about 1 minute on 20 CPUs). Needs xgboost + scikit-learn.
+"""Train, pack and check crop-suitability-v3.1 (about 20 s on 20 CPUs). Needs xgboost + scikit-learn.
 
     python ml/crop_model/retrain/train_v3.py
 
@@ -9,11 +9,15 @@ What changed from v2 (Manus's notebook), chosen on the fixed held-out suite in e
    50 mm rain bands where the training data shows it is a common rain-fed crop (at least 25% of rain-fed farmland).
 3. A rain gate in rain-only mode, stored in the model file and applied by crop_engine_v3.py: 0 below 100 mm,
    rising to 1 at 200 mm (wheat, barley) or 250 mm (all other crops). Irrigated scores are never changed.
+4. (v3.1) Labels: a crop is also 'present' where the cell grows >= 500 ha of it (v2: only >= 2% of the cell's
+   harvest). Egypt's Nile cells are so large that crops it grows on tens of thousands of hectares (sweet potato,
+   beans, sesame, banana, groundnut, barley) were 'absent' almost everywhere, so the model scored them near 0.
 
 Writes ml/crop_model/crop_suitability_v3.npz and ml/crop_model/metrics_v3.json.
 """
 import json
 import math
+import os
 import sys
 import time
 from pathlib import Path
@@ -21,6 +25,7 @@ from pathlib import Path
 import numpy as np
 
 HERE = Path(__file__).resolve().parent
+os.environ['CROPSHIFT_LABELS'], os.environ['CROPSHIFT_PRES_HA'] = 'area', '500'   # read by harness.py (and its workers)
 MODEL_DIR = HERE.parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(MODEL_DIR))
@@ -32,11 +37,12 @@ import pack as PK  # noqa: E402
 import xgb_strategies as XS  # noqa: E402
 
 H = E.H
-VERSION = "crop-suitability-v3"
+VERSION = "crop-suitability-v3.1"
 OUT_NPZ = MODEL_DIR / "crop_suitability_v3.npz"
 OUT_METRICS = MODEL_DIR / "metrics_v3.json"
-CHOSEN = "xgb-cx63-gate"            # results/xgb-cx63-gate.json holds its held-out numbers
-COMPARE = ["xgb-v2recipe", "xgb-gate", "xgb-cx63", "combo-d12-gate", "baseline-ET-v2recipe"]
+CHOSEN = "label-area500-xgb-cx63-gate"   # results/<CHOSEN>.json holds its held-out numbers
+COMPARE = ["xgb-cx63-gate", "label-area1000-xgb-cx63-gate", "label-area2000-xgb-cx63-gate", "xgb-v2recipe", "xgb-gate", "xgb-cx63",
+           "combo-d12-gate", "baseline-ET-v2recipe"]
 GATE = {"rule": "score x clip((rain_annual - r0) / (r1 - r0), 0, 1) in rain-only mode (irrigation share 0)",
         "default": [100.0, 250.0], "by_crop": {"wheat": [100.0, 200.0], "barley": [100.0, 200.0]},
         "why": "Rain-fed cropping needs about 200 to 250 mm of rain a year; winter wheat and barley reach about 200 mm. "
@@ -94,6 +100,7 @@ def fidelity(models, path, n=3000, seed=42):
 
 
 def main():
+    assert H.LABELS == 'area' and H.PRES_HA == 500, 'harness did not pick up the v3.1 labels'
     t0 = time.time()
     st = XS.XCombo(cx=C.CX63)                       # the gate lives in the model file, not in training
     models = E.final_models(st)
@@ -103,7 +110,8 @@ def main():
     held = json.loads((HERE / "results" / f"{CHOSEN}.json").read_text())["metrics"]
     info = PK.write_npz(models, OUT_NPZ, VERSION, "XGBoost", XS.XGB0, {
         "rainfed_rain_gate": GATE,
-        "recipe": {"counter_examples": "CXCrop(unf_rain=250, cw=3, cw_rain=250, exempt_prev=0.25)", "base": "v2 notebook"},
+        "recipe": {"counter_examples": "CXCrop(unf_rain=250, cw=3, cw_rain=250, exempt_prev=0.25)", "base": "v2 notebook",
+                   "labels": "present: >= 2% of the cell's harvest or >= 500 ha; absent: <= 0.2% and < 100 ha"},
         "held_out": {k: round(held[k], 4) for k in ("AUC", "AUC irr", "AUC rf", "TSS", "Brier", "ECE")}})
     fid = fidelity(models, OUT_NPZ)
     worst = max(v['max_abs_diff'] for v in fid.values())
@@ -113,6 +121,7 @@ def main():
     OUT_METRICS.write_text(json.dumps({
         "version": VERSION, "algorithm": "XGBoost", "params": XS.XGB0, "rainfed_rain_gate": GATE,
         "counter_examples": "cx_strategies.CXCrop(unf_rain=250, cw=3, cw_rain=250, exempt_prev=0.25)",
+        "labels": "present: >= 2% of the cell's harvest or >= 500 ha; absent: <= 0.2% and < 100 ha (v2/v3: shares only)",
         "chosen_variant": CHOSEN, "packed_model": {"file": OUT_NPZ.name, **info}, "numpy_runtime_fidelity": fid,
         "held_out_suite": "retrain/evalx.py: 5 folds of whole 10 x 10 degree blocks; Egypt scored by a model trained without Egypt",
         "comparison_held_out": comp}, indent=1))

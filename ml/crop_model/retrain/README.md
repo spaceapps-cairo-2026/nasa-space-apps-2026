@@ -1,4 +1,4 @@
-# Retraining the crop model (v2 to v3)
+# Retraining the crop model (v2 to v3 to v3.1)
 
 Why: Manus's v2 model gave rain-only false alarms. In Egypt, 13 dry Red Sea and Sinai cells (under 50 mm of rain)
 got sesame, small millets or cowpea at 50 or more on rain alone. 25 northern cells (64 to 217 mm) got 1 to 8 crops
@@ -46,10 +46,27 @@ Cost: held-out AUC falls by 0.007, and the share of real rain-fed crops found at
 On the very dry margin the model is now cautious rather than generous. The Extra Trees variant is better calibrated
 (Brier 0.127), but it has more false alarms and a lower Egypt FAOSTAT AUC.
 
+## v3.1: labels for crops grown at scale (after a user spotted sweet potato near 0)
+
+`crop_audit.py` compares every crop with Egypt's real areas (FAOSTAT and MapSPAM). v3 missed 7 crops Egypt grows on
+more than 10,000 ha, scoring them under 50 where they are grown: groundnut, beans, sesame, banana, barley, sweet potato,
+soybean. Cause: the share-only label (present = 2% of a cell's harvest) cannot see a 4,000 ha crop in a 180,000 ha
+Nile cell. `harness.area_labels` adds "or >= N ha". Set it with `CROPSHIFT_LABELS=area CROPSHIFT_PRES_HA=N`; the
+environment variables let the parallel workers use the same labels.
+
+| Rule | AUC | Brier | ECE | Worst crop | FAOSTAT | Egypt misses left |
+|---|---|---|---|---|---|---|
+| share only (v3) | 0.898 | 0.134 | 0.059 | 0.791 | 0.933 | 7 |
+| + 500 ha (**v3.1**) | **0.899** | **0.129** | **0.040** | **0.821** | 0.930 | 1 (soybean) |
+| + 1,000 ha | 0.899 | 0.131 | 0.049 | 0.809 | 0.930 | 2 |
+| + 2,000 ha | 0.898 | 0.133 | 0.055 | 0.795 | 0.933 | 4 |
+
+No false alarms with any rule: no crop Egypt grows on under 1,000 ha reaches 50 in Egypt.
+
 ## Rebuild
 
     python -m pip install xgboost        # 3.x; only for training, the app needs numpy only
-    python ml/crop_model/retrain/train_v3.py      # about 20 s on 20 CPUs: writes crop_suitability_v3.npz + metrics_v3.json
+    python ml/crop_model/retrain/train_v3.py      # about 20 s on 20 CPUs: writes crop_suitability_v3.npz (v3.1) + metrics_v3.json
     python run.py crop-model && python run.py check
 
 To rerun one experiment: `python ml/crop_model/retrain/xgb_strategies.py xgb-cx63-gate` (any name in VARIANTS).

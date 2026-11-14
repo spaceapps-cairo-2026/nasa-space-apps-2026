@@ -32,7 +32,7 @@ import power_point_fetch as point_src  # noqa: E402
 import power_world_fetch as world_src  # noqa: E402
 import trends as T  # noqa: E402
 
-VERSION = "0.5"
+VERSION = "0.6"
 PERIOD = f"{T.START_YEAR}-{T.END_YEAR}"
 YEARS = list(range(T.START_YEAR, T.END_YEAR + 1))
 SOURCE = "NASA POWER (MERRA-2), monthly, 0.5 x 0.625 degree grid"
@@ -296,6 +296,52 @@ def region_data(var: str, lat_min: float, lat_max: float, lon_min: float, lon_ma
             "from": "cache" if missing == 0 else "nasa"}
 
 
+def region_annual(var: str, lat_min: float, lat_max: float, lon_min: float, lon_max: float) -> dict:
+    """Yearly means [lat, lon, year] for a box. Outside Egypt, a measurement with a committed world grid
+    (data/processed/world/<var>_annual.npz, every cell on Earth, 2001 to 2025; air temperature today) is read from
+    it, never downloaded: any laptop maps any country (Russia included) in under a second with no internet, every
+    laptop gives the same answer, and the map matches the Whole Earth layer, which uses the same file. Egypt keeps
+    its repo table. Other measurements come from region_data (NASA, saved on disk)."""
+    src = WORLD_DIR / f"{var}_annual.npz"
+    if (src.exists() and _VARS.get(var, (None,) * 4)[3] and -90 <= lat_min < lat_max <= 90
+            and -180 <= lon_min < lon_max <= 180 and not (_in_egypt(lat_min, lat_max, lon_min, lon_max) and EGYPT_TABLE.exists())):
+        with np.load(src) as z:
+            lats, lons = z["lats"].astype(float), z["lons"].astype(float)
+            r = (lats >= lat_min) & (lats <= lat_max)
+            c = (lons >= lon_min) & (lons <= lon_max)
+            annual = z["values"][r][:, c].astype(float)
+            years = [int(y) for y in z["years"]]
+        if years != list(range(T.START_YEAR, T.END_YEAR + 1)):
+            raise SourceUnavailable(f"The saved world grid covers {years[0]} to {years[-1]}, not {T.START_YEAR} to {T.END_YEAR}.")
+        return {"lats": lats[r], "lons": lons[c], "annual": annual, "from": "world"}
+    d = region_data(var, lat_min, lat_max, lon_min, lon_max)
+    return {"lats": d["lats"], "lons": d["lons"], "annual": T.annual_means(d["values"]), "from": d["from"]}
+
+
+def _world_point(var: str, lat: float, lon: float) -> dict | None:
+    """Yearly series of the cell from the committed world grid (outside Egypt, for measurements that have one):
+    a click anywhere answers at once with no internet, the same on every laptop, and agrees with the Whole Earth
+    layer. Egypt keeps its repo table; other measurements use point_data (NASA, saved on disk)."""
+    src = WORLD_DIR / f"{var}_annual.npz"
+    if not src.exists():
+        return None
+    try:
+        cell_lat, cell_lon = point_src.snap(lat, lon)
+    except ValueError:
+        return None                                       # point_data raises the plain error
+    if _in_egypt(cell_lat, cell_lat, cell_lon, cell_lon) and EGYPT_TABLE.exists():
+        return None
+    with np.load(src) as z:
+        if [int(y) for y in z["years"]] != list(range(T.START_YEAR, T.END_YEAR + 1)):
+            return None
+        i = int(np.argmin(np.abs(z["lats"] - cell_lat)))
+        j = int(np.argmin(np.abs(z["lons"] - cell_lon)))
+        if abs(float(z["lats"][i]) - cell_lat) > 0.01 or abs(float(z["lons"][j]) - cell_lon) > 0.01:
+            return None
+        annual = z["values"][i, j].astype(float)
+    return {"lat": cell_lat, "lon": cell_lon, "annual": annual, "from": "world"}
+
+
 def point_data(var: str, lat: float, lon: float) -> dict:
     """Monthly series of the grid cell containing the point: repo, tile cache, or NASA point API."""
     try:
@@ -337,8 +383,8 @@ def point_trend(variable: str, lat: float, lon: float,
     t0 = time.perf_counter()
     var = variable_info(variable)
     s, e = window(start_year, end_year)
-    data = point_data(variable, lat, lon)
-    annual = T.annual_means(data["values"])
+    data = _world_point(variable, lat, lon) or point_data(variable, lat, lon)
+    annual = data["annual"] if "annual" in data else T.annual_means(data["values"])
     trend = _trend_block(annual, s, e)
     out = {
         "version": VERSION, "kind": "trend_point", "variable": var,
@@ -405,11 +451,11 @@ def _country_mask(iso: str, lats: np.ndarray, lons: np.ndarray) -> tuple[str, np
 def _region_trend(variable: str, lat_min: float, lat_max: float, lon_min: float, lon_max: float,
                   country: str | None = None, s: int = T.START_YEAR, e: int = T.END_YEAR) -> dict:
     var = variable_info(variable)
-    data = region_data(variable, lat_min, lat_max, lon_min, lon_max)
+    data = region_annual(variable, lat_min, lat_max, lon_min, lon_max)
     lats, lons = data["lats"], data["lons"]
     if len(lats) == 0 or len(lons) == 0:
         raise BadRequest("The selected area is smaller than one grid cell. Make it at least 0.5 x 0.625 degrees.")
-    annual = T.annual_means(data["values"])
+    annual = data["annual"]
     place = None
     if country:
         # Cells outside the country become "no data" BEFORE testing, so the false discovery
@@ -455,6 +501,15 @@ def _region_trend(variable: str, lat_min: float, lat_max: float, lon_min: float,
     }
 
 
+def _at_least_one_cell(lo: float, hi: float, step: float, floor: float, ceil: float) -> tuple[float, float]:
+    """A valid box narrower than one grid cell (a small country such as Luxembourg) is widened around its
+    centre to just over one cell, so it always holds a cell centre. Invalid boxes are left for the checks."""
+    if not lo < hi or hi - lo >= step:
+        return lo, hi
+    mid, half = (lo + hi) / 2, step * 0.501
+    return max(floor, mid - half), min(ceil, mid + half)
+
+
 def region_trend(variable: str, lat_min: float, lat_max: float, lon_min: float, lon_max: float,
                  country: str | None = None, start_year: int | None = None, end_year: int | None = None) -> dict:
     """Trend map for every grid cell inside a box, as a compact grid (rows = lats, columns = lons).
@@ -465,7 +520,9 @@ def region_trend(variable: str, lat_min: float, lat_max: float, lon_min: float, 
     t0 = time.perf_counter()
     s, e = window(start_year, end_year)
     iso = country.strip().upper() if country and country.strip() else None
-    out = dict(_region_trend(variable, float(lat_min), float(lat_max), float(lon_min), float(lon_max), iso, s, e))
+    lat_min, lat_max = _at_least_one_cell(float(lat_min), float(lat_max), world_src.LAT_STEP, -90.0, 90.0)
+    lon_min, lon_max = _at_least_one_cell(float(lon_min), float(lon_max), world_src.LON_STEP, -180.0, 180.0)
+    out = dict(_region_trend(variable, lat_min, lat_max, lon_min, lon_max, iso, s, e))
     out["seconds"] = round(time.perf_counter() - t0, 3)
     return out
 

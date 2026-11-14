@@ -2,7 +2,7 @@
 
     python run.py crop-model        writes ml/outputs/farming_EGY.json (about 3 minutes)
 
-The model (ml/crop_model/, "crop-suitability-v3") is Manus's v2 model (trained with Manus in a Kaggle-style
+The model (ml/crop_model/, "crop-suitability-v3.1") is Manus's v2 model (trained with Manus in a Kaggle-style
 notebook) retrained here to remove rain-only false alarms (ml/crop_model/retrain/): one XGBoost classifier per crop, 40 crops, learned from where each crop is grown
 today (IFPRI MapSPAM 2020, 22,450 farmland cells worldwide) described by 10 climate features computed
 from six NASA POWER measurements (T2M, T2M_MAX, PRECTOTCORR, RH2M, GWETTOP, GWETROOT). It runs here
@@ -53,7 +53,7 @@ MODES = ("irrigated", "rainfed")
 EVIDENCE = {2: "S", 1: "M", 0: "N", -1: "-"}
 IFPRI_NOTICE = ("This data was provided by the International Food Policy Research Institute (IFPRI). IFPRI bears no "
                 "responsibility for the analyses or interpretations of the data presented here.")
-METHOD = ("Machine-learned crop suitability (model crop-suitability-v3): one XGBoost model per crop, trained on where "
+METHOD = ("Machine-learned crop suitability (model crop-suitability-v3.1): one XGBoost model per crop, trained on where "
           "40 crops are grown today (IFPRI MapSPAM 2020, 22,450 farmland cells worldwide), each cell described by "
           "10 climate features from six NASA POWER measurements, 2001 to 2025. On regions held out of training it "
           "tells places that grow a crop from places that do not with AUC 0.90. Rain only also needs enough rain: scores fade to 0 below 100 mm a year (200 mm is full strength for wheat and barley, 250 mm for other crops). Future years: each feature's own "
@@ -63,7 +63,8 @@ SCORE_NOTE = ("A score runs from 0 to 100: how typical this climate is of the pl
               "50 means as typical of places that grow it as of places that do not. It is not a yield and not the "
               "chance of a good harvest. Irrigated assumes water can be supplied; it does not show that water exists "
               "here. Rain only uses the NASA POWER rain record, which jumps around 2015 over Egypt, so read rain only "
-              "changes with care. Olive and date palm are not separate crops in the crop maps and are not covered. "
+              "changes with care. Crops Egypt grows only on small areas (soybean, sunflower, chickpea, lentil) can score low "
+              "even where they are grown. Olive and date palm are not separate crops in the crop maps and are not covered. "
               + IFPRI_NOTICE)
 
 

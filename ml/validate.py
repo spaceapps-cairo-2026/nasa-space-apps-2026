@@ -204,7 +204,7 @@ def held_out_skill(f: dict) -> tuple[float, float, str, float | None]:
     """AUC on held-out regions, Egypt FAOSTAT AUC (model trained without Egypt) and, for v3, the dry band check."""
     d = ROOT / "ml" / "crop_model"
     model_id = (f.get("model") or {}).get("id", "")
-    if model_id == "crop-suitability-v3":
+    if model_id.startswith("crop-suitability-v3"):
         m = json.loads((d / "metrics_v3.json").read_text(encoding="utf-8"))
         h = m["comparison_held_out"][m["chosen_variant"]]
         return h["AUC"], h["EG FAO AUC"], "", h["crops/cell unf100-250"]

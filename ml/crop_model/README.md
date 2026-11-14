@@ -1,9 +1,10 @@
-# The crop model (crop-suitability-v3)
+# The crop model (crop-suitability-v3.1)
 
 This folder holds the trained crops and farmland model and everything needed to rebuild it.
 v2 was trained with Manus (an AI agent) in a Kaggle style notebook, outside this repo, and brought in on
-Sat 14 Nov 2026. v3 (the one the app uses) is v2 retrained here, same algorithm and settings, to remove
-rain-only false alarms: see `retrain/README.md`. Lane A owns it.
+Sat 14 Nov 2026. v3.1 (the one the app uses) is v2 retrained here, same algorithm and settings, to remove
+rain-only false alarms (v3) and to stop missing crops Egypt grows on small shares of big cells (v3.1, labels):
+see `retrain/README.md`. Lane A owns it.
 
 **In one sentence:** for any place, the model says how well the climate fits each of 40 crops
 (0 to 1), with irrigation or on rain only, today and in 5 and 10 years if current trends continue.
@@ -14,7 +15,7 @@ Model card (what it is, how good it is, what it gets wrong): `ml/model_card.md`.
 
 | File | What it is |
 |---|---|
-| `crop_suitability_v3.npz` | **The model the app uses**: 40 XGBoost classifiers, 8,000 trees, plus the rain-only rain gate in its meta. 5.5 MB |
+| `crop_suitability_v3.npz` | **The model the app uses** (version id crop-suitability-v3.1): 40 XGBoost classifiers, 8,000 trees, plus the rain-only rain gate in its meta. 5.5 MB |
 | `crop_engine_v3.py` | Its runtime (numpy only): the v2 runtime plus the rain gate. Written for v3, do not edit by hand |
 | `metrics_v3.json` | v3's held-out numbers next to v2's and the other candidates, runtime fidelity |
 | `retrain/` | How v3 was chosen and built: fixed held-out suite, 170+ experiments, `train_v3.py` |
@@ -63,11 +64,14 @@ rep["modes"]["rainfed"]["viability"]["n_suitable_now"]    # crops that fit on ra
 - The Kaggle dataset card was checked against the table: 31,333 rows, 157 columns, 46 crops,
   177 countries, 53 S to 70 N, 22,450 farmland cells, 116 of them in Egypt. All correct.
 
-## Tests done when v3 replaced v2 (Sat 14 Nov)
+## Tests done when v3.1 replaced v2 (Sat 14 Nov)
 
 - The numpy runtime reproduces the XGBoost models to 3e-7 on 3,000 world cells and Egypt's farmland, both modes.
-- Cairo, irrigated: tomato 0.977, wheat 0.973, onion 0.968; 13 of 40 crops fit. Rain only: 0 of 40.
+- Cairo, irrigated: wheat 0.972, vegetables 0.942, onion 0.940; 19 of 40 crops fit (v3: 13; the gain is crops
+  Egypt really grows there, such as groundnut, beans and sweet potato). Rain only: 0 of 40.
 - Egypt, rain only: no crop scores 50 or more where rain is under 100 mm; above that, only wheat and barley.
+- Every crop Egypt grows on 15,000 ha or more scores 50+ where it is grown; no crop Egypt grows on under 1,000 ha
+  reaches 50 anywhere in Egypt (`crop_audit.py`, and two tests).
 - `tests/test_crop_model.py` keeps checking, on every `python run.py check`, that the model loads, that
   Cairo still gives these numbers, that the rain gate touches only rain-only scores, that Egypt has no rain-only
   false alarms, and that the app's file holds the engine's scores.

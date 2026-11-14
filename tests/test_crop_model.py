@@ -38,7 +38,7 @@ def cairo_report(engine, cubes) -> dict:
 
 
 def test_model_file_loads(engine):
-    assert engine.version == "crop-suitability-v3"
+    assert engine.version == "crop-suitability-v3.1"
     assert engine.n_crops == 40 and set(engine.modes) == {"irrigated", "rainfed"}
     assert {"wheat", "rice", "maize", "sugarcane", "citrus", "tomato"} <= set(engine.crops)
 
@@ -46,8 +46,8 @@ def test_model_file_loads(engine):
 def test_cairo_matches_the_deployed_model(cairo_report):
     irrigated = cairo_report["modes"]["irrigated"]
     top = [(r["crop"], r["suitability"]) for r in irrigated["ranking"]["now"][:3]]
-    assert top == [("tomato", 0.977), ("wheat", 0.973), ("onion", 0.968)]
-    assert irrigated["viability"]["n_suitable_now"] == 13
+    assert top == [("wheat", 0.972), ("vegetables", 0.942), ("onion", 0.94)]
+    assert irrigated["viability"]["n_suitable_now"] == 19
     assert cairo_report["modes"]["rainfed"]["viability"]["n_suitable_now"] == 0
     assert cairo_report["period"] == {"start": 2001, "end": 2025, "base_year": 2025, "horizons": [5, 10]}
 
@@ -74,7 +74,7 @@ def test_app_file_is_the_models_answer(cairo_report):
     o = json.loads(co.OUT.read_text(encoding="utf-8"))
     g = o["grid"]
     k = round((CAIRO[0] - g["lat0"]) / g["dlat"]) * g["ncols"] + round((CAIRO[1] - g["lon0"]) / g["dlon"])
-    assert o["horizons"] == [2025, 2030, 2035] and o["model"]["id"] == "crop-suitability-v3"
+    assert o["horizons"] == [2025, 2030, 2035] and o["model"]["id"] == "crop-suitability-v3.1"
     for mode in co.MODES:
         for name, crop in cairo_report["modes"][mode]["crops"].items():
             grids = o["suitability"][mode][co.crop_id(name)]
@@ -119,3 +119,43 @@ def test_no_rain_only_false_alarms_in_egypt():
             assert not fits, (k, rain, fits)
         else:
             assert set(fits) <= {"wheat", "barley"}, (k, rain, fits)
+
+
+def _egypt_areas() -> tuple[dict, "object"]:
+    import pandas as pd
+    t = pd.read_parquet(co.TRAINING_TABLE)
+    return json.loads(co.OUT.read_text(encoding="utf-8")), t[(t.country == "Egypt") & (t.TA_total >= co.FARMLAND_MIN_HA)]
+
+
+def _cell(o: dict, lat: float, lon: float) -> int:
+    g = o["grid"]
+    return round((lat - g["lat0"]) / g["dlat"]) * g["ncols"] + round((lon - g["lon0"]) / g["dlon"])
+
+
+CODES = {"wheat": "whea", "maize": "maiz", "rice": "rice", "vegetables": "vege", "potato": "pota", "citrus": "citr",
+         "sugar_beet": "sugb", "tomato": "toma", "sugarcane": "sugc", "sorghum": "sorg", "onion": "onio", "cotton": "cott",
+         "groundnut": "grou", "beans": "bean", "sesame": "sesa", "banana": "bana", "barley": "barl", "sweet_potato": "swpo",
+         "tropical_fruit": "trof", "temperate_fruit": "temf", "cassava": "cass", "cocoa": "coco", "rubber": "rubb",
+         "oil_palm": "oilp", "tea": "teas", "yams": "yams", "coconut": "cnut", "robusta_coffee": "rcof"}
+
+
+def test_crops_egypt_grows_score_where_they_are_grown():
+    """v3.1: every crop Egypt grows on 15,000 ha or more (MapSPAM 2020) scores 50+ where it is grown, irrigated, now
+    (area weighted). v3 failed this for sweet potato (18), beans, sesame, banana, barley and groundnut."""
+    o, eg = _egypt_areas()
+    s = o["suitability"]["irrigated"]
+    for crop, code in CODES.items():
+        area = eg["TA_" + code]
+        if area.sum() < 15000:
+            continue
+        pairs = [(s[crop][0][_cell(o, a, b)], w) for a, b, w in zip(eg.lat, eg.lon, area) if w > 0 and o["inside"][_cell(o, a, b)] == "1"]
+        score = sum(v * w for v, w in pairs) / sum(w for _, w in pairs)
+        assert score >= 50, (crop, round(score), round(area.sum()))
+
+
+def test_crops_egypt_does_not_grow_stay_low():
+    o, eg = _egypt_areas()
+    s = o["suitability"]["irrigated"]
+    for crop, code in CODES.items():
+        if eg["TA_" + code].sum() < 1000:
+            assert max(v or 0 for v in s[crop][0]) < 50, crop

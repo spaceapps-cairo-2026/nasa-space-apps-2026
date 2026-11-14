@@ -48,7 +48,7 @@ def test_farming_matches_known_geography(client):
     assert irr["sugarcane"][0][aswan] >= 50                               # Upper Egypt is where sugarcane is grown
     assert all((rain[c["id"]][0][aswan] or 0) < 50 for c in f["crops"])   # nothing grows on rain alone in Aswan
     # The file comes from the model in ml/crop_model/, not from the FAO stand-in.
-    assert f.get("model", {}).get("id") == "crop-suitability-v3" and len(f["crops"]) == 40
+    assert f.get("model", {}).get("id") == "crop-suitability-v3.1" and len(f["crops"]) == 40
 
 
 def test_validation(client):

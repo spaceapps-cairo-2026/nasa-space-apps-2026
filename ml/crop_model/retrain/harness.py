@@ -50,7 +50,21 @@ def share_labels(tab, prefix='TA_', pres=CFG['present_share'], absn=CFG['absent_
     return pd.DataFrame(out, index=tab.index)
 
 
-LAB = share_labels(farm)
+def area_labels(tab, pres=CFG['present_share'], absn=CFG['absent_share'], pres_ha=1000.0, abs_ha=200.0):
+    """Present also when the crop is grown at scale (>= pres_ha in the cell) though under 2% of a big cell's harvest;
+    absent only when <= 0.2% AND < abs_ha. Set CROPSHIFT_LABELS=area (read here, so parallel workers agree)."""
+    out = {}
+    tot = np.maximum(tab['TA_total'].to_numpy(float), 1.0)
+    for code, name in CROP_NAMES.items():
+        a = tab['TA_' + code].to_numpy(float)
+        s = a / tot
+        out[name] = np.where((s >= pres) | (a >= pres_ha), 1.0, np.where((s <= absn) & (a < abs_ha), 0.0, np.nan))
+    return pd.DataFrame(out, index=tab.index)
+
+
+LABELS = os.environ.get("CROPSHIFT_LABELS", "share")
+PRES_HA = float(os.environ.get("CROPSHIFT_PRES_HA", 1000))
+LAB = area_labels(farm, pres_ha=PRES_HA, abs_ha=min(200.0, PRES_HA / 5)) if LABELS == "area" else share_labels(farm)
 X_ALL = farm[COLS].to_numpy(float)
 GROUPS = (np.floor((farm.lat + 90) / CFG['block_deg']) * 1000 + np.floor((farm.lon + 180) / CFG['block_deg'])).astype(int).to_numpy()
 FOLDS = list(GroupKFold(n_splits=CFG['n_folds']).split(X_ALL, groups=GROUPS))

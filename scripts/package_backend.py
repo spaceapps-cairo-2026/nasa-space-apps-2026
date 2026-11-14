@@ -21,7 +21,7 @@ SKIP_PARTS = {"__pycache__", "outputs", "artifacts", ".pytest_cache"}
 # outlook for the farming tabs and the checks for "How we know"; without them the API falls back to the fixtures).
 OUTPUTS = ["ml/outputs/farming_EGY.json", "ml/outputs/validation.json"]
 
-README = """# CropShift Earth backend (trend engine + API), contract v0.5
+README = """# CropShift Earth backend (trend engine + API), contract v0.6
 
 This folder runs on its own. It answers: how much is a NASA measurement changing at a place,
 and how confident are we that the change is real and not normal year to year variation.

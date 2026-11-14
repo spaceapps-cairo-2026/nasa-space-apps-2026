@@ -303,3 +303,26 @@ def test_api_year_range(monkeypatch):
     assert r.status_code == 200 and r.json()["period"] == "2005-2025"
     assert c.get("/api/trend/point?lat=30&lon=31&start_year=2021").status_code == 400
     os.environ["MOCK"] = "1"
+
+
+def test_box_smaller_than_one_cell_still_answers():
+    """A small country (Luxembourg's box is 0.6 x 0.6 degrees) used to fail with 'smaller than one grid cell'.
+    A valid box narrower than a cell is widened around its centre; an inverted box is still refused."""
+    r = live.region_trend("T2M", 30.0, 30.1, 31.0, 31.1)          # inside Egypt, far below one cell
+    assert r["summary"]["with_data"] >= 1 and len(r["grid"]["lats"]) >= 1 and len(r["grid"]["lons"]) >= 1
+    with pytest.raises(live.BadRequest):
+        live.region_trend("T2M", 30.1, 30.0, 31.0, 31.1)
+
+
+def test_air_temperature_anywhere_needs_no_download():
+    """v0.6: outside Egypt, air temperature comes from the committed world grid. Russia (68 NASA blocks, refused
+    before on a laptop without the 131 MB cache) answers in about a second with no internet, and a point far from
+    Egypt too. Egypt keeps its repo table."""
+    rus = live.region_trend("T2M", 41.19, 81.25, -180.0, 180.0, country="RUS")
+    assert rus["data_from"] == "world" and rus["summary"]["with_data"] > 9000
+    pt = live.point_trend("T2M", 40.7, -74.0)
+    assert pt["data_from"] == "world" and len(pt["series"]) == 25
+    assert live.point_trend("T2M", 30.04, 31.24)["data_from"] == "repo"
+    schema = json.loads((ROOT / "contracts" / "trend.schema.json").read_text(encoding="utf-8"))
+    for answer in (rus, pt):
+        jsonschema.validate(answer, schema)

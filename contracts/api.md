@@ -1,4 +1,4 @@
-# API contract (v0.5)
+# API contract (v0.6)
 
 Owned by lane A. Lane B implements it in `api/main.py`. The app only talks to these endpoints.
 
@@ -64,7 +64,7 @@ Every trend endpoint takes optional `start_year` and `end_year`. The trend (amou
 - A series that never changes (soil wetness over the sea is a constant fill value of 1) is no data (`level` -1), not "not proven".
 - **Region grid:** `grid.slope_per_decade[i][j]` belongs to the cell centered at `grid.lats[i]`, `grid.lons[j]`; the cell is `lat_step` x `lon_step` degrees. `null` = no data. Draw each cell as a rectangle.
 - The region is a **box**. If the user picked a country, send `country=<ISO>` as well (see "Country maps") and clip the drawn cells to the border.
-- `data_from`: `repo` (Egypt, in git), `cache` (fetched before), `nasa` (fetched just now).
+- `data_from`: `repo` (Egypt, in git), `world` (v0.6: the committed world grid `data/processed/world/<var>_annual.npz`; air temperature outside Egypt, no download, the same on every laptop and the same numbers as the Whole Earth layer), `cache` (fetched before), `nasa` (fetched just now).
 
 ## Country maps (`country=`, new in v0.4)
 

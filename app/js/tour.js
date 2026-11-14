@@ -37,9 +37,9 @@ export function createTour(ctx) {
     },
     {
       run: async () => ctx.selectCountry('SDN'),
-      text: (c) => (c && c.decreasing ? `Any country, live from NASA. Sudan: ${c.decreasing} places proven cooling in the south, ${c.increasing} proven warming in the north. One country, opposite trends.`
-        : c ? `Any country, live from NASA. Sudan: ${c.increasing} places warming, ${c.decreasing} cooling.`
-        : 'Any country, live from NASA: the same test, everywhere on Earth.'),
+      text: (c) => (c && c.decreasing ? `Any country on Earth, from NASA data. Sudan: ${c.decreasing} places proven cooling in the south, ${c.increasing} proven warming in the north. One country, opposite trends.`
+        : c ? `Any country on Earth, from NASA data. Sudan: ${c.increasing} places warming, ${c.decreasing} cooling.`
+        : 'Any country on Earth, from NASA data: the same test, everywhere on Earth.'),
       dwell: 7000,
     },
     {

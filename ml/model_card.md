@@ -1,6 +1,6 @@
-# Model card: CropShift Earth crop-suitability model (crop-suitability-v3)
+# Model card: CropShift Earth crop-suitability model (crop-suitability-v3.1)
 
-**Versions.** v2 was trained with Manus in a Kaggle-style notebook. v3, the one the app uses, is v2 retrained in this repo (`ml/crop_model/retrain/`) with the same algorithm, settings and data, to remove rain-only false alarms. Sections below describe v2's design. The v3 changes and their numbers are in the v3 section.
+**Versions.** v2 was trained with Manus in a Kaggle-style notebook. v3.1, the one the app uses, is v2 retrained in this repo (`ml/crop_model/retrain/`) with the same algorithm, settings and data, to remove rain-only false alarms. Sections below describe v2's design. The v3 changes and their numbers are in the v3 section.
 
 **Task.** For any place on land, estimate for each of 40 crops how typical the local climate is of places where that crop is grown today. The output is a suitability value from 0 to 1, in irrigated mode (water supplied) or rain-fed mode. It is applied to NASA POWER for now, +5 and +10 years if current trends continue.
 
@@ -26,6 +26,18 @@
 | Leave-Egypt-out: rain-only crops per Egyptian farmland cell, < 100 mm / >= 100 mm | 0.37 / 3.73 | 0 / 0.36 |
 
 Deployed v3 on Egypt: Cairo irrigated tomato 0.977, wheat 0.973, onion 0.968, 13 of 40 crops fit. Rain only, no crop reaches 50 below 100 mm. Above 100 mm only barley does, on the north-west coast and in North Sinai, where Egypt grows it on rain. The price is caution at the dry margin: about a fifth of the real rain-fed crops found at 150 to 300 mm by v2 now score under 50.
+
+**v3.1 change: labels for crops grown at scale in big cells.** v2 and v3 counted a crop as grown only where it covered at least 2% of a cell's harvested area. Egypt's Nile cells are huge (up to 340,000 ha), so crops Egypt grows on tens of thousands of hectares were labelled "not grown" in almost every Egyptian cell. Sweet potato, for example, has 16,600 ha in MapSPAM and was "not grown" in 110 of 116 farmed cells. Worldwide its "grown" cells are humid tropics (median 1,290 mm of rain), so the model scored it near 0 in the Delta, where Egypt grows it. v3.1 also counts a crop as grown where the cell has at least 500 ha of it ("absent" now needs <= 0.2% and < 100 ha). 500 ha was chosen over 1,000 and 2,000 ha on the held-out suite.
+
+| Check, held-out | v3 | v3.1 |
+|---|---|---|
+| AUC all / irrigated / rain-fed farmland (each against its own labels) | 0.898 / 0.824 / 0.876 | 0.899 / 0.847 / 0.880 |
+| TSS / Brier / ECE | 0.632 / 0.134 / 0.059 | 0.637 / 0.129 / 0.040 |
+| Worst crop AUC | 0.791 | 0.821 (tropical fruit) |
+| Rain only, crops per place: deserts / irrigated 100-250 mm / unfarmed 100-250 mm | 0 / 0.52 / 0.67 | 0 / 0.50 / 0.63 |
+| Leave-Egypt-out FAOSTAT AUC (label independent) | 0.933 | 0.930 |
+
+Deployed fit, irrigated score where Egypt grows the crop (area weighted), v3 to v3.1: sweet potato 18 to 69, beans 27 to 69, sesame 33 to 70, banana 26 to 75, groundnut 49 to 68, barley 38 to 54. Major crops barely move: wheat 95 to 94, maize 79, rice 73 to 75, tomato 96 to 90. No crop that Egypt grows on less than 1,000 ha reaches 50 anywhere in Egypt. Still low: soybean (27) and sunflower (33). Egypt grows them on only 13,000 and 7,600 ha, too spread out to reach 500 ha in a cell. The app says so in its score note. Comparability: AUC, recall and the Egypt cell AUC are measured against each version's own labels. Brier, ECE, false alarms and FAOSTAT do not depend on the labels.
 
 **v2 performance (held-out, spatial cross-validation in the notebook, mean over 40 crops).**
 | Check | Result |

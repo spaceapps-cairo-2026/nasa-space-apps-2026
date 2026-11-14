@@ -93,7 +93,7 @@
     {
      "check": "Sugarcane fits irrigated Aswan, where Egypt grows it",
      "passed": true,
-     "detail": "score 88"
+     "detail": "score 85"
     },
     {
      "check": "Cocoa, oil palm and rubber (humid tropics) do not fit Aswan even with irrigation",
@@ -103,7 +103,7 @@
     {
      "check": "In Egypt's 247 dry cells (under 50 mm of rain a year), rain alone fits almost no crop",
      "passed": true,
-     "detail": "0.00 crops on rain only, 10.9 with irrigation, of 40"
+     "detail": "0.00 crops on rain only, 11.1 with irrigation, of 40"
     },
     {
      "check": "In Egypt's 75 wetter cells (50 mm of rain or more), rain alone fits almost nothing but wheat and barley",
@@ -113,7 +113,7 @@
     {
      "check": "On dry land kept out of training (100 to 250 mm of rain, not farmed), rain alone fits almost no crop",
      "passed": true,
-     "detail": "0.67 of 40 crops per place score 50 or more on rain only"
+     "detail": "0.63 of 40 crops per place score 50 or more on rain only"
     }
    ]
   }
