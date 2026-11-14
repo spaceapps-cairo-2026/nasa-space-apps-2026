@@ -1,0 +1,7 @@
+Problem: Climate data is everywhere, but people cannot tell a real change from a few unusual years, and a trend alone does not tell a farmer what to plant. The Middle East and North Africa is the most water-scarce region in the world, and about 1 in 6 Egyptian workers farms.
+
+Solution: CropShift Earth is a 3D globe built on 25 years of NASA POWER data (2001 to 2025). Pick a measurement (temperature, rain, humidity, soil wetness) and any place or country to see how fast it changes, where, since when, and how strong the evidence is ("strong", "moderate" or "not proven"). For 20 countries it turns those trends into farming answers: which of 40 crops fit each place today, in 2030 and in 2035 if current trends continue, irrigated or rain-fed.
+
+Impact: Farmers, investors and planners see where farming potential is rising or falling, with its evidence, in time to adapt. Every number is checked against NASA's own weather stations and satellite rain record.
+
+Challenge fit: It answers each question of "Be An Earth System Trend Detective!": what is changing, where, how much, whether it is significant, and the twist of opposite trends in one country (Sudan: cooling south, warming north).

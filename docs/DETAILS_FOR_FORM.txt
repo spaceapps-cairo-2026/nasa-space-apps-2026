@@ -1,0 +1,40 @@
+Links
+Live app: https://cropshift-earth.onrender.com (free hosting: if it has been idle, the first load takes about a minute)
+Code: https://github.com/spaceapps-cairo-2026/nasa-space-apps-2026
+Trained crop model and model card: https://huggingface.co/OmarGhost2005/cropshift-earth-crop-model
+API documentation: https://cropshift-earth.onrender.com/docs
+
+What it does
+CropShift Earth is a 3D globe that answers the challenge's questions for any place on Earth. Pick one of six NASA POWER measurements (air temperature, maximum temperature, rain, humidity, surface and root zone soil wetness), then click a place or search a country:
+- What is changing and how much: the rate of change per decade in real units, with a 95% range.
+- Where: a map of every 55 km grid cell, colored where the change is proven, see-through where it is not. The whole Earth can be colored at once.
+- Is it significant: an evidence level ("strong", "moderate" or "not proven") and "Could this be luck?" as a percentage, corrected for testing thousands of places at once.
+- Since when: the year the change started, when there is a clear start.
+- Opposite trends from one process: in Sudan, air temperature is proven to be falling in 238 places in the south and rising in 26 places in the north (2001 to 2025).
+For 20 countries of the Middle East and North Africa, three tabs turn the trends into farming answers: which of 40 crops fit each place today, in 2030 and in 2035 if current trends continue, irrigated or rain-fed (Crops); where farming potential is rising or falling (Farmland); and ranked planning signals for investors and governments, each with its evidence (Decisions). A Methods page explains every number and its limits, and a 60 second guided tour shows the story.
+
+How it works
+- Data: NASA POWER monthly grids (built on NASA's MERRA-2), 2001 to 2025, fetched live for any region and cached.
+- Trend and confidence: Theil-Sen slope; Mann-Kendall test with its variance corrected for year to year memory; Benjamini-Hochberg false discovery rate on every map; Pettitt test for when the change started. We tested 7 methods on 20,000 simulated places with no real trend and chose the only one that kept false alarms near 5% while still finding real trends.
+- Crop model: one XGBoost model per crop, trained on where 40 crops are grown today (IFPRI MapSPAM 2020, 22,450 farmland cells worldwide) from 10 climate features of all six NASA POWER measurements. On regions held out of training it reaches AUC 0.90; trained without Egypt, it recognizes Egypt's real crop list (FAOSTAT) with AUC 0.93.
+- Projections: every climate feature follows its own 2001 to 2025 trend to 2030 and 2035, with a 95% range from 200 resamples of the years. Always labeled "if current trends continue", never a forecast.
+
+Supporting evidence
+- Our engine reproduces NASA's global record: +0.25 °C per decade on NASA GISTEMP for 2001 to 2025 (strong evidence). On NASA POWER the Arctic warms fastest, +0.35 °C per decade.
+- Checked against NASA's weather stations: POWER and GISTEMP agree on the direction of change for 87% of the world's area and are never proven in opposite directions. Over Egypt the stations warm +0.42 °C per decade, about 1.7 times the global rate.
+- We found a data problem and handled it: NASA POWER's rain over Egypt jumps about 2.6 times around 2015, while NASA's GPCP record rises only 1.24 times. Rain answers carry a caution, and projections remove that one-time step.
+
+Benefits and impact
+Farmers and agricultural investors ("what can I grow here in 10 years?"), government planners ("which farming regions need support?"), and students, journalists and citizens ("is my city really getting hotter?"). The Middle East and North Africa is the most water-scarce region in the world (World Bank, 2018), the Mediterranean is already about 1.5 °C warmer than pre-industrial times (MedECC, 2020), and about 1 in 6 Egyptian workers works in agriculture (ILO, 2025). The tool is free and open, and it is honest by design: "not proven" is never shown as "no change", projections are never shown as forecasts, and causes are never claimed.
+
+What makes it creative
+Most trend tools stop at a map. We add evidence you can trust (false alarms tested and controlled), a check of every trend against an independent NASA record, and the step from "it is changing" to "this is what it means for what you can grow".
+
+Tools
+Python (FastAPI, NumPy, pandas, SciPy, statsmodels, XGBoost for training), JavaScript with MapLibre GL JS (globe) and Plotly (charts), GitHub with automated tests, Render (hosting), Hugging Face (model), Kaggle (training).
+
+Limits we considered
+55 km cells (regional screening, not a single farm); irrigated mode assumes water can be supplied; the crop model learns where crops grow today, which also reflects markets and water; olive and date palm are not covered.
+
+Use of AI
+Code and text in this project were written with the help of AI tools and reviewed and tested by the team: Claude (Anthropic) for code, analysis scripts, checks and documentation; Manus (AI agent) for the first training notebook of the crop model. The crop model itself is our own XGBoost model trained on public data. No language model produces any number in the app: every sentence is built from computed values. AI use is also noted in the repository (docs/REFERENCES.md) and in the model card.
