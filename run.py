@@ -12,6 +12,8 @@ Usage:
     python run.py crops      FAO ECOCROP crop requirements table (add --force to re-download)
     python run.py appeears   check the MODIS AppEEARS request (add: submit / status / download)
     python run.py trends     compute the Egypt trend maps and the world overview, print a report (lane A)
+    python run.py crosscheck compare our numbers with NASA Giovanni files in data/raw/giovanni (docs/CROSSCHECK.md)
+    python run.py crop-model run the trained crop model on the Egypt grid -> ml/outputs/farming_EGY.json (about 3 minutes)
     python run.py farming-check   check the farming outlook file a model wrote, before the app reads it (add a path)
     python run.py package    build dist/cropshift_backend.zip for the UI merge
 """
@@ -44,6 +46,8 @@ COMMANDS = {
     "crops": lambda: sh([PY, "data/crops_build.py", *sys.argv[2:]]),
     "appeears": lambda: sh([PY, "data/appeears_request.py", *(sys.argv[2:] or ["check"])]),
     "trends": lambda: sh([PY, "ml/live.py"]),
+    "crosscheck": lambda: sh([PY, "ml/crosscheck.py"]),
+    "crop-model": lambda: sh([PY, "ml/crop_outlook.py"]),
     "farming-check": lambda: sh([PY, "ml/check_farming.py", *sys.argv[2:]]),
     "package": lambda: sh([PY, "scripts/package_backend.py"]),
 }

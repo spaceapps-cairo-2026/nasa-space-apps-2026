@@ -37,6 +37,17 @@
     </section>
 
     <section class="block" data-for="trends">
+      <div class="label">Years to measure the trend over</div>
+      <div class="years">
+        <select id="year-from" aria-label="First year"></select>
+        <span>to</span>
+        <select id="year-to" aria-label="Last year"></select>
+        <button id="year-reset" class="btn" hidden>All years</button>
+      </div>
+      <p id="year-note" class="note"></p>
+    </section>
+
+    <section class="block" data-for="trends">
       <div class="label">Selected place</div>
       <p id="selection-text" class="selection">None yet. Click anywhere on Earth or search a place.</p>
     </section>
@@ -110,7 +121,7 @@
         <strong>proven</strong> or just normal ups and downs, and shows what it means for the crops we grow.</p>
       <ul class="welcome-list">
         <li><strong>Trends:</strong> click anywhere, or pick a country, to see what is changing, where, how fast, and how sure we are.</li>
-        <li><strong>Crops, Farmland, Decisions:</strong> which crops fit Egypt today and in 2035, and how many years until the heat becomes too much.</li>
+        <li><strong>Crops, Farmland, Decisions:</strong> which of 40 crops fit each part of Egypt today and in 2035, with irrigation or on rain only, from a model trained on where crops grow worldwide.</li>
         <li><strong>How we know:</strong> the checks we ran on our own method.</li>
       </ul>
       <div class="welcome-actions">

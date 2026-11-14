@@ -1,0 +1,1138 @@
+{
+ "version": "crop-suitability-v2",
+ "config": {
+  "version": "crop-suitability-v2",
+  "seed": 42,
+  "base_year": 2025,
+  "horizons": [
+   5,
+   10
+  ],
+  "n_boot": 200,
+  "block_len": 3,
+  "farmland_min_ha": 1000,
+  "present_share": 0.02,
+  "absent_share": 0.002,
+  "block_deg": 10,
+  "n_folds": 5,
+  "irrigated_eval_share": 0.8,
+  "rainfed_eval_share": 0.2,
+  "suit_threshold": 0.5,
+  "p_strong": 0.01,
+  "p_moderate": 0.05,
+  "min_effect_suit": 0.02,
+  "min_effect_options": 0.1,
+  "fao_grown_min_ha": 10000,
+  "fao_absent_max_ha": 1500,
+  "tune_iter": 8,
+  "tune_crops": 12,
+  "max_app_nodes": 2000000,
+  "counter_irr_share": 0.95,
+  "dry_rain_mm": 100
+ },
+ "training_data": {
+  "farmland_cells": 22450,
+  "spatial_blocks": 197,
+  "egypt_farmland_cells": 116,
+  "irrigated_farmland_cells": 1368,
+  "rainfed_farmland_cells": 16708,
+  "feature_consistency_with_our_dataset_max_abs_diff": {
+   "t_mean": 0.0007337320963536342,
+   "t_coldest": 0.007193194580077389,
+   "t_warmest": 0.004404083251955626,
+   "tmax_hottest": 1.1517333987853817e-05,
+   "rain_annual": 0.0960232666015628,
+   "rain_wettest3_share": 0.020054399290748703,
+   "rh_mean": 0.0014670135498100478,
+   "soil_top_wetness": 0.000828935623168936,
+   "soil_root_wetness": 0.00029163150787359093,
+   "soil_root_wetness_min": 2.929687500000111e-05
+  }
+ },
+ "data_quality": {
+  "notes": [
+   "NASA POWER PRECTOTCORR over Egypt's farmland steps up by +154% from 2015 (mean 23.3 before, 59.2 after; Pettitt test p < 0.001). The step may be real or a change in the data product; we could not confirm which. A straight trend through a step overstates the long-term trend, so treat this measurement's trend and the projections that extend it with caution. NASA's soil wetness, which responds to rainfall, rises at the same time."
+  ],
+  "pettitt_egypt_farmland": {
+   "t_mean": {
+    "NASA measurement": "T2M: annual mean temperature (\u00b0C)",
+    "shift starts": 2014,
+    "Pettitt p": 0.1146150798696471,
+    "mean before": 22.423812288340592,
+    "mean after": 22.786641771488473,
+    "relative change": 0.016180544078873593,
+    "possible data break": false
+   },
+   "tmax_hottest": {
+    "NASA measurement": "T2M_MAX: hottest monthly maximum (\u00b0C)",
+    "shift starts": 2013,
+    "Pettitt p": 0.07658332644476379,
+    "mean before": 43.18306603773585,
+    "mean after": 43.97864296081278,
+    "relative change": 0.018423354246817736,
+    "possible data break": false
+   },
+   "rain_annual": {
+    "NASA measurement": "PRECTOTCORR: annual rainfall (mm)",
+    "shift starts": 2015,
+    "Pettitt p": 0.0004932249859188595,
+    "mean before": 23.268699460916444,
+    "mean after": 59.195053602058344,
+    "relative change": 1.5439777457904786,
+    "possible data break": true
+   },
+   "rh_mean": {
+    "NASA measurement": "RH2M: mean relative humidity (%)",
+    "shift starts": 2015,
+    "Pettitt p": 0.006845627668109567,
+    "mean before": 41.97219058849955,
+    "mean after": 43.657545025728986,
+    "relative change": 0.04015407377119895,
+    "possible data break": false
+   },
+   "soil_top_wetness": {
+    "NASA measurement": "GWETTOP: surface soil wetness (0-1)",
+    "shift starts": 2015,
+    "Pettitt p": 0.00039463056399062924,
+    "mean before": 0.11664982030548068,
+    "mean after": 0.14832332761578046,
+    "relative change": 0.27152641321995774,
+    "possible data break": false
+   },
+   "soil_root_wetness": {
+    "NASA measurement": "GWETROOT: root-zone soil wetness (0-1)",
+    "shift starts": 2015,
+    "Pettitt p": 0.0007636691621927101,
+    "mean before": 0.31745844564240794,
+    "mean after": 0.32532661520869066,
+    "relative change": 0.02478488027105641,
+    "possible data break": false
+   }
+  }
+ },
+ "rainfed_counter_examples": {
+  "counter_irr_share": 0.95,
+  "dry_rain_mm": 100,
+  "irrigated_copies_in_final_fit": 570,
+  "unfarmed_desert_cells": 1145,
+  "false_alarm_metrics": [
+   "Rain-fed false alarms (dry irrigated cells)",
+   "Rain-fed false alarms (unfarmed deserts)"
+  ],
+  "egypt_rainfed_check": {
+   "egypt_cells_below_50mm": 221,
+   "mean_rainfed_crops_suitable": 0.03167420814479638,
+   "share_cells_no_rainfed_crop_suitable": 0.9773755656108597,
+   "mean_rainfed_crop_options": 1.069819004524887,
+   "mean_irrigated_crops_suitable": 10.877828054298643,
+   "cairo_rainfed_top5": [
+    [
+     "tomato",
+     0.201
+    ],
+    [
+     "onion",
+     0.183
+    ],
+    [
+     "citrus",
+     0.177
+    ],
+    [
+     "tropical fruit",
+     0.161
+    ],
+    [
+     "chickpea",
+     0.126
+    ]
+   ],
+   "cairo_irrigated_top5": [
+    [
+     "tomato",
+     0.977
+    ],
+    [
+     "onion",
+     0.967
+    ],
+    [
+     "wheat",
+     0.963
+    ],
+    [
+     "vegetables",
+     0.954
+    ],
+    [
+     "citrus",
+     0.887
+    ]
+   ]
+  }
+ },
+ "design_selection": {
+  "R: rain-fed crops only, all 10 features": {
+   "CV AUC irrigated farmland": null,
+   "CV AUC rain-fed farmland": 0.8933339585812196,
+   "Rain-fed false alarms (dry irrigated cells)": 0.033379888268156424,
+   "Rain-fed false alarms (unfarmed deserts)": 0.06050218340611354,
+   "Egypt cells: AUC crop x cell (MapSPAM)": null,
+   "FAOSTAT AUC (grown vs not)": null,
+   "FAOSTAT grown rated suitable": null,
+   "FAOSTAT not-grown rated suitable": null,
+   "FAOSTAT TSS": null
+  },
+  "TH: irrigated farmland only, temperature + humidity": {
+   "CV AUC irrigated farmland": 0.8048894152908533,
+   "CV AUC rain-fed farmland": null,
+   "Rain-fed false alarms (dry irrigated cells)": null,
+   "Rain-fed false alarms (unfarmed deserts)": null,
+   "Egypt cells: AUC crop x cell (MapSPAM)": 0.8579925017260411,
+   "FAOSTAT AUC (grown vs not)": 0.9411764705882353,
+   "FAOSTAT grown rated suitable": 0.3181818181818182,
+   "FAOSTAT not-grown rated suitable": 0.0,
+   "FAOSTAT TSS": 0.3181818181818182
+  },
+  "A: all crops, all 10 features, no irrigation input": {
+   "CV AUC irrigated farmland": 0.8267545253838255,
+   "CV AUC rain-fed farmland": 0.8946915528485,
+   "Rain-fed false alarms (dry irrigated cells)": 0.18477653631284913,
+   "Rain-fed false alarms (unfarmed deserts)": 0.16755458515283844,
+   "Egypt cells: AUC crop x cell (MapSPAM)": 0.8180119087212058,
+   "FAOSTAT AUC (grown vs not)": 0.9304812834224598,
+   "FAOSTAT grown rated suitable": 0.4090909090909091,
+   "FAOSTAT not-grown rated suitable": 0.0,
+   "FAOSTAT TSS": 0.4090909090909091
+  },
+  "C without rain-fed counter-examples": {
+   "CV AUC irrigated farmland": 0.831156277312494,
+   "CV AUC rain-fed farmland": 0.89392140076452,
+   "Rain-fed false alarms (dry irrigated cells)": 0.09483240223463688,
+   "Rain-fed false alarms (unfarmed deserts)": 0.10360262008733626,
+   "Egypt cells: AUC crop x cell (MapSPAM)": 0.8542279555753591,
+   "FAOSTAT AUC (grown vs not)": 0.9625668449197861,
+   "FAOSTAT grown rated suitable": 0.4090909090909091,
+   "FAOSTAT not-grown rated suitable": 0.0,
+   "FAOSTAT TSS": 0.4090909090909091
+  },
+  "C: all crops, all 10 features + irrigation share": {
+   "CV AUC irrigated farmland": 0.8241998733750675,
+   "CV AUC rain-fed farmland": 0.8910865892070998,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0016759776536312849,
+   "Rain-fed false alarms (unfarmed deserts)": 0.005480349344978166,
+   "Egypt cells: AUC crop x cell (MapSPAM)": 0.8632461730681072,
+   "FAOSTAT AUC (grown vs not)": 0.9572192513368983,
+   "FAOSTAT grown rated suitable": 0.4090909090909091,
+   "FAOSTAT not-grown rated suitable": 0.0,
+   "FAOSTAT TSS": 0.4090909090909091
+  },
+  "C with hectare labels (>= 1,000 ha present)": {
+   "CV AUC irrigated farmland": 0.7835976594608668,
+   "CV AUC rain-fed farmland": 0.8677802954479666,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0002793296089385475,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0010917030567685591,
+   "Egypt cells: AUC crop x cell (MapSPAM)": 0.8495159594071064,
+   "FAOSTAT AUC (grown vs not)": 0.9491978609625669,
+   "FAOSTAT grown rated suitable": 0.09090909090909091,
+   "FAOSTAT not-grown rated suitable": 0.0,
+   "FAOSTAT TSS": 0.09090909090909091
+  }
+ },
+ "selected_design": "C: all crops, all 10 features + irrigation share",
+ "design_rank": {
+  "C: all crops, all 10 features + irrigation share": 1.5833333333333333,
+  "C with hectare labels (>= 1,000 ha present)": 2.5,
+  "A: all crops, all 10 features, no irrigation input": 2.75,
+  "TH: irrigated farmland only, temperature + humidity": 2.75
+ },
+ "counter_example_ablation": {
+  "CV AUC irrigated farmland": {
+   "with counter-examples": 0.8241998733750675,
+   "without": 0.831156277312494,
+   "change": -0.00695640393742647
+  },
+  "CV AUC rain-fed farmland": {
+   "with counter-examples": 0.8910865892070998,
+   "without": 0.89392140076452,
+   "change": -0.0028348115574201582
+  },
+  "Rain-fed false alarms (dry irrigated cells)": {
+   "with counter-examples": 0.0016759776536312849,
+   "without": 0.09483240223463688,
+   "change": -0.09315642458100559
+  },
+  "Rain-fed false alarms (unfarmed deserts)": {
+   "with counter-examples": 0.005480349344978166,
+   "without": 0.10360262008733626,
+   "change": -0.09812227074235809
+  },
+  "Egypt cells: AUC crop x cell (MapSPAM)": {
+   "with counter-examples": 0.8632461730681072,
+   "without": 0.8542279555753591,
+   "change": 0.009018217492748115
+  },
+  "FAOSTAT AUC (grown vs not)": {
+   "with counter-examples": 0.9572192513368983,
+   "without": 0.9625668449197861,
+   "change": -0.005347593582887722
+  },
+  "FAOSTAT TSS": {
+   "with counter-examples": 0.4090909090909091,
+   "without": 0.4090909090909091,
+   "change": 0.0
+  }
+ },
+ "model_zoo_spatial_cv": {
+  "Extra trees": {
+   "AUC": 0.9095516117519701,
+   "AUC irrigated farmland": 0.8361069630823053,
+   "AUC rain-fed farmland": 0.8963927075039917,
+   "TSS": 0.6023892841496294,
+   "Brier (balanced)": 0.13770491107780114,
+   "Rain-fed false alarms (dry irrigated cells)": 0.003910614525139665,
+   "Rain-fed false alarms (unfarmed deserts)": 0.007379912663755458,
+   "worst-crop AUC": 0.8365745637488571,
+   "app size (M nodes, 40 crops)": 5.914876400000001,
+   "seconds": 35.77893400192261,
+   "mean rank": 2.7142857142857144
+  },
+  "XGBoost": {
+   "AUC": 0.9087441978630423,
+   "AUC irrigated farmland": 0.8301896054756658,
+   "AUC rain-fed farmland": 0.8931399359851406,
+   "TSS": 0.5857989299822128,
+   "Brier (balanced)": 0.15708688298846707,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0016759776536312849,
+   "Rain-fed false alarms (unfarmed deserts)": 0.005414847161572053,
+   "worst-crop AUC": 0.8299391302436989,
+   "app size (M nodes, 40 crops)": 0.8491456000000001,
+   "seconds": 39.44855451583862,
+   "mean rank": 3.2857142857142856
+  },
+  "Random forest": {
+   "AUC": 0.9067362036620814,
+   "AUC irrigated farmland": 0.8350188326447459,
+   "AUC rain-fed farmland": 0.8911062829731644,
+   "TSS": 0.5708424593215807,
+   "Brier (balanced)": 0.14916333413754443,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0012569832402234637,
+   "Rain-fed false alarms (unfarmed deserts)": 0.005545851528384279,
+   "worst-crop AUC": 0.831133778447711,
+   "app size (M nodes, 40 crops)": 3.0961815999999995,
+   "seconds": 108.67435479164124,
+   "mean rank": 3.5714285714285716
+  },
+  "LightGBM": {
+   "AUC": 0.9087773727149738,
+   "AUC irrigated farmland": 0.8280599129506871,
+   "AUC rain-fed farmland": 0.8930908958340197,
+   "TSS": 0.569058897514074,
+   "Brier (balanced)": 0.16754784555188515,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0022346368715083797,
+   "Rain-fed false alarms (unfarmed deserts)": 0.004323144104803493,
+   "worst-crop AUC": 0.8301533955952395,
+   "app size (M nodes, 40 crops)": 0.732,
+   "seconds": 45.67537331581116,
+   "mean rank": 3.857142857142857
+  },
+  "HistGradientBoosting": {
+   "AUC": 0.9035760750131925,
+   "AUC irrigated farmland": 0.8250623093034439,
+   "AUC rain-fed farmland": 0.8880449474780876,
+   "TSS": 0.6102098828588487,
+   "Brier (balanced)": 0.14417663901052444,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0034916201117318434,
+   "Rain-fed false alarms (unfarmed deserts)": 0.008318777292576419,
+   "worst-crop AUC": 0.8313783593732833,
+   "app size (M nodes, 40 crops)": 0.44549520000000004,
+   "seconds": 91.26739263534546,
+   "mean rank": 4.428571428571429
+  },
+  "Logistic regression (quadratic)": {
+   "AUC": 0.8883091969223799,
+   "AUC irrigated farmland": 0.7999728204332064,
+   "AUC rain-fed farmland": 0.8729083523458577,
+   "TSS": 0.6326784112141154,
+   "Brier (balanced)": 0.13106202535050468,
+   "Rain-fed false alarms (dry irrigated cells)": 0.031145251396648043,
+   "Rain-fed false alarms (unfarmed deserts)": 0.041986899563318775,
+   "worst-crop AUC": 0.791953545608368,
+   "app size (M nodes, 40 crops)": 0.0,
+   "seconds": 12.3321852684021,
+   "mean rank": 4.714285714285714
+  },
+  "k-nearest neighbours": {
+   "AUC": 0.8838544222227023,
+   "AUC irrigated farmland": 0.7922660336405658,
+   "AUC rain-fed farmland": 0.8705410329268272,
+   "TSS": 0.6339019565295086,
+   "Brier (balanced)": 0.13482250359153639,
+   "Rain-fed false alarms (dry irrigated cells)": 0.038268156424581,
+   "Rain-fed false alarms (unfarmed deserts)": 0.051026200873362446,
+   "worst-crop AUC": 0.7874452587429287,
+   "app size (M nodes, 40 crops)": 0.0,
+   "seconds": 47.453569650650024,
+   "mean rank": 5.428571428571429
+  },
+  "Gaussian naive Bayes": {
+   "AUC": 0.828931309035364,
+   "AUC irrigated farmland": 0.6953103555148645,
+   "AUC rain-fed farmland": 0.8204532531140778,
+   "TSS": 0.5378274433967987,
+   "Brier (balanced)": 0.18861516588423624,
+   "Rain-fed false alarms (dry irrigated cells)": 0.19259776536312848,
+   "Rain-fed false alarms (unfarmed deserts)": 0.19,
+   "worst-crop AUC": 0.6547792166668206,
+   "app size (M nodes, 40 crops)": 0.0,
+   "seconds": 1.5377979278564453,
+   "mean rank": 8.0
+  }
+ },
+ "tuning": {
+  "Extra trees": {
+   "best_params": {
+    "n_estimators": "100",
+    "min_samples_leaf": "20",
+    "max_features": "0.8",
+    "max_depth": "8"
+   },
+   "best": {
+    "candidate": "random 4",
+    "AUC": 0.8910563281924372,
+    "TSS": 0.6283292648013262,
+    "Brier (balanced)": 0.13067229041040693,
+    "AUC irrigated farmland": 0.7524949881438565,
+    "AUC rain-fed farmland": 0.8869322920434498,
+    "Rain-fed false alarms (dry irrigated cells)": 0.006517690875232775,
+    "Rain-fed false alarms (unfarmed deserts)": 0.02954876273653566,
+    "app size (M nodes)": 0.730072,
+    "fits budget": true
+   },
+   "zoo_default": {
+    "candidate": "zoo default",
+    "AUC": 0.9065282471530781,
+    "TSS": 0.5771996613815631,
+    "Brier (balanced)": 0.14474005990442004,
+    "AUC irrigated farmland": 0.7869750534606303,
+    "AUC rain-fed farmland": 0.9028682776440363,
+    "Rain-fed false alarms (dry irrigated cells)": 0.000931098696461825,
+    "Rain-fed false alarms (unfarmed deserts)": 0.0071324599708879185,
+    "app size (M nodes)": 6.116329333333334,
+    "fits budget": false
+   }
+  },
+  "XGBoost": {
+   "best_params": {
+    "n_estimators": "200",
+    "learning_rate": "0.03",
+    "max_depth": "6",
+    "subsample": "0.8",
+    "colsample_bytree": "1.0",
+    "reg_lambda": "20",
+    "min_child_weight": "1"
+   },
+   "best": {
+    "candidate": "random 4",
+    "AUC": 0.8992613832353274,
+    "TSS": 0.6130577495686835,
+    "Brier (balanced)": 0.13808117782258011,
+    "AUC irrigated farmland": 0.7678736675127021,
+    "AUC rain-fed farmland": 0.8950341484187971,
+    "Rain-fed false alarms (dry irrigated cells)": 0.004189944134078212,
+    "Rain-fed false alarms (unfarmed deserts)": 0.012445414847161572,
+    "app size (M nodes)": 0.5969453333333334,
+    "fits budget": true
+   },
+   "zoo_default": {
+    "candidate": "zoo default",
+    "AUC": 0.903805239107716,
+    "TSS": 0.5625605693409245,
+    "Brier (balanced)": 0.16592213413461496,
+    "AUC irrigated farmland": 0.779124718241152,
+    "AUC rain-fed farmland": 0.8983775987200615,
+    "Rain-fed false alarms (dry irrigated cells)": 0.000931098696461825,
+    "Rain-fed false alarms (unfarmed deserts)": 0.006259097525473072,
+    "app size (M nodes)": 0.8453333333333335,
+    "fits budget": true
+   }
+  },
+  "Random forest": {
+   "best_params": {
+    "n_estimators": "60",
+    "min_samples_leaf": "50",
+    "max_features": "sqrt",
+    "max_depth": "14"
+   },
+   "best": {
+    "candidate": "random 2",
+    "AUC": 0.8905322145210804,
+    "TSS": 0.6029776776983607,
+    "Brier (balanced)": 0.1362820941009585,
+    "AUC irrigated farmland": 0.7511468104625827,
+    "AUC rain-fed farmland": 0.8879840817740856,
+    "Rain-fed false alarms (dry irrigated cells)": 0.004655493482309124,
+    "Rain-fed false alarms (unfarmed deserts)": 0.014847161572052401,
+    "app size (M nodes)": 0.39592133333333335,
+    "fits budget": true
+   },
+   "zoo_default": {
+    "candidate": "zoo default",
+    "AUC": 0.9017407201893097,
+    "TSS": 0.5440873040265072,
+    "Brier (balanced)": 0.15869670382945347,
+    "AUC irrigated farmland": 0.7958375183543501,
+    "AUC rain-fed farmland": 0.8958945996370163,
+    "Rain-fed false alarms (dry irrigated cells)": 0.000931098696461825,
+    "Rain-fed false alarms (unfarmed deserts)": 0.00502183406113537,
+    "app size (M nodes)": 3.2649373333333336,
+    "fits budget": false
+   }
+  }
+ },
+ "final_comparison_spatial_cv": {
+  "XGBoost": {
+   "AUC": 0.904423019531291,
+   "AUC irrigated farmland": 0.8234303606228767,
+   "AUC rain-fed farmland": 0.8881086728864634,
+   "TSS": 0.6332141395141118,
+   "Brier (balanced)": 0.13159561415512858,
+   "Rain-fed false alarms (dry irrigated cells)": 0.004189944134078213,
+   "Rain-fed false alarms (unfarmed deserts)": 0.009781659388646289,
+   "worst-crop AUC": 0.8304894076435663,
+   "app size (M nodes)": 0.6076496000000001,
+   "mean rank (CV)": 1.4285714285714286
+  },
+  "Extra trees": {
+   "AUC": 0.8955079250013653,
+   "AUC irrigated farmland": 0.8148476103819414,
+   "AUC rain-fed farmland": 0.8795239578781009,
+   "TSS": 0.6381664973651077,
+   "Brier (balanced)": 0.1272901106140804,
+   "Rain-fed false alarms (dry irrigated cells)": 0.007960893854748604,
+   "Rain-fed false alarms (unfarmed deserts)": 0.02294759825327511,
+   "worst-crop AUC": 0.8068623690722957,
+   "app size (M nodes)": 0.732498,
+   "mean rank (CV)": 2.2857142857142856
+  },
+  "Random forest": {
+   "AUC": 0.8973900047997843,
+   "AUC irrigated farmland": 0.8078593708076044,
+   "AUC rain-fed farmland": 0.8832883623651238,
+   "TSS": 0.6259273725294392,
+   "Brier (balanced)": 0.1297725070296663,
+   "Rain-fed false alarms (dry irrigated cells)": 0.005726256983240223,
+   "Rain-fed false alarms (unfarmed deserts)": 0.01406113537117904,
+   "worst-crop AUC": 0.820095930498118,
+   "app size (M nodes)": 0.38929719999999995,
+   "mean rank (CV)": 2.2857142857142856
+  }
+ },
+ "final_comparison_leave_egypt_out": {
+  "Extra trees": {
+   "Egypt cells: AUC crop x cell (MapSPAM)": 0.8461571881001818,
+   "FAOSTAT AUC (grown vs not)": 0.8796791443850267,
+   "FAOSTAT grown rated suitable": 0.5,
+   "FAOSTAT not-grown rated suitable": 0.0,
+   "FAOSTAT TSS": 0.5
+  },
+  "XGBoost": {
+   "Egypt cells: AUC crop x cell (MapSPAM)": 0.8531848402860799,
+   "FAOSTAT AUC (grown vs not)": 0.9224598930481284,
+   "FAOSTAT grown rated suitable": 0.45454545454545453,
+   "FAOSTAT not-grown rated suitable": 0.0,
+   "FAOSTAT TSS": 0.45454545454545453
+  },
+  "Random forest": {
+   "Egypt cells: AUC crop x cell (MapSPAM)": 0.8511634566366658,
+   "FAOSTAT AUC (grown vs not)": 0.893048128342246,
+   "FAOSTAT grown rated suitable": 0.45454545454545453,
+   "FAOSTAT not-grown rated suitable": 0.0,
+   "FAOSTAT TSS": 0.45454545454545453
+  }
+ },
+ "algorithm_decision": {
+  "selected": "XGBoost",
+  "mean_rank": {
+   "XGBoost": 1.43,
+   "Extra trees": 2.29,
+   "Random forest": 2.29
+  },
+  "best_per_metric": {
+   "AUC": {
+    "model": "XGBoost",
+    "value": 0.904423019531291
+   },
+   "AUC irrigated farmland": {
+    "model": "XGBoost",
+    "value": 0.8234303606228767
+   },
+   "AUC rain-fed farmland": {
+    "model": "XGBoost",
+    "value": 0.8881086728864634
+   },
+   "TSS": {
+    "model": "Extra trees",
+    "value": 0.6381664973651077
+   },
+   "Brier (balanced)": {
+    "model": "Extra trees",
+    "value": 0.1272901106140804
+   },
+   "Rain-fed false alarms (dry irrigated cells)": {
+    "model": "XGBoost",
+    "value": 0.004189944134078213
+   },
+   "Rain-fed false alarms (unfarmed deserts)": {
+    "model": "XGBoost",
+    "value": 0.009781659388646289
+   },
+   "worst-crop AUC": {
+    "model": "XGBoost",
+    "value": 0.8304894076435663
+   }
+  },
+  "metrics_won_by_selected": [
+   "AUC",
+   "AUC irrigated farmland",
+   "AUC rain-fed farmland",
+   "Rain-fed false alarms (dry irrigated cells)",
+   "Rain-fed false alarms (unfarmed deserts)",
+   "worst-crop AUC"
+  ],
+  "largest_gap_to_selected": {
+   "AUC": 0.008915094529925671,
+   "AUC irrigated farmland": 0.015570989815272274,
+   "AUC rain-fed farmland": 0.008584715008362553,
+   "TSS": 0.007286766984672566,
+   "Brier (balanced)": 0.004305503541048167,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0037709497206703906,
+   "Rain-fed false alarms (unfarmed deserts)": 0.01316593886462882,
+   "worst-crop AUC": 0.023627038571270575
+  }
+ },
+ "selected_algorithm": "XGBoost",
+ "selected_params": {
+  "n_estimators": "200",
+  "learning_rate": "0.03",
+  "max_depth": "6",
+  "subsample": "0.8",
+  "colsample_bytree": "1.0",
+  "reg_lambda": "20",
+  "min_child_weight": "1"
+ },
+ "selected_cv_per_crop": {
+  "wheat": {
+   "AUC": 0.9660148504986198,
+   "TSS": 0.8143023409825533,
+   "Brier (balanced)": 0.06855631309366188,
+   "AUC irrigated farmland": 0.9499242075370328,
+   "AUC rain-fed farmland": 0.9685300079937813,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0111731843575419,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 17532.0
+  },
+  "rice": {
+   "AUC": 0.8915726106467041,
+   "TSS": 0.6055296250443895,
+   "Brier (balanced)": 0.13583989935535465,
+   "AUC irrigated farmland": 0.8580500007626717,
+   "AUC rain-fed farmland": 0.8857484402152094,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 19506.0
+  },
+  "maize": {
+   "AUC": 0.9060861447157504,
+   "TSS": 0.6411124523887245,
+   "Brier (balanced)": 0.12506781434960043,
+   "AUC irrigated farmland": 0.7240319353813361,
+   "AUC rain-fed farmland": 0.9272187013883267,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 20337.2
+  },
+  "barley": {
+   "AUC": 0.9654683751838509,
+   "TSS": 0.8012240940289505,
+   "Brier (balanced)": 0.07215568623737731,
+   "AUC irrigated farmland": 0.8574942439973116,
+   "AUC rain-fed farmland": 0.9749754800767416,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0026200873362445414,
+   "nodes": 17993.2
+  },
+  "pearl millet": {
+   "AUC": 0.9511165995518013,
+   "TSS": 0.7418100067282027,
+   "Brier (balanced)": 0.09183241688238945,
+   "AUC irrigated farmland": 0.8429793103448275,
+   "AUC rain-fed farmland": 0.9528095584146548,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.03755458515283843,
+   "nodes": 15304.4
+  },
+  "small millets": {
+   "AUC": 0.8349402795184383,
+   "TSS": 0.4332593531209232,
+   "Brier (balanced)": 0.20830016334385523,
+   "AUC irrigated farmland": 0.6302742329622592,
+   "AUC rain-fed farmland": 0.8320993656234611,
+   "Rain-fed false alarms (dry irrigated cells)": 0.027932960893854747,
+   "Rain-fed false alarms (unfarmed deserts)": 0.09606986899563319,
+   "nodes": 13749.6
+  },
+  "sorghum": {
+   "AUC": 0.9152276636874667,
+   "TSS": 0.66758094267021,
+   "Brier (balanced)": 0.11956591527392789,
+   "AUC irrigated farmland": 0.858312447786132,
+   "AUC rain-fed farmland": 0.9261149653726846,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0462882096069869,
+   "nodes": 17457.2
+  },
+  "potato": {
+   "AUC": 0.9153167406037055,
+   "TSS": 0.6743183046184333,
+   "Brier (balanced)": 0.11556467111987939,
+   "AUC irrigated farmland": 0.767459744289306,
+   "AUC rain-fed farmland": 0.9148303127221038,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0111731843575419,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0017467248908296944,
+   "nodes": 19489.6
+  },
+  "sweet potato": {
+   "AUC": 0.896944924034245,
+   "TSS": 0.6179350380981812,
+   "Brier (balanced)": 0.1350831983690781,
+   "AUC irrigated farmland": 0.9623929031768899,
+   "AUC rain-fed farmland": 0.8773050086517865,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 16464.0
+  },
+  "yams": {
+   "AUC": 0.9263518166125454,
+   "TSS": 0.6265615798990789,
+   "Brier (balanced)": 0.14232671258565893,
+   "AUC irrigated farmland": null,
+   "AUC rain-fed farmland": 0.9054600261634667,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 11578.8
+  },
+  "cassava": {
+   "AUC": 0.9521953493847691,
+   "TSS": 0.7891248847544701,
+   "Brier (balanced)": 0.07968518241427058,
+   "AUC irrigated farmland": 0.970759712059016,
+   "AUC rain-fed farmland": 0.9440213811619249,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 13062.8
+  },
+  "beans": {
+   "AUC": 0.8752798723902615,
+   "TSS": 0.6037975910984518,
+   "Brier (balanced)": 0.1422747459105684,
+   "AUC irrigated farmland": 0.7567320659503197,
+   "AUC rain-fed farmland": 0.8790422800713149,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 16169.2
+  },
+  "chickpea": {
+   "AUC": 0.8756348101751366,
+   "TSS": 0.514614505534765,
+   "Brier (balanced)": 0.16698189926074508,
+   "AUC irrigated farmland": 0.8107833748324076,
+   "AUC rain-fed farmland": 0.8897263800418194,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0008733624454148472,
+   "nodes": 14833.6
+  },
+  "cowpea": {
+   "AUC": 0.9381395791125716,
+   "TSS": 0.7068433819004019,
+   "Brier (balanced)": 0.1083271163315928,
+   "AUC irrigated farmland": null,
+   "AUC rain-fed farmland": 0.9161238643049692,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0026200873362445414,
+   "nodes": 11987.6
+  },
+  "pigeon pea": {
+   "AUC": 0.9098952101117381,
+   "TSS": 0.5040352469506335,
+   "Brier (balanced)": 0.18267198574415394,
+   "AUC irrigated farmland": null,
+   "AUC rain-fed farmland": 0.890570652173913,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.004366812227074236,
+   "nodes": 8909.2
+  },
+  "lentil": {
+   "AUC": 0.8818487646794395,
+   "TSS": 0.5028154891145808,
+   "Brier (balanced)": 0.17790958505291546,
+   "AUC irrigated farmland": null,
+   "AUC rain-fed farmland": 0.9061127528559203,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0034934497816593887,
+   "nodes": 12887.2
+  },
+  "soybean": {
+   "AUC": 0.9023154854587603,
+   "TSS": 0.6538506084310534,
+   "Brier (balanced)": 0.12512756269508576,
+   "AUC irrigated farmland": 0.8851393464517853,
+   "AUC rain-fed farmland": 0.8922349863052466,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 15670.0
+  },
+  "groundnut": {
+   "AUC": 0.9095849936955688,
+   "TSS": 0.6577636758517831,
+   "Brier (balanced)": 0.12170877033626151,
+   "AUC irrigated farmland": 0.8190676704990134,
+   "AUC rain-fed farmland": 0.9175171640191573,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.007860262008733625,
+   "nodes": 17378.4
+  },
+  "coconut": {
+   "AUC": 0.9724913767071143,
+   "TSS": 0.8285208379973159,
+   "Brier (balanced)": 0.06391995001724204,
+   "AUC irrigated farmland": null,
+   "AUC rain-fed farmland": 0.9718217270886252,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0026200873362445414,
+   "nodes": 11786.4
+  },
+  "oil palm": {
+   "AUC": 0.9629741485814945,
+   "TSS": 0.8046825146894095,
+   "Brier (balanced)": 0.07660363197747684,
+   "AUC irrigated farmland": null,
+   "AUC rain-fed farmland": 0.9573046993271243,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 12327.6
+  },
+  "sunflower": {
+   "AUC": 0.8781525655519191,
+   "TSS": 0.5322814155968674,
+   "Brier (balanced)": 0.15309685135631151,
+   "AUC irrigated farmland": 0.7169656699889257,
+   "AUC rain-fed farmland": 0.8754099802359787,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0008733624454148472,
+   "nodes": 16576.4
+  },
+  "rapeseed": {
+   "AUC": 0.9419842923033723,
+   "TSS": 0.7353190297119483,
+   "Brier (balanced)": 0.09625773328596775,
+   "AUC irrigated farmland": 0.8515173557764213,
+   "AUC rain-fed farmland": 0.9521432684173353,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 15523.2
+  },
+  "sesame": {
+   "AUC": 0.8836665977039948,
+   "TSS": 0.5463008012758257,
+   "Brier (balanced)": 0.1541073159914256,
+   "AUC irrigated farmland": 0.8305727073736482,
+   "AUC rain-fed farmland": 0.8772403230279417,
+   "Rain-fed false alarms (dry irrigated cells)": 0.00558659217877095,
+   "Rain-fed false alarms (unfarmed deserts)": 0.07510917030567686,
+   "nodes": 15168.4
+  },
+  "sugarcane": {
+   "AUC": 0.9034956769411044,
+   "TSS": 0.6343879193218065,
+   "Brier (balanced)": 0.1271393594260896,
+   "AUC irrigated farmland": 0.8487260484641921,
+   "AUC rain-fed farmland": 0.8711275605713169,
+   "Rain-fed false alarms (dry irrigated cells)": 0.00558659217877095,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 15931.2
+  },
+  "sugar beet": {
+   "AUC": 0.9383796798147876,
+   "TSS": 0.6748876057499344,
+   "Brier (balanced)": 0.11546239589707186,
+   "AUC irrigated farmland": 0.675516874150784,
+   "AUC rain-fed farmland": 0.9571230799156795,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 14628.4
+  },
+  "cotton": {
+   "AUC": 0.8945063402603348,
+   "TSS": 0.6241732060883148,
+   "Brier (balanced)": 0.13241930164547372,
+   "AUC irrigated farmland": 0.8230639859337973,
+   "AUC rain-fed farmland": 0.8934441421968485,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 15908.0
+  },
+  "arabica coffee": {
+   "AUC": 0.928425342993749,
+   "TSS": 0.65132090873588,
+   "Brier (balanced)": 0.11855917349005572,
+   "AUC irrigated farmland": 0.9836827317916577,
+   "AUC rain-fed farmland": 0.9096407387992871,
+   "Rain-fed false alarms (dry irrigated cells)": 0.01675977653631285,
+   "Rain-fed false alarms (unfarmed deserts)": 0.00611353711790393,
+   "nodes": 12393.2
+  },
+  "robusta coffee": {
+   "AUC": 0.9115610076670317,
+   "TSS": 0.6397981295812621,
+   "Brier (balanced)": 0.12883366539126942,
+   "AUC irrigated farmland": null,
+   "AUC rain-fed farmland": 0.8917490195318074,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 10072.0
+  },
+  "cocoa": {
+   "AUC": 0.9464055066103765,
+   "TSS": 0.7475262408883484,
+   "Brier (balanced)": 0.09682677646059057,
+   "AUC irrigated farmland": null,
+   "AUC rain-fed farmland": 0.9357172958803431,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 12881.2
+  },
+  "tea": {
+   "AUC": 0.913863803371153,
+   "TSS": 0.6724770258269709,
+   "Brier (balanced)": 0.12781848635139137,
+   "AUC irrigated farmland": null,
+   "AUC rain-fed farmland": 0.8860617511977298,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 13376.8
+  },
+  "tobacco": {
+   "AUC": 0.8402590787647208,
+   "TSS": 0.4682273086854635,
+   "Brier (balanced)": 0.19617732634464657,
+   "AUC irrigated farmland": null,
+   "AUC rain-fed farmland": 0.8514196974948437,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 12769.6
+  },
+  "banana": {
+   "AUC": 0.9172709028759507,
+   "TSS": 0.6947303044463241,
+   "Brier (balanced)": 0.1118447986483607,
+   "AUC irrigated farmland": 0.9092651896390214,
+   "AUC rain-fed farmland": 0.9031809209804564,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0008733624454148472,
+   "nodes": 13750.4
+  },
+  "plantain": {
+   "AUC": 0.9290347790769757,
+   "TSS": 0.694383446270922,
+   "Brier (balanced)": 0.11180729692720098,
+   "AUC irrigated farmland": null,
+   "AUC rain-fed farmland": 0.914122957826193,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 12407.6
+  },
+  "citrus": {
+   "AUC": 0.8849914427799642,
+   "TSS": 0.5888906889632609,
+   "Brier (balanced)": 0.14160584406497986,
+   "AUC irrigated farmland": 0.8385816333676829,
+   "AUC rain-fed farmland": 0.8346692719305198,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0446927374301676,
+   "Rain-fed false alarms (unfarmed deserts)": 0.028820960698689956,
+   "nodes": 16676.8
+  },
+  "tropical fruit": {
+   "AUC": 0.8311640685948593,
+   "TSS": 0.4963541227107773,
+   "Brier (balanced)": 0.1693218335494836,
+   "AUC irrigated farmland": 0.6970744339339981,
+   "AUC rain-fed farmland": 0.8049792461607425,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0223463687150838,
+   "Rain-fed false alarms (unfarmed deserts)": 0.010480349344978166,
+   "nodes": 19085.6
+  },
+  "temperate fruit": {
+   "AUC": 0.8554594454228394,
+   "TSS": 0.5755503031455937,
+   "Brier (balanced)": 0.15194725831885408,
+   "AUC irrigated farmland": 0.8423494610584327,
+   "AUC rain-fed farmland": 0.794653364984108,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0223463687150838,
+   "Rain-fed false alarms (unfarmed deserts)": 0.004366812227074236,
+   "nodes": 20351.6
+  },
+  "tomato": {
+   "AUC": 0.8304894076435663,
+   "TSS": 0.5123412226486029,
+   "Brier (balanced)": 0.18277440557405458,
+   "AUC irrigated farmland": 0.7909964944839675,
+   "AUC rain-fed farmland": 0.6541052575845248,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.03056768558951965,
+   "nodes": 16377.2
+  },
+  "onion": {
+   "AUC": 0.8322332827916584,
+   "TSS": 0.4868470052226397,
+   "Brier (balanced)": 0.18548679972920643,
+   "AUC irrigated farmland": 0.7756372062231048,
+   "AUC rain-fed farmland": 0.7153801172007372,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.02794759825327511,
+   "nodes": 17017.2
+  },
+  "vegetables": {
+   "AUC": 0.8471686339853706,
+   "TSS": 0.5270188029798644,
+   "Brier (balanced)": 0.16199556610115876,
+   "AUC irrigated farmland": 0.7786991092246068,
+   "AUC rain-fed farmland": 0.7554992221448946,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 19263.6
+  },
+  "rubber": {
+   "AUC": 0.9190093307479281,
+   "TSS": 0.6360676188113549,
+   "Brier (balanced)": 0.14083915730045507,
+   "AUC irrigated farmland": null,
+   "AUC rain-fed farmland": 0.9171119454050178,
+   "Rain-fed false alarms (dry irrigated cells)": 0.0,
+   "Rain-fed false alarms (unfarmed deserts)": 0.0,
+   "nodes": 13067.2
+  }
+ },
+ "calibration_ece": {
+  "Extra trees": 0.028015703085741223,
+  "XGBoost": 0.06124028259147757,
+  "Random forest": 0.045534399319966785
+ },
+ "importance_by_nasa_parameter_mean_auc_drop": {
+  "T2M (temperature)": 0.2277155389523319,
+  "PRECTOTCORR (rain)": 0.07531779434341149,
+  "irrigation share (MapSPAM)": 0.030513947273402935,
+  "RH2M (humidity)": 0.0285001717795663,
+  "T2M_MAX (heat)": 0.012805508980494474,
+  "GWETROOT (root-zone soil wetness)": 0.007048576548716062,
+  "GWETTOP (surface soil wetness)": 0.002351873506995469
+ },
+ "egypt_leave_out": {
+  "Egypt cells: AUC crop x cell (MapSPAM)": 0.8531848402860799,
+  "FAOSTAT AUC (grown vs not)": 0.9224598930481284,
+  "FAOSTAT grown rated suitable": 0.45454545454545453,
+  "FAOSTAT not-grown rated suitable": 0.0,
+  "FAOSTAT TSS": 0.45454545454545453
+ },
+ "egypt_deployed_fit_check": {
+  "Egypt cells: AUC crop x cell (MapSPAM)": 0.9560010375508663,
+  "FAOSTAT AUC (grown vs not)": 0.9598930481283422,
+  "FAOSTAT grown rated suitable": 0.6363636363636364,
+  "FAOSTAT not-grown rated suitable": 0.0,
+  "FAOSTAT TSS": 0.6363636363636364
+ },
+ "faostat_v1_vs_v2_overlap": {
+  "v1 (India data, T + rain)": {
+   "crops": 13.0,
+   "grown": 8.0,
+   "AUC": 0.625,
+   "grown rated suitable": 0.75,
+   "not-grown rated suitable": 0.4,
+   "TSS": 0.35
+  },
+  "v2 leave-Egypt-out (honest)": {
+   "crops": 13.0,
+   "grown": 8.0,
+   "AUC": 0.9500000000000001,
+   "grown rated suitable": 0.5,
+   "not-grown rated suitable": 0.0,
+   "TSS": 0.5
+  },
+  "v2 deployed (fit check)": {
+   "crops": 13.0,
+   "grown": 8.0,
+   "AUC": 1.0,
+   "grown rated suitable": 0.75,
+   "not-grown rated suitable": 0.0,
+   "TSS": 0.75
+  }
+ },
+ "faostat_all_v2_crops": {
+  "v2 leave-Egypt-out (honest)": {
+   "crops": 39.0,
+   "grown": 22.0,
+   "AUC": 0.9224598930481284,
+   "grown rated suitable": 0.45454545454545453,
+   "not-grown rated suitable": 0.0,
+   "TSS": 0.45454545454545453
+  },
+  "v2 deployed (fit check)": {
+   "crops": 39.0,
+   "grown": 22.0,
+   "AUC": 0.9598930481283422,
+   "grown rated suitable": 0.6363636363636364,
+   "not-grown rated suitable": 0.0,
+   "TSS": 0.6363636363636364
+  }
+ },
+ "packed_model": {
+  "file": "crop_suitability_v2.npz",
+  "megabytes": 5.546105,
+  "trees": 8000,
+  "nodes": 630098
+ },
+ "numpy_runtime_fidelity": {
+  "Egypt cell-years, irrigated": {
+   "rows": 8525,
+   "max_abs_diff": 3.591283284087865e-07,
+   "same_suitable_call": 1.0,
+   "numpy_seconds": 15.35
+  },
+  "Egypt cell-years, rainfed": {
+   "rows": 8525,
+   "max_abs_diff": 2.9291439596068614e-07,
+   "same_suitable_call": 1.0,
+   "numpy_seconds": 15.5
+  },
+  "world farmland sample, irrigated": {
+   "rows": 3000,
+   "max_abs_diff": 3.3353162454119456e-07,
+   "same_suitable_call": 1.0,
+   "numpy_seconds": 5.64
+  },
+  "world farmland sample, rainfed": {
+   "rows": 3000,
+   "max_abs_diff": 3.2868343213809936e-07,
+   "same_suitable_call": 1.0,
+   "numpy_seconds": 5.7
+  }
+ },
+ "egypt_summary": {
+  "land_cells": 286,
+  "farmland_cells": 106,
+  "median_warming_c_per_decade": 0.2228,
+  "share_cells_warming_strong_evidence": 0.21328671328671328,
+  "median_change_irrigated_crop_options_plus10": 0.04,
+  "share_inside_training_range_now": 0.9195804195804196
+ }
+}

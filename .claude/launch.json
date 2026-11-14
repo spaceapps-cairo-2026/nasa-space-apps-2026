@@ -1,0 +1,18 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "cropshift-api",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["run.py", "api"],
+      "port": 8000
+    },
+    {
+      "name": "cropshift-api-8011",
+      "runtimeExecutable": "python",
+      "runtimeArgs": ["-m", "uvicorn", "api.main:app", "--port", "8011"],
+      "env": { "MOCK": "0" },
+      "port": 8011
+    }
+  ]
+}

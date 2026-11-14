@@ -17,3 +17,9 @@ ml/artifacts/
 .pip-cache/
 ml/outputs/world_*.json
 dist/
+# Raw hand-over from Manus (41 MB zip, over the 20 MB rule). What the app needs is copied to ml/crop_model/.
+manus-model/
+
+# Scratch from an unfinished audit session (keep only handoff/HANDOFF.md)
+handoff/audit_scratch/
+handoff/*.js

@@ -98,7 +98,7 @@ export function cropMap(o, cells, crop, mode, h, view) {
   const legend = `<div class="note">Suitability, 0 to 100 (${modeText(mode)}, ${o.horizons[h]})</div>
     <div class="bar" style="background:${gradient(GREEN)}"></div>
     <div class="scale"><span>1</span><span>50</span><span>100</span></div>
-    <div class="np"><i style="background:${CANNOT}"></i>Brown: the crop cannot grow here</div>`;
+    <div class="np"><i style="background:${CANNOT}"></i>Brown: score 0, a climate unlike the places that grow it${mode === 'rainfed' ? ' (or under 100 mm of rain a year)' : ''}</div>`;
   return { map, legend };
 }
 
@@ -117,7 +117,7 @@ export function landMap(o, cells, mode, h, view) {
     const legend = `<div class="note">Average change of all ${n} crop scores from ${o.horizons[0]} to ${o.horizons[o.horizons.length - 1]}, points (${modeText(mode)})</div>
       <div class="bar" style="background:${gradient(CHANGE)}"></div>
       <div class="scale"><span>losing ${range.toFixed(1)}</span><span>0</span><span>gaining ${range.toFixed(1)}</span></div>
-      <div class="np"><i></i>Flat grey: stable (change under 0.25 points)</div>`;
+      <div class="np"><i></i>Flat grey: change under 0.25 points (too small to show)</div>`;
     return { map, legend };
   }
   const map = fc(cells, (c) => {
@@ -163,9 +163,12 @@ export function cellPanelHTML(o, k, mode, placeLabel, selectedCrop) {
       ${isNum(o.rain_now_mm?.[k]) ? `<dt>Rain per year</dt><dd>${o.rain_now_mm[k]} mm</dd>` : ''}
       ${isNum(o.temp_trend_per_decade?.[k]) ? `<dt>Warming trend</dt><dd>${sign(o.temp_trend_per_decade[k], 2)} °C per decade${evBadge}</dd>` : ''}
       <dt>Crops that fit</dt><dd>${fitsNow} now${last > 0 ? `, ${fitsLater} in ${o.horizons[last]}` : ''} (${modeText(mode)})</dd>
+      ${o.farmland ? `<dt>Farmed today</dt><dd>${o.farmland[k] === '1' ? 'yes' : 'no farmland mapped'}</dd>` : ''}
     </dl>
+    ${mode === 'irrigated' && o.farmland && o.farmland[k] !== '1' ? '<div class="callout info">No farmland is mapped here today. Irrigated scores show what this climate could grow if water were brought here; they do not show that water is available.</div>' : ''}
+    ${o.outside_training?.[k] === '1' ? '<div class="callout warn">This climate is partly outside the climates the crop model learned from, so read these scores with care.</div>' : ''}
     ${ev === 'N' ? '<div class="callout warn">The warming trend here is not proven, so the changes to 2035 are only a possibility.</div>' : ''}
-    ${mode === 'rainfed' && fitsNow === 0 && hasMode(o, 'irrigated') ? '<div class="callout info">Rain only: no crop fits here on rain alone. Switch to Irrigated to see what the Nile and wells make possible.</div>' : ''}
+    ${mode === 'rainfed' && fitsNow === 0 && hasMode(o, 'irrigated') ? '<div class="callout info">Rain only: no crop fits here on rain alone. Switch to Irrigated to see what this climate could grow with water.</div>' : ''}
     <table class="crop-table">
       <thead><tr><th>Crop</th><th></th><th>Now</th>${last > 0 ? `<th>${o.horizons[last]}</th><th>Change</th>` : ''}${showHeat ? '<th>Heat limit</th>' : ''}</tr></thead>
       <tbody>${body}</tbody>

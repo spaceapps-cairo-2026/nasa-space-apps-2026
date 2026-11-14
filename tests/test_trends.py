@@ -118,10 +118,27 @@ def test_egypt_point_matches_contract():
 
 
 def test_sea_cells_have_no_soil_wetness():
-    r = live.point_trend("GWETROOT", 32.0, 30.0)          # Mediterranean cell
-    validate(r)
-    if r["trend"]["level"] == -1:
-        assert r["trend"]["direction"] == "no data" and "not enough" in r["sentence"]
+    """Over the sea NASA fills soil wetness with a constant 1: that is no data, never "not proven"."""
+    for code in ("GWETROOT", "GWETTOP"):
+        r = live.point_trend(code, 32.0, 30.0)            # Mediterranean cell
+        validate(r)
+        assert r["trend"]["level"] == -1 and r["trend"]["direction"] == "no data"
+        assert "only on land" in r["sentence"] and "100%" not in r["sentence"]
+
+
+def test_a_series_that_never_changes_is_no_data():
+    res = T.trend_one(np.ones(25))
+    assert res["slope"] is None and res["p"] is None
+    assert T.trend_one(np.arange(25.0))["p"] < 0.01          # a real straight line still counts
+
+
+def test_every_rain_answer_carries_the_2015_jump_caution():
+    pt = live.point_trend("PRECTOTCORR", 30.04, 31.24)
+    reg = live.region_trend("PRECTOTCORR", 22, 32, 25, 35, "EGY")
+    for r in (pt, reg):
+        validate(r)
+        assert "2015" in r["caution"] and "rain gauges" in r["caution"]
+    assert live.point_trend("T2M", 30.04, 31.24)["caution"] is None
 
 
 def test_bad_requests():
@@ -151,11 +168,13 @@ def test_sentence_says_luck_as_a_percentage_and_keeps_the_sign_of_the_range():
     var = live.variable_info("RH2M")
     base = {"period": "2001-2025", "level_name": "moderate evidence", "change_point_year": None}
     # Range all on one side: sizes only.
+    # The range is for the total change over the chosen years (24 years here: 2.4 x the per decade range).
     text = live.sentence(var, {**base, "level": 1, "slope_per_decade": 0.99, "slope_low": 0.05, "slope_high": 1.81, "p": 0.0265})
-    assert "95% range 0.05 to 1.81" in text and "by luck only 2.6% of the time" in text and "p =" not in text
+    assert "95% range 0.12 to 4.34" in text and "by luck only 2.6% of the time" in text and "p =" not in text
+    assert "2.38 percentage points in total" in text and "0.99 percentage points per decade" in text
     # Range crossing zero (it happens for trends that are only just proven): the minus sign must stay.
     text = live.sentence(var, {**base, "level": 1, "slope_per_decade": 0.99, "slope_low": -0.05, "slope_high": 1.81, "p": 0.0478})
-    assert "from -0.05 to +1.81" in text and "0.05 to 1.81)" not in text
+    assert "from -0.12 to +4.34" in text and "0.12 to 4.34)" not in text
     # Not proven: still a percentage, never "no change".
     text = live.sentence(var, {**base, "level": 0, "level_name": "not proven", "slope_per_decade": -0.16, "slope_low": -0.6, "slope_high": 0.2, "p": 0.441})
     assert "not proven" in text and "44% of the time" in text and "no change" not in text
@@ -187,7 +206,8 @@ def test_country_map_covers_the_country_only():
     assert g["level"][sea[0]][sea[1]] == -1 and g["slope_per_decade"][sea[0]][sea[1]] is None
     assert g["level"][cairo[0]][cairo[1]] >= 0
     assert box["grid"]["level"][sea[0]][sea[1]] >= 0                 # the box answer still has the sea cell
-    assert "Egypt's" in egy["sentence"] and "averaged over Egypt" in egy["mean_sentence"]
+    assert "Egypt's" in egy["sentence"] and "across Egypt" in egy["mean_sentence"]
+    assert "°C" in egy["mean_sentence"] and "averaged" not in egy["mean_sentence"]
     assert egy["summary"]["increasing"] <= box["summary"]["increasing"]
 
 
@@ -224,4 +244,62 @@ def test_api_real_on_egypt(monkeypatch):
     assert r.status_code == 200 and r.json()["country"]["name"] == "Egypt"
     validate(r.json())
     assert c.get("/api/trend/region?lat_min=22&lat_max=32&lon_min=25&lon_max=35&country=XXX").status_code == 400
+    os.environ["MOCK"] = "1"
+
+
+# ---------- user chosen year range (v0.5) ----------
+
+def test_year_range_point():
+    full = live.point_trend("T2M", 30.04, 31.24)
+    part = live.point_trend("T2M", 30.04, 31.24, 2008, 2022)
+    validate(part)
+    t = part["trend"]
+    assert (t["period"], t["start_year"], t["end_year"], t["n_years"]) == ("2008-2022", 2008, 2022, 15)
+    assert len(part["series"]) == 25                                   # the chart keeps every year
+    assert [p["t"] for p in part["trend_line"]] == [2008, 2022]        # the line covers the chosen years
+    assert t["change_total"] == pytest.approx(t["slope_per_decade"] * 14 / 10, abs=1e-3)
+    assert part["sentence"].startswith("From 2008 to 2022,") and "in total" in part["sentence"]
+    f = full["trend"]
+    assert (f["start_year"], f["end_year"]) == (2001, 2025) and full["sentence"].startswith("Since 2001,")
+    assert f["change_total"] == pytest.approx(f["slope_per_decade"] * 2.4, abs=1e-3)
+    # Same answer as running the engine on those years by hand.
+    by_hand = T.trend_one([p["v"] for p in full["series"] if 2008 <= p["t"] <= 2022])
+    assert t["slope_per_decade"] == pytest.approx(by_hand["slope"], abs=1e-4) and t["p"] == pytest.approx(by_hand["p"], abs=1e-5)
+
+
+def test_year_range_region_and_limits():
+    r = live.region_trend("T2M", 22, 32, 25, 35, "EGY", 2010, 2025)
+    validate(r)
+    assert (r["period"], r["start_year"], r["end_year"]) == ("2010-2025", 2010, 2025)
+    assert r["mean_trend"]["period"] == "2010-2025" and len(r["mean_series"]) == 25
+    assert r["sentence"].startswith("Since 2010,")
+    assert r["summary"]["with_data"] == live.region_trend("T2M", 22, 32, 25, 35, "EGY")["summary"]["with_data"]
+    for years in ((2020, 2025), (2015, 2005), (1990, 2020), (2010, 2030)):
+        with pytest.raises(live.BadRequest) as exc:
+            live.point_trend("T2M", 30, 31, *years)
+        assert str(exc.value).endswith(".") and "[" not in str(exc.value)
+    assert live.variables()["min_range_years"] == 10
+
+
+def test_short_ranges_stay_honest():
+    """10 trendless years, with and without autocorrelation: still about 5% false alarms."""
+    rng = np.random.default_rng(6)
+    for rho in (0.0, 0.3):
+        x = np.zeros((4000, 60))
+        noise = rng.normal(size=x.shape)
+        for t in range(1, 60):
+            x[:, t] = rho * x[:, t - 1] + noise[:, t]
+        rate = np.mean(T.trend_grid(x[:, 50:])["p"] < 0.05)
+        assert rate < 0.08, f"rho={rho}: {rate:.1%} false alarms"
+
+
+def test_api_year_range(monkeypatch):
+    monkeypatch.setenv("MOCK", "0")
+    from api.main import app
+    c = TestClient(app)
+    r = c.get("/api/trend/point?lat=30.04&lon=31.24&start_year=2005&end_year=2020")
+    assert r.status_code == 200 and r.json()["trend"]["period"] == "2005-2020"
+    r = c.get("/api/trend/region?lat_min=22&lat_max=32&lon_min=25&lon_max=35&country=EGY&start_year=2005")
+    assert r.status_code == 200 and r.json()["period"] == "2005-2025"
+    assert c.get("/api/trend/point?lat=30&lon=31&start_year=2021").status_code == 400
     os.environ["MOCK"] = "1"

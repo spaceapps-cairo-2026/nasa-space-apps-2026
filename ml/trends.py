@@ -27,8 +27,11 @@ from scipy.stats import norm, rankdata
 
 START_YEAR, END_YEAR = 2001, 2025
 MIN_MONTHS_PER_YEAR = 9      # a year with fewer valid months has no annual mean
-MIN_YEARS = 20               # a place with fewer valid years gets "no data"
+MIN_YEARS = 20               # full record: a place with fewer valid years gets "no data"
+MIN_RANGE_YEARS = 10         # the shortest year range a user may ask a trend for
+MIN_VALID_SHARE = 0.8        # share of the chosen years that must have data
 ALPHA = 0.05
+CURVE_MIN_YEARS = 20         # D1 update (Sat): from this length, noise memory is measured after a curve
 
 # D1: the confidence method. See docs/DECISIONS.md and ml/compare_methods.py for the evidence.
 DEFAULT_METHOD = "ess"
@@ -38,7 +41,8 @@ METHODS = {
     "hr3": "Mann-Kendall, Hamed-Rao variance correction (lags 1 to 3, never below plain variance)",
     "pw": "Mann-Kendall after pre-whitening (lag 1 autocorrelation removed)",
     "tfpw": "Mann-Kendall after trend-free pre-whitening (Yue-Pilon)",
-    "ess": "Mann-Kendall, variance scaled by lag 1 autocorrelation (effective sample size, bias corrected)",
+    "ess": "Mann-Kendall, variance scaled by lag 1 autocorrelation of what is left after a smooth curve (20+ years; a straight line for shorter ranges), effective sample size, bias corrected",
+    "ess_line": "Mann-Kendall, variance scaled by lag 1 autocorrelation of what is left after a straight line (D1 until Sat 14 Nov)",
     "ws": "Mann-Kendall after iterative pre-whitening (Wang-Swail, bias corrected)",
 }
 
@@ -104,20 +108,46 @@ def _hamed_rao_factor(x: np.ndarray, slope: np.ndarray, n: np.ndarray, max_lag: 
         return 1 + 2.0 / (n * (n - 1) * (n - 2)) * sni
 
 
-def _r1_corrected(resid: np.ndarray, n: np.ndarray) -> np.ndarray:
+def _r1_corrected(resid: np.ndarray, n: np.ndarray, bias: float = 2.0) -> np.ndarray:
     """Lag 1 autocorrelation of detrended values. Short series underestimate it, so add the known
-    small sample correction; only positive autocorrelation (the kind that fakes trends) is kept."""
+    small sample correction (bias + 4 r) / n; only positive autocorrelation (the kind that fakes trends)
+    is kept. Removing a curve (3 numbers fitted) biases r down more than a line (2), hence bias 3 there."""
     r = np.nan_to_num(_acf(resid, 1))
     with np.errstate(invalid="ignore", divide="ignore"):
-        r = r + np.nan_to_num((2 + 4 * r) / n)
+        r = r + np.nan_to_num((bias + 4 * r) / n)
     return np.clip(r, 0.0, 0.9)
+
+
+def _curve_resid(x: np.ndarray) -> np.ndarray:
+    """What is left of each row after a quadratic curve (least squares, missing years skipped).
+
+    The memory of the noise is measured on this, not on what is left after a straight line: a change
+    that bends (flat, then rising) leaves a slow wave behind a straight line, and that wave would be
+    mistaken for memory, making the test needlessly strict. See docs/DECISIONS.md (D1 update, Sat).
+    """
+    t = np.arange(x.shape[1], dtype=np.float64)
+    t = (t - t.mean()) / max(t.std(), 1.0)
+    X = np.stack([np.ones_like(t), t, t * t])                  # [3, years]
+    ok = np.isfinite(x)
+    y = np.where(ok, x, 0.0)
+    w = ok.astype(np.float64)
+    A = np.einsum("iy,jy,ny->nij", X, X, w)                    # normal equations per row
+    b = np.einsum("iy,ny->ni", X, y * w)
+    coef = np.einsum("nij,nj->ni", np.linalg.pinv(A), b)
+    resid = x - coef @ X
+    with np.errstate(all="ignore"), warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        scale = np.nanmax(np.abs(x), axis=1, keepdims=True)
+        tiny = np.nanmax(np.abs(resid), axis=1, keepdims=True) <= 1e-9 * np.maximum(scale, 1e-12)
+    resid = np.where(tiny, 0.0, resid)                       # an exact curve: rounding noise is not memory
+    return np.where(ok, resid, np.nan)
 
 
 def _prewhiten(x: np.ndarray, r1: np.ndarray) -> np.ndarray:
     return x[:, 1:] - r1[:, None] * x[:, :-1]
 
 
-def _chunk(x: np.ndarray, method: str) -> dict[str, np.ndarray]:
+def _chunk(x: np.ndarray, method: str, min_years: int) -> dict[str, np.ndarray]:
     s, var, slope, n = _plain(x)
     if method == "hr":
         var = var * _hamed_rao_factor(x, slope, n, None)
@@ -131,6 +161,14 @@ def _chunk(x: np.ndarray, method: str) -> dict[str, np.ndarray]:
         r1 = np.clip(np.nan_to_num(_acf(resid, 1)), 0.0, 0.95)   # only positive autocorrelation inflates trends
         s, var, _, _ = _plain(_prewhiten(resid, r1) + slope[:, None] * t[1:])
     elif method == "ess":
+        # 20 or more years: memory measured after a curve, so a bent change is not mistaken for memory.
+        # Shorter ranges: a curve leaves too few years to judge memory, so a straight line as before.
+        if x.shape[1] >= CURVE_MIN_YEARS:
+            r1 = _r1_corrected(_curve_resid(x), n, bias=3.0)
+        else:
+            r1 = _r1_corrected(x - slope[:, None] * np.arange(x.shape[1]), n)
+        var = var * (1 + r1) / (1 - r1)
+    elif method == "ess_line":
         r1 = _r1_corrected(x - slope[:, None] * np.arange(x.shape[1]), n)
         var = var * (1 + r1) / (1 - r1)
     elif method == "ws":
@@ -165,7 +203,12 @@ def _chunk(x: np.ndarray, method: str) -> dict[str, np.ndarray]:
     rows = np.arange(len(x))
     slope_lo, slope_hi = slopes[rows, lo_i], slopes[rows, hi_i]
 
-    bad = (n < MIN_YEARS) | ~np.isfinite(p) | ~np.isfinite(slope)
+    # A series that never changes is a fill value, not a measurement (soil wetness over the sea is
+    # always exactly 1): no data, never "not proven".
+    with np.errstate(all="ignore"), warnings.catch_warnings():
+        warnings.simplefilter("ignore", RuntimeWarning)
+        flat = ~(np.nanmax(x, axis=1) - np.nanmin(x, axis=1) > 1e-9)
+    bad = (n < min_years) | ~np.isfinite(p) | ~np.isfinite(slope) | flat
     out = {"slope": slope * 10, "slope_lo": slope_lo * 10, "slope_hi": slope_hi * 10, "p": p, "z": z}
     for key in out:
         out[key] = np.where(bad, np.nan, out[key])
@@ -176,7 +219,12 @@ def _chunk(x: np.ndarray, method: str) -> dict[str, np.ndarray]:
     return out
 
 
-def trend_grid(annual, method: str = DEFAULT_METHOD) -> dict[str, np.ndarray]:
+def min_valid_years(n_years: int) -> int:
+    """Valid years needed for a range of n_years: 80% of it (20 of the full 25)."""
+    return int(np.ceil(MIN_VALID_SHARE * n_years))
+
+
+def trend_grid(annual, method: str = DEFAULT_METHOD, min_years: int | None = None) -> dict[str, np.ndarray]:
     """Trend of every place at once.
 
     annual: yearly values, shape [..., years]; NaN = missing.
@@ -185,12 +233,13 @@ def trend_grid(annual, method: str = DEFAULT_METHOD) -> dict[str, np.ndarray]:
       p                           chance of a trend this strong if nothing were changing
       z                           test statistic (sign = direction)
       n_years, mean               valid years and the average level
-    Places with fewer than MIN_YEARS valid years get NaN.
+    Places with fewer than min_years valid years (default: 80% of the years given) get NaN.
     """
     a = np.asarray(annual, dtype=np.float64)
     shape = a.shape[:-1]
     x = a.reshape(-1, a.shape[-1])
-    parts = [_chunk(x[k:k + _CHUNK], method) for k in range(0, len(x), _CHUNK)] or [_chunk(x, method)]
+    need = min_valid_years(a.shape[-1]) if min_years is None else min_years
+    parts = [_chunk(x[k:k + _CHUNK], method, need) for k in range(0, len(x), _CHUNK)] or [_chunk(x, method, need)]
     return {key: np.concatenate([p[key] for p in parts]).reshape(shape) for key in parts[0]}
 
 
@@ -237,7 +286,7 @@ def change_point(series, years) -> dict | None:
     yrs = np.asarray(years)[np.isfinite(x)]
     x = x[np.isfinite(x)]
     n = len(x)
-    if n < MIN_YEARS:
+    if n < max(MIN_RANGE_YEARS, min_valid_years(len(np.asarray(series)))):
         return None
     sign = np.sign(x[None, :] - x[:, None])                  # sign[i, j] = sign(x_j - x_i)
     u = np.array([sign[:t + 1, t + 1:].sum() for t in range(n - 1)])

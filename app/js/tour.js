@@ -2,6 +2,8 @@
 // Every caption that states a number takes it from the live answer, never from a hard-coded value.
 
 const STOP = Symbol('stop');
+// The crop shown in the food step: the FAO calculator's apple, or the crop model's temperate fruit; else the first crop.
+const TOUR_CROPS = ['apple', 'temperate_fruit'];
 
 export function createTour(ctx) {
   let token = 0;
@@ -34,19 +36,21 @@ export function createTour(ctx) {
       dwell: 7000,
     },
     {
-      run: async () => ctx.selectCountry('KEN'),
-      text: (c) => (c ? `Any country, live from NASA. Kenya: ${c.increasing} places warming, ${c.decreasing} cooling. One planet, opposite trends.`
+      run: async () => ctx.selectCountry('SDN'),
+      text: (c) => (c && c.decreasing ? `Any country, live from NASA. Sudan: ${c.decreasing} places proven cooling in the south, ${c.increasing} proven warming in the north. One country, opposite trends.`
+        : c ? `Any country, live from NASA. Sudan: ${c.increasing} places warming, ${c.decreasing} cooling.`
         : 'Any country, live from NASA: the same test, everywhere on Earth.'),
       dwell: 7000,
     },
     {
-      run: async () => { await ctx.setTab('crops'); return ctx.setCrop('apple', 'score'); },
+      run: async () => { await ctx.setTab('crops'); return ctx.setCrop(TOUR_CROPS, 'score'); },
       text: (c) => (c && c.id === 'apple' ? 'What does it mean for food? Apples fit Egypt\'s cooler north, but the south is already too hot for them.'
-        : `What does it mean for food? Green shows where ${c ? c.name.toLowerCase() : 'each crop'} fits Egypt today, brown where it cannot grow.`),
+        : c && c.id === 'temperate_fruit' ? 'What does it mean for food? Apples, pears and other temperate fruit fit Egypt\'s cooler north; the south is too hot for them.'
+        : `What does it mean for food? Green shows where ${c ? c.name.toLowerCase() : 'each crop'} fits Egypt today, brown where its climate is unlike the places that grow it.`),
       dwell: 6500,
     },
     {
-      run: async () => ctx.setCrop('apple', 'heat'),
+      run: async () => ctx.setCrop(TOUR_CROPS, 'heat'),
       text: (c) => (c && c.view === 'heat' ? 'Years until each crop reaches its heat limit, if the measured warming continues. Taller and redder = sooner.'
         : 'Every place gets a score from 0 to 100 for every crop, today and for the years ahead.'),
       dwell: 6500,
@@ -63,7 +67,7 @@ export function createTour(ctx) {
         const x = v.checks.cross_check;
         const rate = (r) => `${r.per_decade > 0 ? '+' : ''}${r.per_decade.toFixed(2)}`;
         return `And we test ourselves: on trendless data with Egypt's noise our engine raises a false alarm only ${(v.checks.false_alarms.false_alarm_rate['Egypt-like noise'] * 100).toFixed(1)}% of the time, `
-          + `and our world warming rate (${rate(x.ours)} °C per decade) is consistent with NASA's independent GISTEMP record (${rate(x.reference)}): the 95% ranges overlap.`;
+          + `run on NASA's GISTEMP record it finds the planet warming ${rate(x.reference)} °C per decade, and on our data the Arctic warms fastest (${rate(x.arctic)}), both strong evidence.`;
       },
       dwell: 8000,
     },

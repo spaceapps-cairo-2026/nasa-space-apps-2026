@@ -37,6 +37,22 @@ function splitBar(parts, total) {
     <div class="note" style="display:flex;flex-wrap:wrap;gap:4px 14px">${parts.map((p) => `<span><i class="sw" style="background:${p.color}"></i>${esc(p.label)}</span>`).join('')}</div>`;
 }
 
+/** Check 5 (only after python run.py crosscheck): the same numbers from NASA Giovanni, a challenge resource. */
+function giovanniHTML(g) {
+  if (!g || !g.rows || !g.rows.length) return '';
+  const unit = (r) => (r.kind === 'rain' ? 'mm/day' : '°C');
+  const rate = (d, r) => (d.per_decade === null ? 'n/a' : `${d.per_decade > 0 ? '+' : ''}${d.per_decade.toPrecision(2)} ${unit(r)}`);
+  const jump = (d, r) => (r.kind === 'rain' && d.jump_ratio ? ` · x${d.jump_ratio.toFixed(1)} after 2015` : '');
+  const rows = g.rows.map((r) => `<tr><td>${esc(r.area_label)}</td><td>${esc(r.source_label.replace(' (Giovanni)', ''))}</td>
+      <td>${rate(r.giovanni, r)}${jump(r.giovanni, r)}<br><span class="note">${esc(r.giovanni.level_name)}</span></td>
+      <td>${rate(r.ours, r)}${jump(r.ours, r)}<br><span class="note">${esc(r.ours.level_name)}</span></td></tr>`).join('');
+  return `<h3>Check 5: ${esc(g.title)}</h3>
+    <table class="crop-table"><thead><tr><th>Area</th><th>Giovanni record</th><th>Giovanni, per decade</th><th>Ours (POWER)</th></tr></thead>
+      <tbody>${rows}</tbody></table>
+    <p class="note">${esc(g.plain)}</p>
+    ${g.rain_verdict ? `<div class="callout info">${esc(g.rain_verdict)}</div>` : ''}`;
+}
+
 export function methodsHTML(v) {
   const c = v.checks;
   const x = c.cross_check, fa = c.false_alarms, mp = c.many_places, fm = c.farming;
@@ -90,10 +106,14 @@ export function methodsHTML(v) {
     <h3>Check 4: ${esc(fm.title)}</h3>
     <ul class="checks">${fm.checks.map((k) => `<li><span class="${k.passed ? 'ok' : 'bad'}">${k.passed ? '✓' : '✗'}</span> ${esc(k.check)} <span class="note">(${esc(k.detail)})</span></li>`).join('')}</ul>
 
+    ${giovanniHTML(c.giovanni)}
+
     <h3>Limits we are honest about</h3>
     <ul class="limits">${v.limitations.map((l) => `<li>${esc(l)}</li>`).join('')}</ul>
 
     <h3>Data</h3>
-    <p class="note">NASA POWER (MERRA-2) · NASA GISTEMP v4 · NASA GIBS imagery (Blue Marble, VIIRS) · FAO ECOCROP crop needs ·
-      Natural Earth borders. Analysis code is open in our repository.</p>`;
+    <p class="note">NASA POWER (MERRA-2) · NASA GISTEMP v4${c.giovanni ? ' · NASA Giovanni (MERRA-2, GPM IMERG)' : ''} · NASA GIBS imagery (Blue Marble, VIIRS) · IFPRI MapSPAM 2020 crop maps
+      (crop model training) · FAOSTAT (crop model check) · Natural Earth borders. Analysis code is open in our repository.</p>
+    <p class="note">This data was provided by the International Food Policy Research Institute (IFPRI). IFPRI bears no responsibility
+      for the analyses or interpretations of the data presented here.</p>`;
 }

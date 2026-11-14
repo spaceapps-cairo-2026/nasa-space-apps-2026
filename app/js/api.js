@@ -1,4 +1,4 @@
-// Talks to the backend only through the endpoints in contracts/api.md (v0.4).
+// Talks to the backend only through the endpoints in contracts/api.md (v0.5).
 
 async function getJSON(path, params = {}) {
   const url = new URL(path, window.location.origin);
@@ -18,15 +18,16 @@ export const api = {
   health: () => getJSON('/health'),
   variables: () => getJSON('/api/variables'),
   // Lane A contract v0.4 (contracts/api.md).
-  point: (lat, lon, v) => getJSON('/api/trend/point', { lat: lat.toFixed(4), lon: lon.toFixed(4), variable: v }),
+  // years (v0.5, optional): { start_year, end_year } = measure the trend over those years only.
+  point: (lat, lon, v, years = {}) => getJSON('/api/trend/point', { lat: lat.toFixed(4), lon: lon.toFixed(4), variable: v, ...years }),
   // bbox = [west, south, east, north]; the backend live-fetches NASA data for that box.
   // country (ISO code, v0.4): the test, the counts and the average then cover that country only, not the whole box.
-  region: (bbox, v, country = null) => getJSON('/api/trend/region', {
-    lat_min: bbox[1].toFixed(3), lat_max: bbox[3].toFixed(3), lon_min: bbox[0].toFixed(3), lon_max: bbox[2].toFixed(3), variable: v, country,
+  region: (bbox, v, country = null, years = {}) => getJSON('/api/trend/region', {
+    lat_min: bbox[1].toFixed(3), lat_max: bbox[3].toFixed(3), lon_min: bbox[0].toFixed(3), lon_max: bbox[2].toFixed(3), variable: v, country, ...years,
   }),
-  world: (v, stride = 2) => getJSON('/api/trend/world', { variable: v, stride }),
+  world: (v, stride = 2, years = {}) => getJSON('/api/trend/world', { variable: v, stride, ...years }),
   // There is no cell endpoint: a cell's own series is the point trend at its center (same grid cell).
-  cell: (lat, lon, v) => getJSON('/api/trend/point', { lat: lat.toFixed(4), lon: lon.toFixed(4), variable: v }),
+  cell: (lat, lon, v, years = {}) => getJSON('/api/trend/point', { lat: lat.toFixed(4), lon: lon.toFixed(4), variable: v, ...years }),
   // Lane B additions.
   farming: (country) => getJSON('/api/farming', { country }),
   validation: () => getJSON('/api/validation'),

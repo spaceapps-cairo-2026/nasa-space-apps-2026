@@ -48,8 +48,9 @@ def problems(o: dict) -> tuple[list[str], list[str]]:
         errors.append(f"inside: has {len(o['inside'])} characters, the grid has {n} cells (nrows x ncols)")
     elif not inside:
         errors.append("inside: no cell is marked 1, so the map would be empty")
-    if "evidence" in o and len(o["evidence"]) != n:
-        errors.append(f"evidence: has {len(o['evidence'])} characters, the grid has {n} cells")
+    for name in ("evidence", "farmland", "outside_training"):
+        if name in o and len(o[name]) != n:
+            errors.append(f"{name}: has {len(o[name])} characters, the grid has {n} cells")
     for name in ("temp_now_c", "rain_now_mm", "temp_trend_per_decade", "rain_trend_mm_per_decade"):
         if name in o:
             errors += _grid_errors(name, o[name], n)
@@ -99,8 +100,10 @@ def problems(o: dict) -> tuple[list[str], list[str]]:
             notes.append(f"no {name}: the place panel does not show the {what}")
     if "source" not in o:
         notes.append("no 'source': the app shows no 'Source: ...' line for the scores")
-    if "apple" not in ids:
-        notes.append("no crop with id 'apple': the guided tour shows the first crop instead")
+    if "farmland" not in o:
+        notes.append("no 'farmland': the place panel cannot say whether a place is farmed today")
+    if not {"apple", "temperate_fruit"} & set(ids):
+        notes.append("no crop with id 'apple' or 'temperate_fruit': the guided tour shows the first crop instead")
     return errors, notes
 
 
