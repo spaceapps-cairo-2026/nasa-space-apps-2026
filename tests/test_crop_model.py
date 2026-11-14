@@ -123,6 +123,8 @@ def test_no_rain_only_false_alarms_in_egypt():
 
 def _egypt_areas() -> tuple[dict, "object"]:
     import pandas as pd
+    if not co.TRAINING_TABLE.exists():      # the backend zip leaves the training table out (it stays in git)
+        pytest.skip("training table not shipped in this copy")
     t = pd.read_parquet(co.TRAINING_TABLE)
     return json.loads(co.OUT.read_text(encoding="utf-8")), t[(t.country == "Egypt") & (t.TA_total >= co.FARMLAND_MIN_HA)]
 
